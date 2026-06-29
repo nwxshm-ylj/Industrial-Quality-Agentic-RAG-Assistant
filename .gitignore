@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+
+# Virtual environments
+.venv/
+venv/
+env/
+aivenv/
+
+# Env files
+.env
+.env.local
+.env.dev
+.env.production
+
+# IDE
+.vscode/
+.idea/
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build logs
+build_api.log
+
+# Docker temp
+*.pid
+
+# HuggingFace / model cache
+huggingface/
+hf_cache/
+models/
+.model_cache/
+
+# Large local data cache
+data/processed/*.tmp

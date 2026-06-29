@@ -1,0 +1,114 @@
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: industrial-rag-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  postgres:
+    image: postgres:16
+    container_name: industrial-rag-postgres
+    environment:
+      POSTGRES_USER: rag_user
+      POSTGRES_PASSWORD: rag_password
+      POSTGRES_DB: industrial_rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    image: 2-industrial-rag-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: industrial-rag-api
+    depends_on:
+      - qdrant
+      - postgres
+    ports:
+      - "8000:8000"
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: industrial_docs
+      EMBEDDING_MODEL: BAAI/bge-small-zh-v1.5
+
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+
+      DATABASE_URL: postgresql+psycopg2://rag_user:rag_password@postgres:5432/industrial_rag
+
+      RERANKER_MODEL: BAAI/bge-reranker-base
+      USE_RERANKER: "false"
+    volumes:
+      - ./data:/app/data
+      - hf_cache:/root/.cache/huggingface
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  streamlit:
+    image: 2-industrial-rag-api:latest
+    container_name: industrial-rag-streamlit
+    depends_on:
+      - api
+    ports:
+      - "30000:8501"
+    environment:
+      RAG_API_URL: http://api:8000/api/v1/graph-chat
+    volumes:
+      - ./data:/app/data
+    command: streamlit run ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+
+  init-sql:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: industrial-rag-init-sql
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql+psycopg2://rag_user:rag_password@postgres:5432/industrial_rag
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: industrial_docs
+      EMBEDDING_MODEL: BAAI/bge-small-zh-v1.5
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      USE_RERANKER: "false"
+    volumes:
+      - ./data:/app/data
+    command: python -m scripts.init_sql_data
+    profiles:
+      - tools
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: industrial-rag-ingest
+    depends_on:
+      - qdrant
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: industrial_docs
+      EMBEDDING_MODEL: BAAI/bge-small-zh-v1.5
+      DATABASE_URL: postgresql+psycopg2://rag_user:rag_password@postgres:5432/industrial_rag
+      LLM_MODEL: ${LLM_MODEL}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      USE_RERANKER: "false"
+    volumes:
+      - ./data:/app/data
+      - hf_cache:/root/.cache/huggingface
+    command: python -m scripts.ingest_docs
+    profiles:
+      - tools
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  hf_cache:

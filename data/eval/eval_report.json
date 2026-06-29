@@ -1,0 +1,317 @@
+{
+  "metrics": {
+    "total": 11,
+    "overall_pass_rate": 1.0,
+    "intent_accuracy": 1.0,
+    "doc_type_accuracy": 1.0,
+    "source_accuracy": 1.0,
+    "answer_keyword_hit_rate": 1.0,
+    "avg_latency_seconds": 8.224
+  },
+  "results": [
+    {
+      "id": "Q001",
+      "question": "轮毂识别异常可能是什么原因？",
+      "expected_intent": "fault_diagnosis",
+      "actual_intent": "fault_diagnosis",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 13.446,
+      "answer_preview": "根据提供的参考资料（主要是【资料1】AI视觉检测系统FMEA），**轮毂识别异常**的可能原因如下，已按优先级和可排查性结构化整理：\n\n---\n\n### ✅ 一、可能原因（源自FMEA分析）\n\n| 序号 | 原因类别             | 具体说明 |\n|------|----------------------|----------|\n| 1️⃣ | **图像采集问题**     | - 相机曝光参数异常（过曝/欠曝），导致轮毂边缘模糊、特征丢失<br>- 光源角度偏移或亮度不足，引发反光、阴影或低对比度，影响AI识别稳定性 |\n| 2️⃣ | **系统配置不一致**   | - PR",
+      "citations": [
+        {
+          "source": "ai_vision_fmea.md",
+          "doc_type": "FMEA",
+          "chunk_id": "ai_vision_fmea.md_0",
+          "score": 1.0,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 1.0,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        },
+        {
+          "source": "torque_alarm_sop.md",
+          "doc_type": "SOP",
+          "chunk_id": "torque_alarm_sop.md_0",
+          "score": 0.35822673489995915,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 0.35822673489995915,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        }
+      ]
+    },
+    {
+      "id": "Q002",
+      "question": "ZP8 工位轮毂误识别可能是什么原因？",
+      "expected_intent": "fault_diagnosis",
+      "actual_intent": "fault_diagnosis",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 16.463,
+      "answer_preview": "根据提供的参考资料，ZP8工位轮毂误识别问题属于**AI视觉检测系统在轮毂识别环节的异常**，其根本原因可归结为视觉感知与系统配置协同失效。结合【资料1】（AI视觉检测系统FMEA）中“轮毂识别异常”的专项分析，具体可能原因如下：\n\n---\n\n### ✅ 可能原因（按优先级与常见性排序）：\n1. **相机曝光异常**  \n　→ 导致轮毂边缘、纹理、标识等关键特征模糊或丢失，AI模型无法准确提取判别依据。\n\n2. **光源角度偏移或亮度异常**  \n　→ 造成局部反光（如轮毂高光区过曝）或阴影遮挡（如轮辐间隙欠曝），影响图像对比度与特征完整性。\n\n3. **PR（Pattern Recognit",
+      "citations": [
+        {
+          "source": "ai_vision_fmea.md",
+          "doc_type": "FMEA",
+          "chunk_id": "ai_vision_fmea.md_0",
+          "score": 1.0,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 1.0,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        },
+        {
+          "source": "torque_alarm_sop.md",
+          "doc_type": "SOP",
+          "chunk_id": "torque_alarm_sop.md_0",
+          "score": 0.7022648524115477,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 0.7022648524115477,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        }
+      ]
+    },
+    {
+      "id": "Q003",
+      "question": "扭矩工位连续报警应该怎么排查？",
+      "expected_intent": "fault_diagnosis",
+      "actual_intent": "fault_diagnosis",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 16.504,
+      "answer_preview": "根据参考资料【资料1】《扭矩报警处理SOP》，针对“扭矩工位连续报警”问题，应按以下结构化步骤进行排查：\n\n---\n\n### ✅ 一、可能原因（依据资料1）\n1. **拧紧枪标定异常**：导致实际输出扭矩偏离设定值。  \n2. **套筒磨损**：造成打滑或扭矩传递不准确。  \n3. **螺栓来料批次异常**：如螺纹精度差、表面涂层不均、材质硬度异常等。  \n4. **工位程序号调用错误**：系统调用了错误的拧紧工艺参数（如目标扭矩、角度、公差带）。  \n5. **网络中断导致数据上传失败**：虽不影响拧紧动作，但可能触发通信类报警（如“ECU无响应”“数据未回传”等），被误判为连续扭矩异常。\n",
+      "citations": [
+        {
+          "source": "torque_alarm_sop.md",
+          "doc_type": "SOP",
+          "chunk_id": "torque_alarm_sop.md_0",
+          "score": 1.0,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 1.0,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        },
+        {
+          "source": "ai_vision_fmea.md",
+          "doc_type": "FMEA",
+          "chunk_id": "ai_vision_fmea.md_0",
+          "score": 0.4293485569295524,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 0.4293485569295524,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        }
+      ]
+    },
+    {
+      "id": "Q004",
+      "question": "合格证OCR识别VIN失败怎么办？",
+      "expected_intent": "fault_diagnosis",
+      "actual_intent": "fault_diagnosis",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 12.504,
+      "answer_preview": "针对“合格证OCR识别VIN失败”问题，结合参考资料分析如下：\n\n---\n\n### ✅ **可能原因（依据【资料1】）**\n1. **打印位置偏移**：VIN码实际打印位置偏离标准区域，导致OCR未覆盖到该字段。  \n2. **字体颜色过浅**：如浅灰、淡蓝等低对比度印刷，影响OCR识别准确率。  \n3. **图像采集区域配置错误**：OCR系统设定的VIN识别区域（坐标框）与实际VIN位置不匹配。  \n4. **OCR模板未更新**：新车型或新版合格证格式变更后，OCR识别模板未同步更新。  \n5. **条码绑定信息与证书信息不一致**：VIN在条码中存在，但合格证上印刷内容与条码不一致（如",
+      "citations": [
+        {
+          "source": "ocr_certificate_rule.md",
+          "doc_type": "RULE",
+          "chunk_id": "ocr_certificate_rule.md_0",
+          "score": 1.0,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 1.0,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        },
+        {
+          "source": "ai_vision_fmea.md",
+          "doc_type": "FMEA",
+          "chunk_id": "ai_vision_fmea.md_0",
+          "score": 0.1567460520996133,
+          "retrieval_source": "bm25+vector",
+          "hybrid_score": 0.1567460520996133,
+          "rerank_score": null,
+          "final_score_type": "hybrid_score"
+        }
+      ]
+    },
+    {
+      "id": "Q005",
+      "question": "PR001对应什么轮毂配置？",
+      "expected_intent": "rule_query",
+      "actual_intent": "rule_query",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 2.249,
+      "answer_preview": "PR001 对应的轮毂配置是：**18寸铝合金轮毂**。\n\n依据来源：  \n- 【资料1】明确指出，规则编号 PR001 的配置名称为“18寸铝合金轮毂”，关联对象为 `wheel`，属于“PR配置规则”，适用于基础配置车型。\n\n该配置为标准基础配置，不涉及特殊材质、尺寸变更或选装升级。",
+      "citations": [
+        {
+          "source": "industrial_rules.yaml",
+          "doc_type": "RULE",
+          "chunk_id": "PR001",
+          "score": 1.0,
+          "retrieval_source": null,
+          "hybrid_score": null,
+          "rerank_score": null,
+          "final_score_type": null
+        }
+      ]
+    },
+    {
+      "id": "Q006",
+      "question": "PR102是什么后视镜配置？",
+      "expected_intent": "rule_query",
+      "actual_intent": "rule_query",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 2.924,
+      "answer_preview": "PR102 是指车辆配置 **数字外后视镜** 的配置项。\n\n依据参考资料【资料1】（industrial_rules.yaml）：\n- 规则编号：PR102  \n- 配置名称：数字外后视镜  \n- 关联对象：mirror（后视镜）  \n- 说明：车辆配置数字外后视镜  \n\n因此，PR102 表示该车型选装或标配了 **数字化的外后视镜系统**（即替代传统光学镜片、采用摄像头+显示屏方案的外后视镜），属于一种电子化、智能化的后视镜配置。",
+      "citations": [
+        {
+          "source": "industrial_rules.yaml",
+          "doc_type": "RULE",
+          "chunk_id": "PR102",
+          "score": 1.0,
+          "retrieval_source": null,
+          "hybrid_score": null,
+          "rerank_score": null,
+          "final_score_type": null
+        }
+      ]
+    },
+    {
+      "id": "Q007",
+      "question": "最近一周ZP8工位误识别数量是多少？",
+      "expected_intent": "sql_analysis",
+      "actual_intent": "sql_analysis",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 2.853,
+      "answer_preview": "根据参考资料【资料1】中的SQL查询结果，最近一周（7天内）ZP8工位的误识别数量为 **13次**。\n\n该数据来源于质量检测数据库（PostgreSQL），查询条件明确限定为：\n- 工位：`station = 'ZP8'`  \n- 误识别标识：`is_match = false`（即识别不匹配）  \n- 时间范围：`created_at` 在当前时间前7天内  \n- 查询结果唯一聚合值：`mismatch_count = 13`\n\n✅ 结论：**ZP8工位近7天误识别数量为13次。**",
+      "citations": [
+        {
+          "source": "PostgreSQL",
+          "doc_type": "SQL_RESULT",
+          "chunk_id": "sql_query_result",
+          "score": 1.0,
+          "retrieval_source": null,
+          "hybrid_score": null,
+          "rerank_score": null,
+          "final_score_type": null
+        }
+      ]
+    },
+    {
+      "id": "Q008",
+      "question": "哪个工位报警最多？",
+      "expected_intent": "sql_analysis",
+      "actual_intent": "sql_analysis",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 4.902,
+      "answer_preview": "根据参考资料【资料1】中的SQL查询结果，**ZP7工位报警最多**，其报警次数为 **170次**，在所有工位中排名第一。\n\n其余报警较多的工位依次为：\n- ZP8：163次  \n- OCR01：163次（与ZP8并列第二）  \n- ZP6：154次  \n- TORQUE01：150次  \n\n✅ 数据来源：设备报警表 `equipment_alarm` 的统计分析（按工位分组计数，降序排列取前10）。\n\n如需进一步分析ZP7高频报警的原因（如具体报警类型、时间分布、关联设备等），可基于该数据开展根因分析或调取详细报警日志。",
+      "citations": [
+        {
+          "source": "PostgreSQL",
+          "doc_type": "SQL_RESULT",
+          "chunk_id": "sql_query_result",
+          "score": 1.0,
+          "retrieval_source": null,
+          "hybrid_score": null,
+          "rerank_score": null,
+          "final_score_type": null
+        }
+      ]
+    },
+    {
+      "id": "Q009",
+      "question": "历史上有没有类似的轮毂误识别案例？",
+      "expected_intent": "case_search",
+      "actual_intent": "case_search",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 7.432,
+      "answer_preview": "是的，历史上存在类似的轮毂误识别（wheel_misrecognition）案例。根据质量知识库检索结果，共匹配到 **3 起历史案例**，均发生在不同工位，但缺陷类型一致，具体如下：\n\n---\n\n✅ **案例汇总**\n\n| 案例编号 | 工位     | 根本原因         | 所属车型平台 | 关联对象代码 | 发生时间           | 处置措施         |\n|----------|----------|------------------|--------------|----------------|--------------------|-----------",
+      "citations": [
+        {
+          "source": "PostgreSQL.quality_cases",
+          "doc_type": "CASE_RESULT",
+          "chunk_id": "case_search_result",
+          "score": 1.0,
+          "retrieval_source": null,
+          "hybrid_score": null,
+          "rerank_score": null,
+          "final_score_type": null
+        }
+      ]
+    },
+    {
+      "id": "Q010",
+      "question": "OCR VIN识别失败之前怎么处理的？",
+      "expected_intent": "case_search",
+      "actual_intent": "case_search",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 10.8,
+      "answer_preview": "根据参考资料中历史案例（`ocr_vin_failure` 类型缺陷）的处理经验，OCR VIN识别失败**之前**（即预防性或早期干预阶段）的典型处理方式如下，按工位和根因分类归纳：\n\n---\n\n### ✅ 一、通用前置处理原则（基于3个案例共性）\n- **实时监控告警触发后立即响应**：所有案例均在OCR工位（OCR01 / ZP7 / TORQUE01）发生异常时触发系统告警，运维/质量人员需在5分钟内介入排查。\n- **优先复核配置与参数一致性**：包括MES配置、OCR模型版本、设备标定参数，确保与当前车型平台（如MQB、CPA2）及对象代码（如MIRROR、WHEEL）匹配。\n\n-",
+      "citations": [
+        {
+          "source": "PostgreSQL.quality_cases",
+          "doc_type": "CASE_RESULT",
+          "chunk_id": "case_search_result",
+          "score": 1.0,
+          "retrieval_source": null,
+          "hybrid_score": null,
+          "rerank_score": null,
+          "final_score_type": null
+        }
+      ]
+    },
+    {
+      "id": "Q011",
+      "question": "你是谁？",
+      "expected_intent": "general",
+      "actual_intent": "general",
+      "intent_ok": true,
+      "doc_type_ok": true,
+      "source_ok": true,
+      "answer_keywords_ok": true,
+      "all_ok": true,
+      "latency_seconds": 0.391,
+      "answer_preview": "当前系统主要面向工业质量知识库、设备异常诊断、规则查询和质量数据分析。请提出与工业文档、质量异常、设备报警、AI视觉、OCR或扭矩监控相关的问题。",
+      "citations": []
+    }
+  ]
+}

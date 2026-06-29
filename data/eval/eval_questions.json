@@ -1,0 +1,90 @@
+[
+    {
+      "id": "Q001",
+      "question": "轮毂识别异常可能是什么原因？",
+      "expected_intent": "fault_diagnosis",
+      "expected_doc_type": "FMEA",
+      "expected_source_contains": "ai_vision_fmea",
+      "expected_answer_keywords": ["相机曝光", "光源", "PR", "模型", "触发"]
+    },
+    {
+      "id": "Q002",
+      "question": "ZP8 工位轮毂误识别可能是什么原因？",
+      "expected_intent": "fault_diagnosis",
+      "expected_doc_type": "FMEA",
+      "expected_source_contains": "ai_vision_fmea",
+      "expected_answer_keywords": ["轮毂", "曝光", "光源", "PR"]
+    },
+    {
+      "id": "Q003",
+      "question": "扭矩工位连续报警应该怎么排查？",
+      "expected_intent": "fault_diagnosis",
+      "expected_doc_type": "SOP",
+      "expected_source_contains": "torque_alarm_sop",
+      "expected_answer_keywords": ["拧紧枪", "套筒", "程序号", "报警"]
+    },
+    {
+      "id": "Q004",
+      "question": "合格证OCR识别VIN失败怎么办？",
+      "expected_intent": "fault_diagnosis",
+      "expected_doc_type": "RULE",
+      "expected_source_contains": "ocr_certificate_rule",
+      "expected_answer_keywords": ["VIN", "OCR", "打印", "模板"]
+    },
+    {
+      "id": "Q005",
+      "question": "PR001对应什么轮毂配置？",
+      "expected_intent": "rule_query",
+      "expected_doc_type": "RULE",
+      "expected_source_contains": "industrial_rules",
+      "expected_answer_keywords": ["PR001", "轮毂"]
+    },
+    {
+      "id": "Q006",
+      "question": "PR102是什么后视镜配置？",
+      "expected_intent": "rule_query",
+      "expected_doc_type": "RULE",
+      "expected_source_contains": "industrial_rules",
+      "expected_answer_keywords": ["PR102", "后视镜"]
+    },
+    {
+      "id": "Q007",
+      "question": "最近一周ZP8工位误识别数量是多少？",
+      "expected_intent": "sql_analysis",
+      "expected_doc_type": "SQL_RESULT",
+      "expected_source_contains": "PostgreSQL",
+      "expected_answer_keywords": ["ZP8", "误识别", "数量"]
+    },
+    {
+      "id": "Q008",
+      "question": "哪个工位报警最多？",
+      "expected_intent": "sql_analysis",
+      "expected_doc_type": "SQL_RESULT",
+      "expected_source_contains": "PostgreSQL",
+      "expected_answer_keywords": ["工位", "报警"]
+    },
+    {
+      "id": "Q009",
+      "question": "历史上有没有类似的轮毂误识别案例？",
+      "expected_intent": "case_search",
+      "expected_doc_type": "CASE_RESULT",
+      "expected_source_contains": "quality_cases",
+      "expected_answer_keywords": ["历史", "案例", "轮毂", "根因"]
+    },
+    {
+      "id": "Q010",
+      "question": "OCR VIN识别失败之前怎么处理的？",
+      "expected_intent": "case_search",
+      "expected_doc_type": "CASE_RESULT",
+      "expected_source_contains": "quality_cases",
+      "expected_answer_keywords": ["OCR", "VIN", "处理"]
+    },
+    {
+      "id": "Q011",
+      "question": "你是谁？",
+      "expected_intent": "general",
+      "expected_doc_type": null,
+      "expected_source_contains": null,
+      "expected_answer_keywords": ["工业"]
+    }
+  ]
