@@ -22,5 +22,16 @@
       "chunk_id": "torque_alarm_sop.md_0",
       "doc_type": "SOP"
     }
+  },
+  {
+    "text": "ZP8 工位轮毂识别异常排查说明\n\n当 ZP8 工位出现轮毂识别异常时，应优先检查相机曝光、光源角度、PR 配置规则和模型版本。如果相机曝光正常，应继续检查光源安装位置、车型 PR 映射和模型版本是否与当前车型一致。",
+    "metadata": {
+      "doc_id": "2a5bf4918ab44ee49d30d01116e06cde",
+      "chunk_id": "2a5bf4918ab44ee49d30d01116e06cde_0",
+      "chunk_index": 0,
+      "doc_type": "GENERAL",
+      "source": "测试.txt",
+      "version": "v1"
+    }
   }
 ]
