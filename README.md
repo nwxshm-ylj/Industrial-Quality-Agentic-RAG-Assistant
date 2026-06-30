@@ -241,6 +241,51 @@ curl -X POST http://localhost:8000/api/v1/graph-chat \
 - rule_result、sql_result、case_result：工具调用结果。
 - contexts：最终送入生成模型的上下文；可能包含业务数据。
 
+## Knowledge Base Management
+
+系统提供企业文档管理 API 和 Streamlit 管理界面，支持：
+
+- 上传并解析 `.md`、`.txt`、`.pdf`、`.docx` 文档；
+- 在 PostgreSQL 中维护文档元数据、版本、状态和 chunk 数量；
+- 使用 content hash 检测重复上传并进行增量入库；
+- 按文档删除 Qdrant 向量和 PostgreSQL chunks；
+- 从保存的原文件重建文档索引；
+- 在 Streamlit 的 **Knowledge Base Management** Tab 中上传、查看、删除和重建文档。
+
+Documents are stored with metadata in PostgreSQL, indexed into Qdrant for vector search, and synchronized to chunks.json for BM25 retrieval.
+
+初始化数据库后，可通过以下接口管理文档：
+
+~~~bash
+# 上传并入库
+curl -X POST http://localhost:8000/api/v1/documents/upload \
+  -F "file=@./example.txt" \
+  -F "doc_type=SOP" \
+  -F "version=v1"
+
+# 查询有效文档列表
+curl http://localhost:8000/api/v1/documents
+
+# 查询文档详情
+curl http://localhost:8000/api/v1/documents/{doc_id}
+
+# 重建索引
+curl -X POST http://localhost:8000/api/v1/documents/{doc_id}/reindex
+
+# 删除文档
+curl -X DELETE http://localhost:8000/api/v1/documents/{doc_id}
+~~~
+
+上传文件保存在 `data/uploads/`。API 容器和 Streamlit 继续通过 Compose 中的 `./data:/app/data` 挂载共享数据；企业文档 chunks 会与原有 raw_docs chunks 合并同步到 `data/processed/chunks.json`。
+
+服务级验证：
+
+~~~bash
+python -m scripts.test_document_management
+# Docker
+docker compose exec api python -m scripts.test_document_management
+~~~
+
 ## 数据与知识库维护
 
 ### 添加文档
