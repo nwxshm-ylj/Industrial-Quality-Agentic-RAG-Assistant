@@ -11,6 +11,8 @@ import streamlit as st
 
 DEFAULT_API_URL = "http://127.0.0.1:8000/api/v1/graph-chat"
 API_URL = os.getenv("RAG_API_URL", DEFAULT_API_URL)
+API_ROOT_URL = API_URL.partition("/api/v1/")[0]
+DOCUMENTS_API_URL = f"{API_ROOT_URL}/api/v1/documents"
 
 EVAL_REPORT_PATH = Path("data/eval/eval_report.json")
 
@@ -41,6 +43,67 @@ def call_graph_chat(
 
     response.raise_for_status()
     return response.json()
+
+
+def upload_knowledge_document(
+    uploaded_file: Any,
+    doc_type: str | None,
+    version: str,
+) -> dict[str, Any]:
+    response = requests.post(
+        f"{DOCUMENTS_API_URL}/upload",
+        files={
+            "file": (
+                uploaded_file.name,
+                uploaded_file.getvalue(),
+                uploaded_file.type or "application/octet-stream",
+            )
+        },
+        data={
+            "doc_type": doc_type or "",
+            "version": version,
+        },
+        timeout=300,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_knowledge_documents() -> dict[str, Any]:
+    response = requests.get(DOCUMENTS_API_URL, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def delete_knowledge_document(doc_id: str) -> dict[str, Any]:
+    response = requests.delete(
+        f"{DOCUMENTS_API_URL}/{doc_id}",
+        timeout=120,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def reindex_knowledge_document(doc_id: str) -> dict[str, Any]:
+    response = requests.post(
+        f"{DOCUMENTS_API_URL}/{doc_id}/reindex",
+        timeout=300,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def _request_error_message(exc: requests.RequestException) -> str:
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            detail = response.json().get("detail")
+            if detail:
+                return str(detail)
+        except ValueError:
+            pass
+        return response.text or str(exc)
+    return str(exc)
 
 
 def load_eval_report() -> dict[str, Any] | None:
@@ -238,6 +301,102 @@ def render_eval_report() -> None:
         )
 
 
+def render_knowledge_base_management() -> None:
+    st.subheader("Knowledge Base Management")
+    st.caption("上传、查看、删除或重建企业知识库文档索引。")
+
+    uploaded_file = st.file_uploader(
+        "上传文档",
+        type=["md", "txt", "pdf", "docx"],
+        key="kb_upload_file",
+    )
+    upload_col1, upload_col2 = st.columns(2)
+    doc_type = upload_col1.text_input(
+        "文档类型（可选）",
+        key="kb_doc_type",
+        placeholder="例如 FMEA / SOP / RULE",
+    )
+    version = upload_col2.text_input(
+        "版本",
+        value="v1",
+        key="kb_version",
+    )
+
+    if st.button("上传并入库", key="kb_upload_button"):
+        if uploaded_file is None:
+            st.warning("请选择要上传的文档。")
+        else:
+            try:
+                with st.spinner("正在解析并建立索引..."):
+                    result = upload_knowledge_document(
+                        uploaded_file=uploaded_file,
+                        doc_type=doc_type.strip() or None,
+                        version=version.strip() or "v1",
+                    )
+                st.success(
+                    f"文档已入库：{result.get('doc_id')}，"
+                    f"chunks={result.get('chunk_count')}"
+                )
+            except requests.RequestException as exc:
+                st.error(f"上传失败：{_request_error_message(exc)}")
+
+    st.markdown("---")
+    try:
+        document_data = fetch_knowledge_documents()
+    except requests.RequestException as exc:
+        st.error(f"读取文档列表失败：{_request_error_message(exc)}")
+        return
+
+    documents = document_data.get("documents") or []
+    st.write(f"当前文档数：{document_data.get('total', len(documents))}")
+    if not documents:
+        st.info("知识库中暂无企业管理文档。")
+        return
+
+    display_columns = [
+        "doc_id",
+        "filename",
+        "doc_type",
+        "version",
+        "status",
+        "chunk_count",
+    ]
+    st.dataframe(
+        pd.DataFrame(documents)[display_columns],
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    document_options = {
+        f"{doc.get('filename')} | {doc.get('doc_id')}": doc.get("doc_id")
+        for doc in documents
+    }
+    selected_label = st.selectbox(
+        "选择文档操作",
+        list(document_options),
+        key="kb_selected_document",
+    )
+    selected_doc_id = document_options[selected_label]
+    action_col1, action_col2 = st.columns(2)
+
+    if action_col1.button("重建索引", key="kb_reindex_button"):
+        try:
+            with st.spinner("正在重建索引..."):
+                result = reindex_knowledge_document(selected_doc_id)
+            st.success(result.get("message", "索引重建完成"))
+            st.rerun()
+        except requests.RequestException as exc:
+            st.error(f"重建失败：{_request_error_message(exc)}")
+
+    if action_col2.button("删除文档", key="kb_delete_button"):
+        try:
+            result = delete_knowledge_document(selected_doc_id)
+            st.success(result.get("message", "文档已删除"))
+            st.rerun()
+        except requests.RequestException as exc:
+            st.error(f"删除失败：{_request_error_message(exc)}")
+
+
 def main() -> None:
     st.title("🏭 Industrial Agentic RAG Assistant")
     st.caption("工业质量知识库与设备异常诊断 Agentic RAG 系统")
@@ -293,12 +452,21 @@ def main() -> None:
         use_container_width=True,
     )
 
-    tab_answer, tab_citations, tab_tools, tab_contexts, tab_eval, tab_raw = st.tabs([
+    (
+        tab_answer,
+        tab_citations,
+        tab_tools,
+        tab_contexts,
+        tab_eval,
+        tab_kb,
+        tab_raw,
+    ) = st.tabs([
         "回答",
         "引用",
         "工具结果",
         "上下文",
         "评估报告",
+        "Knowledge Base Management",
         "原始JSON",
     ])
 
@@ -359,6 +527,9 @@ def main() -> None:
 
         with tab_eval:
             render_eval_report()
+
+    with tab_kb:
+        render_knowledge_base_management()
 
 
 if __name__ == "__main__":
