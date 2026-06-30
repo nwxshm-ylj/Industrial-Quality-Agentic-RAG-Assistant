@@ -1,0 +1,104 @@
+import json
+import logging
+import os
+from collections.abc import Callable
+from datetime import datetime, timezone
+from functools import wraps
+from time import perf_counter
+from typing import Any, TypeVar, cast
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload: dict[str, Any] = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        payload.update(getattr(record, "event_data", {}))
+
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+logger = logging.getLogger("industrial_rag")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonFormatter())
+    logger.addHandler(handler)
+
+log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
+logger.setLevel(log_level)
+logger.propagate = False
+
+
+def log_node_event(
+    state: dict[str, Any],
+    node_name: str,
+    latency_ms: float,
+    status: str,
+    intent: str | None = None,
+    error: str | None = None,
+    exc_info: bool = False,
+) -> None:
+    event_data = {
+        "request_id": state.get("request_id", "unknown"),
+        "session_id": state.get("session_id", "default"),
+        "node_name": node_name,
+        "intent": intent if intent is not None else state.get("intent"),
+        "latency_ms": round(latency_ms, 2),
+        "status": status,
+    }
+    if error:
+        event_data["error"] = error
+
+    level = logging.ERROR if status == "error" else logging.INFO
+    logger.log(
+        level,
+        "node_execution",
+        extra={"event_data": event_data},
+        exc_info=exc_info,
+    )
+
+
+NodeFunction = TypeVar("NodeFunction", bound=Callable[..., dict])
+
+
+def observe_node(node_name: str) -> Callable[[NodeFunction], NodeFunction]:
+    def decorator(func: NodeFunction) -> NodeFunction:
+        @wraps(func)
+        def wrapper(state: dict[str, Any], *args: Any, **kwargs: Any) -> dict:
+            started_at = perf_counter()
+            try:
+                result = func(state, *args, **kwargs)
+            except Exception as exc:
+                log_node_event(
+                    state=state,
+                    node_name=node_name,
+                    latency_ms=(perf_counter() - started_at) * 1000,
+                    status="error",
+                    error=str(exc),
+                    exc_info=True,
+                )
+                raise
+
+            result_intent = (
+                result.get("intent")
+                if isinstance(result, dict)
+                else None
+            )
+            log_node_event(
+                state=state,
+                node_name=node_name,
+                latency_ms=(perf_counter() - started_at) * 1000,
+                status="success",
+                intent=result_intent,
+            )
+            return result
+
+        return cast(NodeFunction, wrapper)
+
+    return decorator

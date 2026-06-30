@@ -1,3 +1,4 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.tools.case_tool import IndustrialCaseTool
 
@@ -5,6 +6,7 @@ from app.tools.case_tool import IndustrialCaseTool
 case_tool = IndustrialCaseTool()
 
 
+@observe_node("case_retriever")
 def case_retriever_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     top_k = state.get("top_k", 5)
@@ -24,13 +26,6 @@ def case_retriever_node(state: IndustrialRAGState) -> dict:
             "score": context.get("score"),
         }
 
-        print("=" * 80)
-        print("case_retriever_node 检索完成")
-        print("question:", question)
-        print("defect_type:", case_result.get("defect_type"))
-        print("station:", case_result.get("station"))
-        print("row_count:", case_result.get("row_count"))
-        print("=" * 80)
 
         return {
             "case_result": case_result,
@@ -39,12 +34,6 @@ def case_retriever_node(state: IndustrialRAGState) -> dict:
         }
 
     except Exception as e:
-        print("=" * 80)
-        print("case_retriever_node 检索失败")
-        print("question:", question)
-        print("error:", repr(e))
-        print("=" * 80)
-
         fallback_context = {
             "text": f"历史案例检索失败，错误信息：{str(e)}",
             "source": "PostgreSQL.quality_cases",

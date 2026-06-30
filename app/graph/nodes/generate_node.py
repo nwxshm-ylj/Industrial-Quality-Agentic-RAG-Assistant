@@ -1,3 +1,4 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.rag.generator import AnswerGenerator
 
@@ -5,6 +6,7 @@ from app.rag.generator import AnswerGenerator
 generator = AnswerGenerator()
 
 
+@observe_node("generate")
 def generate_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     contexts = state.get("contexts", [])
@@ -24,11 +26,6 @@ def generate_node(state: IndustrialRAGState) -> dict:
             memory_messages=memory_messages,
         )
 
-    print("=" * 80)
-    print("generate_node 生成完成")
-    print("intent:", intent)
-    print("answer:", repr(answer[:200]))
-    print("=" * 80)
 
     return {
         "answer": answer

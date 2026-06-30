@@ -1,3 +1,4 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.memory.conversation_memory import ConversationMemory
 
@@ -5,6 +6,7 @@ from app.memory.conversation_memory import ConversationMemory
 conversation_memory = ConversationMemory()
 
 
+@observe_node("save_memory")
 def save_memory_node(state: IndustrialRAGState) -> dict:
     session_id = state.get("session_id", "default") or "default"
     question = state.get("question", "")
@@ -26,10 +28,5 @@ def save_memory_node(state: IndustrialRAGState) -> dict:
             intent=intent,
         )
 
-    print("=" * 80)
-    print("save_memory_node 完成")
-    print("session_id:", session_id)
-    print("intent:", intent)
-    print("=" * 80)
 
     return {}

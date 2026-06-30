@@ -2,6 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.core.config import settings
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 
 
@@ -14,6 +15,7 @@ llm = ChatOpenAI(
 )
 
 
+@observe_node("query_rewriter")
 def query_rewriter_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     intent = state.get("intent", "doc_qa")
@@ -79,17 +81,8 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
         if not rewritten_query:
             rewritten_query = question
 
-    except Exception as e:
-        print("query_rewriter_node 调用失败:", repr(e))
+    except Exception:
         rewritten_query = question
-
-    print("=" * 80)
-    print("query_rewriter_node 完成")
-    print("原始问题:", question)
-    print("intent:", intent)
-    print("改写查询:", rewritten_query)
-    print("retry_count:", retry_count)
-    print("=" * 80)
 
     return {
         "rewritten_query": rewritten_query
