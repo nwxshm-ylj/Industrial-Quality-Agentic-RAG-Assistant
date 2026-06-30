@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     question: str = Field(..., description="用户问题")
     top_k: int = Field(default=5, ge=1, le=10)
+    session_id: str = Field(default="default", description="会话ID")
 
 
 class Citation(BaseModel):
@@ -25,6 +26,9 @@ class ChatResponse(BaseModel):
     question: str
     answer: str
     citations: list[Citation]
+
+    session_id: str | None = None
+    memory_messages: list[dict[str, Any]] | None = None
 
     intent: str | None = None
     rewritten_query: str | None = None

@@ -18,11 +18,14 @@ from app.graph.nodes.evidence_judge_node import (
     route_after_evidence_judge,
 )
 from app.graph.nodes.generate_node import generate_node
+from app.graph.nodes.load_memory_node import load_memory_node
+from app.graph.nodes.save_memory_node import save_memory_node
 
 
 def build_industrial_rag_graph():
     graph = StateGraph(IndustrialRAGState)
 
+    graph.add_node("load_memory", load_memory_node)
     graph.add_node("intent_router", intent_router_node)
     graph.add_node("rule_tool", rule_tool_node)
     graph.add_node("sql_tool", sql_tool_node)
@@ -31,8 +34,10 @@ def build_industrial_rag_graph():
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("evidence_judge", evidence_judge_node)
     graph.add_node("generate", generate_node)
+    graph.add_node("save_memory", save_memory_node)
 
-    graph.add_edge(START, "intent_router")
+    graph.add_edge(START, "load_memory")
+    graph.add_edge("load_memory", "intent_router")
 
     graph.add_conditional_edges(
         "intent_router",
@@ -70,7 +75,8 @@ def build_industrial_rag_graph():
         }
     )
 
-    graph.add_edge("generate", END)
+    graph.add_edge("generate", "save_memory")
+    graph.add_edge("save_memory", END)
 
     return graph.compile()
 

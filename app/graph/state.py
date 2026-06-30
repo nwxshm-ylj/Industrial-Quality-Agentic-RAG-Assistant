@@ -13,6 +13,8 @@ IntentType = Literal[
 
 class IndustrialRAGState(TypedDict):
     question: str
+    session_id: str
+    memory_messages: list[dict]
     intent: IntentType
     rewritten_query: str
     contexts: list[dict]

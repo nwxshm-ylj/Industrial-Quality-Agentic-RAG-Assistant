@@ -9,6 +9,7 @@ def generate_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     contexts = state.get("contexts", [])
     intent = state.get("intent", "doc_qa")
+    memory_messages = state.get("memory_messages", [])
 
     # 当前阶段：general 问题不走知识库，给出简短说明
     if intent == "general" and not contexts:
@@ -19,7 +20,8 @@ def generate_node(state: IndustrialRAGState) -> dict:
     else:
         answer = generator.generate(
             question=question,
-            contexts=contexts
+            contexts=contexts,
+            memory_messages=memory_messages,
         )
 
     print("=" * 80)

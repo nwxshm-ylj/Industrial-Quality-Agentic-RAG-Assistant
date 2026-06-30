@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import uuid
 from typing import Any
 
 import pandas as pd
@@ -21,10 +22,15 @@ st.set_page_config(
 )
 
 
-def call_graph_chat(question: str, top_k: int) -> dict[str, Any]:
+def call_graph_chat(
+    question: str,
+    top_k: int,
+    session_id: str,
+) -> dict[str, Any]:
     payload = {
         "question": question,
         "top_k": top_k,
+        "session_id": session_id,
     }
 
     response = requests.post(
@@ -236,11 +242,16 @@ def main() -> None:
     st.title("🏭 Industrial Agentic RAG Assistant")
     st.caption("工业质量知识库与设备异常诊断 Agentic RAG 系统")
 
+    if "session_id" not in st.session_state:
+        st.session_state["session_id"] = str(uuid.uuid4())
+    session_id = st.session_state["session_id"]
+
     with st.sidebar:
         st.header("配置")
 
         st.write("API 地址")
         st.code(API_URL)
+        st.caption(f"当前 session_id: {session_id}")
 
         top_k = st.slider(
             "Top K",
@@ -301,6 +312,7 @@ def main() -> None:
                 data = call_graph_chat(
                     question=question.strip(),
                     top_k=top_k,
+                    session_id=session_id,
                 )
 
                 st.session_state["last_response"] = data

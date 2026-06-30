@@ -26,6 +26,7 @@ VALID_INTENTS = {
 
 def intent_router_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
+    memory_text = _format_memory(state.get("memory_messages", []))
 
     system_prompt = """
 你是一个工业RAG系统的意图识别器。
@@ -51,13 +52,17 @@ def intent_router_node(state: IndustrialRAGState) -> dict:
 与工业知识库无关的一般问题。
 
 要求：
+结合历史对话理解当前问题中的指代和省略。
 只输出一个标签，不要解释。
 可选标签只能是：
 doc_qa, fault_diagnosis, case_search, rule_query, sql_analysis, general
 """
 
     user_prompt = f"""
-用户问题：
+历史对话：
+{memory_text}
+
+用户当前问题：
 {question}
 
 请输出意图标签：
@@ -93,6 +98,16 @@ doc_qa, fault_diagnosis, case_search, rule_query, sql_analysis, general
     return {
         "intent": intent
     }
+
+
+def _format_memory(memory_messages: list[dict]) -> str:
+    if not memory_messages:
+        return "无历史对话。"
+
+    return "\n".join(
+        f"{message.get('role', 'unknown')}: {message.get('content', '')}"
+        for message in memory_messages
+    )
 
 
 def _rule_based_intent(question: str) -> str:
