@@ -18,6 +18,7 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     intent = state.get("intent", "doc_qa")
     retry_count = state.get("retry_count", 0)
+    memory_text = _format_memory(state.get("memory_messages", []))
 
     system_prompt = """
 你是一个工业RAG检索查询改写助手。
@@ -28,16 +29,20 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
 1. 保留用户原始意图。
 2. 补充工业相关关键词。
 3. 根据意图补充合适的检索方向。
-4. 不要回答问题。
-5. 不要解释。
-6. 只输出一行检索查询语句。
+4. 结合历史对话补全当前问题中的指代和省略，使查询可独立理解。
+5. 不要回答问题。
+6. 不要解释。
+7. 只输出一行检索查询语句。
 """
 
     intent_hint = _get_intent_hint(intent)
 
     if retry_count == 0:
         user_prompt = f"""
-用户原始问题：
+历史对话：
+{memory_text}
+
+用户当前问题：
 {question}
 
 识别到的问题意图：
@@ -50,7 +55,10 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
 """
     else:
         user_prompt = f"""
-用户原始问题：
+历史对话：
+{memory_text}
+
+用户当前问题：
 {question}
 
 识别到的问题意图：
@@ -86,6 +94,16 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
     return {
         "rewritten_query": rewritten_query
     }
+
+
+def _format_memory(memory_messages: list[dict]) -> str:
+    if not memory_messages:
+        return "无历史对话。"
+
+    return "\n".join(
+        f"{message.get('role', 'unknown')}: {message.get('content', '')}"
+        for message in memory_messages
+    )
 
 
 def _get_intent_hint(intent: str) -> str:

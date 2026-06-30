@@ -46,6 +46,15 @@ def create_tables():
         part_code VARCHAR(100),
         created_at TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS conversation_messages (
+        id SERIAL PRIMARY KEY,
+        session_id VARCHAR(100) NOT NULL,
+        role VARCHAR(20) NOT NULL,
+        content TEXT NOT NULL,
+        intent VARCHAR(50),
+        created_at TIMESTAMP DEFAULT NOW()
+    );
     """
 
     with engine.begin() as conn:

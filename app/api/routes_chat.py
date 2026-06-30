@@ -34,7 +34,8 @@ def graph_chat(request: ChatRequest):
 
         result = graph_chain.invoke(
             question=request.question,
-            top_k=request.top_k
+            top_k=request.top_k,
+            session_id=request.session_id,
         )
 
         return result

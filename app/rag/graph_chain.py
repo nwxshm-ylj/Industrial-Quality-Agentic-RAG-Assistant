@@ -2,9 +2,16 @@ from app.graph.workflow import industrial_rag_app
 
 
 class IndustrialGraphRAGChain:
-    def invoke(self, question: str, top_k: int = 5) -> dict:
+    def invoke(
+        self,
+        question: str,
+        top_k: int = 5,
+        session_id: str = "default",
+    ) -> dict:
         result = industrial_rag_app.invoke({
             "question": question,
+            "session_id": session_id,
+            "memory_messages": [],
             "intent": "doc_qa",
             "rewritten_query": "",
             "contexts": [],
@@ -23,6 +30,8 @@ class IndustrialGraphRAGChain:
             "question": result.get("question", question),
             "answer": result.get("answer", ""),
             "citations": result.get("citations", []),
+            "session_id": result.get("session_id", session_id),
+            "memory_messages": result.get("memory_messages", []),
 
             "intent": result.get("intent"),
             "rewritten_query": result.get("rewritten_query"),
