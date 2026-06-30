@@ -55,6 +55,43 @@ def create_tables():
         intent VARCHAR(50),
         created_at TIMESTAMP DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        doc_id VARCHAR(100) UNIQUE NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        original_filename VARCHAR(255),
+        doc_type VARCHAR(50),
+        file_ext VARCHAR(20),
+        file_path TEXT,
+        version VARCHAR(50) DEFAULT 'v1',
+        status VARCHAR(50) DEFAULT 'indexed',
+        chunk_count INT DEFAULT 0,
+        content_hash VARCHAR(128),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS document_chunks (
+        id SERIAL PRIMARY KEY,
+        doc_id VARCHAR(100) NOT NULL,
+        chunk_id VARCHAR(150) UNIQUE NOT NULL,
+        chunk_index INT NOT NULL,
+        text TEXT NOT NULL,
+        doc_type VARCHAR(50),
+        source VARCHAR(255),
+        version VARCHAR(50),
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_documents_doc_id
+        ON documents (doc_id);
+    CREATE INDEX IF NOT EXISTS idx_documents_content_hash
+        ON documents (content_hash);
+    CREATE INDEX IF NOT EXISTS idx_document_chunks_doc_id
+        ON document_chunks (doc_id);
+    CREATE INDEX IF NOT EXISTS idx_document_chunks_chunk_id
+        ON document_chunks (chunk_id);
     """
 
     with engine.begin() as conn:
