@@ -55,10 +55,6 @@ class AnswerGenerator:
 
         content = response.content
 
-        print("=" * 80)
-        print("LLM 原始响应:", response)
-        print("LLM content:", repr(content))
-        print("=" * 80)
 
         if isinstance(content, list):
             content = "\n".join(

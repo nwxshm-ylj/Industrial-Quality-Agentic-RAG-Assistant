@@ -13,6 +13,7 @@ IntentType = Literal[
 
 class IndustrialRAGState(TypedDict):
     question: str
+    request_id: str
     session_id: str
     memory_messages: list[dict]
     intent: IntentType

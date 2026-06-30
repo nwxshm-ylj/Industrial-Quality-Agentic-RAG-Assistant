@@ -1,3 +1,4 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.tools.sql_tool import IndustrialSQLTool
 
@@ -5,6 +6,7 @@ from app.tools.sql_tool import IndustrialSQLTool
 sql_tool = IndustrialSQLTool()
 
 
+@observe_node("sql_tool")
 def sql_tool_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
 
@@ -19,12 +21,6 @@ def sql_tool_node(state: IndustrialRAGState) -> dict:
             "score": context.get("score"),
         }
 
-        print("=" * 80)
-        print("sql_tool_node 查询完成")
-        print("question:", question)
-        print("sql:", sql_result.get("sql"))
-        print("row_count:", sql_result.get("row_count"))
-        print("=" * 80)
 
         return {
             "sql_result": sql_result,
@@ -33,12 +29,6 @@ def sql_tool_node(state: IndustrialRAGState) -> dict:
         }
 
     except Exception as e:
-        print("=" * 80)
-        print("sql_tool_node 查询失败")
-        print("question:", question)
-        print("error:", repr(e))
-        print("=" * 80)
-
         fallback_context = {
             "text": f"SQL查询失败，错误信息：{str(e)}",
             "source": "PostgreSQL",

@@ -2,6 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.core.config import settings
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 
 
@@ -24,6 +25,7 @@ VALID_INTENTS = {
 }
 
 
+@observe_node("intent_router")
 def intent_router_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     memory_text = _format_memory(state.get("memory_messages", []))
@@ -85,15 +87,8 @@ doc_qa, fault_diagnosis, case_search, rule_query, sql_analysis, general
         if intent not in VALID_INTENTS:
             intent = _rule_based_intent(question)
 
-    except Exception as e:
-        print("intent_router_node 调用失败:", repr(e))
+    except Exception:
         intent = _rule_based_intent(question)
-
-    print("=" * 80)
-    print("intent_router_node 完成")
-    print("question:", question)
-    print("intent:", intent)
-    print("=" * 80)
 
     return {
         "intent": intent

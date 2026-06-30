@@ -2,6 +2,7 @@ import json
 import time
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from app.graph.workflow import industrial_rag_app
 
@@ -21,8 +22,12 @@ def load_eval_questions(path: str = EVAL_FILE) -> list[dict[str, Any]]:
 
 
 def invoke_graph(question: str, top_k: int = 3) -> dict[str, Any]:
+    request_id = str(uuid4())
     result = industrial_rag_app.invoke({
         "question": question,
+        "request_id": request_id,
+        "session_id": f"evaluation-{request_id}",
+        "memory_messages": [],
         "intent": "doc_qa",
         "rewritten_query": "",
         "contexts": [],

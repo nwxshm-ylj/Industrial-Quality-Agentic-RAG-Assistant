@@ -1,3 +1,4 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.tools.rule_tool import IndustrialRuleTool
 
@@ -5,17 +6,13 @@ from app.tools.rule_tool import IndustrialRuleTool
 rule_tool = IndustrialRuleTool()
 
 
+@observe_node("rule_tool")
 def rule_tool_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
 
     rule_result = rule_tool.search_rules(question)
 
     if not rule_result:
-        print("=" * 80)
-        print("rule_tool_node 未匹配到规则")
-        print("question:", question)
-        print("=" * 80)
-
         return {
             "rule_result": None,
             "contexts": [],
@@ -31,12 +28,6 @@ def rule_tool_node(state: IndustrialRAGState) -> dict:
         "score": context.get("score"),
     }
 
-    print("=" * 80)
-    print("rule_tool_node 匹配到规则")
-    print("question:", question)
-    print("rule_type:", rule_result.get("rule_type"))
-    print("rule_id:", rule_result.get("rule_id"))
-    print("=" * 80)
 
     return {
         "rule_result": rule_result,

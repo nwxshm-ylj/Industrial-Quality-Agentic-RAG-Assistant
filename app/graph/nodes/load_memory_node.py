@@ -1,3 +1,4 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.memory.conversation_memory import ConversationMemory
 
@@ -5,6 +6,7 @@ from app.memory.conversation_memory import ConversationMemory
 conversation_memory = ConversationMemory()
 
 
+@observe_node("load_memory")
 def load_memory_node(state: IndustrialRAGState) -> dict:
     session_id = state.get("session_id", "default") or "default"
     memory_messages = conversation_memory.load_recent_messages(
@@ -12,10 +14,5 @@ def load_memory_node(state: IndustrialRAGState) -> dict:
         limit=6,
     )
 
-    print("=" * 80)
-    print("load_memory_node 完成")
-    print("session_id:", session_id)
-    print("memory_messages 数量:", len(memory_messages))
-    print("=" * 80)
 
     return {"memory_messages": memory_messages}

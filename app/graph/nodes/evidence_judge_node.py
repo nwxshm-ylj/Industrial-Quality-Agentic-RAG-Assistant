@@ -1,6 +1,8 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 
 
+@observe_node("evidence_judge")
 def evidence_judge_node(state: IndustrialRAGState) -> dict:
     contexts = state.get("contexts", [])
     retry_count = state.get("retry_count", 0)
@@ -15,20 +17,12 @@ def evidence_judge_node(state: IndustrialRAGState) -> dict:
         ]
 
         max_score = max(scores)
-        avg_score = sum(scores) / len(scores)
-
         evidence_score = max_score
 
         # 第一版先用简单规则判断
         # bge-small + Qdrant cosine 场景下，0.55 可以作为初始经验阈值
         evidence_enough = max_score >= 0.55
 
-        print("=" * 80)
-        print("evidence_judge_node")
-        print("max_score:", max_score)
-        print("avg_score:", avg_score)
-        print("evidence_enough:", evidence_enough)
-        print("=" * 80)
 
     if not evidence_enough:
         retry_count += 1

@@ -1,3 +1,4 @@
+from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.rag.retriever import IndustrialRetriever
 
@@ -5,6 +6,7 @@ from app.rag.retriever import IndustrialRetriever
 retriever = IndustrialRetriever()
 
 
+@observe_node("retrieve")
 def retrieve_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     rewritten_query = state.get("rewritten_query") or question
@@ -31,25 +33,6 @@ def retrieve_node(state: IndustrialRAGState) -> dict:
             "final_score_type": ctx.get("final_score_type"),
         })
 
-    print("=" * 80)
-    print("retrieve_node 检索完成")
-    print("原始问题:", question)
-    print("实际检索 query:", rewritten_query)
-    print("contexts 数量:", len(contexts))
-
-    for ctx in contexts:
-        print(
-            ctx.get("source"),
-            "score:", ctx.get("score"),
-            "retrieval_source:", ctx.get("retrieval_source"),
-            "vector_score:", ctx.get("vector_score"),
-            "bm25_score:", ctx.get("bm25_score"),
-            "hybrid_score:", ctx.get("hybrid_score"),
-            "rerank_score:", ctx.get("rerank_score"),
-            "final_score_type:", ctx.get("final_score_type"),
-        )
-
-    print("=" * 80)
 
     return {
         "contexts": contexts,

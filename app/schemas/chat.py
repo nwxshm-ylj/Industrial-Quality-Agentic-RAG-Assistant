@@ -27,8 +27,10 @@ class ChatResponse(BaseModel):
     answer: str
     citations: list[Citation]
 
+    request_id: str | None = None
     session_id: str | None = None
     memory_messages: list[dict[str, Any]] | None = None
+    metadata: dict[str, Any] | None = None
 
     intent: str | None = None
     rewritten_query: str | None = None
