@@ -5,6 +5,8 @@ from fastapi import FastAPI, Request
 from app.api.routes_auth import router as auth_router
 from app.api.routes_chat import router as chat_router
 from app.api.routes_documents import router as documents_router
+from app.api.routes_evaluation import router as evaluation_router
+from app.api.routes_feedback import router as feedback_router
 
 
 app = FastAPI(
@@ -30,3 +32,5 @@ def health_check():
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(documents_router)
+app.include_router(feedback_router)
+app.include_router(evaluation_router)

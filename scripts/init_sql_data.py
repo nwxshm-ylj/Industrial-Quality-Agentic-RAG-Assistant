@@ -126,6 +126,72 @@ def create_tables():
         ON operation_audit_logs (username);
     CREATE INDEX IF NOT EXISTS idx_audit_created_at
         ON operation_audit_logs (created_at);
+
+    CREATE TABLE IF NOT EXISTS answer_feedback (
+        id SERIAL PRIMARY KEY,
+        request_id VARCHAR(100),
+        session_id VARCHAR(100),
+        username VARCHAR(100),
+        role VARCHAR(50),
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        rating VARCHAR(20) NOT NULL,
+        comment TEXT,
+        intent VARCHAR(50),
+        citations TEXT,
+        metadata TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT answer_feedback_rating_check
+            CHECK (rating IN ('positive', 'negative', 'neutral'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_request_id
+        ON answer_feedback (request_id);
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_username
+        ON answer_feedback (username);
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_rating
+        ON answer_feedback (rating);
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_created_at
+        ON answer_feedback (created_at);
+
+    CREATE TABLE IF NOT EXISTS rag_eval_runs (
+        id SERIAL PRIMARY KEY,
+        run_id VARCHAR(100) UNIQUE NOT NULL,
+        username VARCHAR(100),
+        status VARCHAR(50) DEFAULT 'completed',
+        total_questions INT DEFAULT 0,
+        intent_accuracy FLOAT,
+        source_hit_rate FLOAT,
+        answer_keyword_hit_rate FLOAT,
+        memory_followup_success_rate FLOAT,
+        avg_latency_ms FLOAT,
+        report_path TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS rag_eval_items (
+        id SERIAL PRIMARY KEY,
+        run_id VARCHAR(100) NOT NULL,
+        question_id VARCHAR(100),
+        question TEXT NOT NULL,
+        expected_intent VARCHAR(50),
+        actual_intent VARCHAR(50),
+        expected_keywords TEXT,
+        keyword_hit BOOLEAN,
+        expected_sources TEXT,
+        source_hit BOOLEAN,
+        answer TEXT,
+        latency_ms FLOAT,
+        passed BOOLEAN,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rag_eval_runs_run_id
+        ON rag_eval_runs (run_id);
+    CREATE INDEX IF NOT EXISTS idx_rag_eval_runs_created_at
+        ON rag_eval_runs (created_at);
+    CREATE INDEX IF NOT EXISTS idx_rag_eval_items_run_id
+        ON rag_eval_items (run_id);
     """
 
     with engine.begin() as conn:

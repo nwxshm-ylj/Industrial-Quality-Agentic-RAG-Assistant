@@ -14,6 +14,8 @@ API_URL = os.getenv("RAG_API_URL", DEFAULT_API_URL)
 API_ROOT_URL = API_URL.partition("/api/v1/")[0]
 DOCUMENTS_API_URL = f"{API_ROOT_URL}/api/v1/documents"
 AUTH_LOGIN_URL = f"{API_ROOT_URL}/api/v1/auth/login"
+FEEDBACK_API_URL = f"{API_ROOT_URL}/api/v1/feedback"
+EVALUATION_API_URL = f"{API_ROOT_URL}/api/v1/evaluation"
 
 EVAL_REPORT_PATH = Path("data/eval/eval_report.json")
 
@@ -119,6 +121,68 @@ def reindex_knowledge_document(
         f"{DOCUMENTS_API_URL}/{doc_id}/reindex",
         headers=_auth_headers(access_token),
         timeout=300,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def submit_answer_feedback(
+    payload: dict[str, Any],
+    access_token: str,
+) -> dict[str, Any]:
+    response = requests.post(
+        FEEDBACK_API_URL,
+        json=payload,
+        headers=_auth_headers(access_token),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_feedback_stats(access_token: str) -> dict[str, Any]:
+    response = requests.get(
+        f"{FEEDBACK_API_URL}/stats",
+        headers=_auth_headers(access_token),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_feedback_list(
+    access_token: str,
+    rating: str | None = None,
+    limit: int = 100,
+) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"limit": limit}
+    if rating:
+        params["rating"] = rating
+    response = requests.get(
+        FEEDBACK_API_URL,
+        params=params,
+        headers=_auth_headers(access_token),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_evaluation_runs(access_token: str) -> dict[str, Any]:
+    response = requests.get(
+        f"{EVALUATION_API_URL}/runs",
+        headers=_auth_headers(access_token),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def run_evaluation_api(access_token: str) -> dict[str, Any]:
+    response = requests.post(
+        f"{EVALUATION_API_URL}/run",
+        headers=_auth_headers(access_token),
+        timeout=900,
     )
     response.raise_for_status()
     return response.json()
@@ -354,6 +418,175 @@ def render_eval_report() -> None:
         )
 
 
+def render_feedback_form(
+    data: dict[str, Any],
+    question: str,
+    session_id: str,
+    access_token: str,
+) -> None:
+    st.markdown("---")
+    st.subheader("回答反馈")
+    request_id = str(data.get("request_id") or "unknown")
+    with st.form(f"feedback_form_{request_id}"):
+        rating_label = st.radio(
+            "请选择本次回答质量",
+            ["👍 有用", "👎 无用", "😐 一般"],
+            horizontal=True,
+        )
+        comment = st.text_input(
+            "反馈备注（可选）",
+            placeholder="例如：引用准确，但排查顺序还可以更具体",
+        )
+        submitted = st.form_submit_button("提交反馈")
+        if submitted:
+            rating_map = {
+                "👍 有用": "positive",
+                "👎 无用": "negative",
+                "😐 一般": "neutral",
+            }
+            payload = {
+                "request_id": data.get("request_id"),
+                "session_id": data.get("session_id") or session_id,
+                "question": question,
+                "answer": data.get("answer") or "",
+                "rating": rating_map[rating_label],
+                "comment": comment or None,
+                "intent": data.get("intent"),
+                "citations": data.get("citations"),
+                "metadata": data.get("metadata"),
+            }
+            try:
+                submit_answer_feedback(payload, access_token)
+                st.success("反馈已提交。")
+            except requests.RequestException as exc:
+                st.error(f"反馈提交失败：{_request_error_message(exc)}")
+
+
+def render_evaluation_dashboard(access_token: str) -> None:
+    st.subheader("RAG Evaluation")
+    st.caption("反馈闭环、离线评估运行与质量指标")
+
+    latest_run: dict[str, Any] | None = None
+    if st.button("运行一次评估", type="primary"):
+        with st.spinner("正在运行评估，可能需要数分钟..."):
+            try:
+                latest_run = run_evaluation_api(access_token)
+                st.success(f"评估完成：{latest_run.get('run_id')}")
+            except requests.RequestException as exc:
+                st.error(f"评估运行失败：{_request_error_message(exc)}")
+
+    try:
+        stats = fetch_feedback_stats(access_token)
+        metric_cols = st.columns(5)
+        metric_cols[0].metric("正向数量", stats.get("positive_count", 0))
+        metric_cols[1].metric("负向数量", stats.get("negative_count", 0))
+        metric_cols[2].metric("中性数量", stats.get("neutral_count", 0))
+        metric_cols[3].metric(
+            "正向率",
+            f"{float(stats.get('positive_rate') or 0) * 100:.1f}%",
+        )
+        metric_cols[4].metric(
+            "负向率",
+            f"{float(stats.get('negative_rate') or 0) * 100:.1f}%",
+        )
+        by_intent = stats.get("by_intent") or {}
+        if by_intent:
+            st.caption("按意图统计")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {"intent": intent, "count": count}
+                        for intent, count in by_intent.items()
+                    ]
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+    except requests.RequestException as exc:
+        st.error(f"反馈统计加载失败：{_request_error_message(exc)}")
+
+    st.markdown("#### 最近反馈")
+    rating_label = st.selectbox(
+        "按 rating 过滤",
+        ["全部", "positive", "negative", "neutral"],
+    )
+    try:
+        feedback = fetch_feedback_list(
+            access_token,
+            rating=None if rating_label == "全部" else rating_label,
+            limit=100,
+        )
+        if feedback:
+            feedback_df = pd.DataFrame(feedback)
+            columns = [
+                column for column in [
+                    "created_at", "username", "rating", "intent",
+                    "question", "comment", "request_id",
+                ]
+                if column in feedback_df.columns
+            ]
+            st.dataframe(
+                feedback_df[columns],
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.info("暂无反馈记录。")
+    except requests.RequestException as exc:
+        st.error(f"反馈列表加载失败：{_request_error_message(exc)}")
+
+    st.markdown("#### 评估运行")
+    try:
+        run_payload = fetch_evaluation_runs(access_token)
+        runs = run_payload.get("runs") or []
+        if latest_run is None and runs:
+            latest_run = runs[0]
+
+        if latest_run:
+            cols = st.columns(5)
+            cols[0].metric(
+                "Intent Accuracy",
+                f"{float(latest_run.get('intent_accuracy') or 0) * 100:.1f}%",
+            )
+            cols[1].metric(
+                "Source Hit Rate",
+                f"{float(latest_run.get('source_hit_rate') or 0) * 100:.1f}%",
+            )
+            cols[2].metric(
+                "Keyword Hit Rate",
+                f"{float(latest_run.get('answer_keyword_hit_rate') or 0) * 100:.1f}%",
+            )
+            cols[3].metric(
+                "Memory Follow-up",
+                f"{float(latest_run.get('memory_followup_success_rate') or 0) * 100:.1f}%",
+            )
+            cols[4].metric(
+                "Avg Latency(ms)",
+                round(float(latest_run.get("avg_latency_ms") or 0), 2),
+            )
+
+        if runs:
+            runs_df = pd.DataFrame(runs)
+            columns = [
+                column for column in [
+                    "run_id", "created_at", "username", "status",
+                    "total_questions", "intent_accuracy",
+                    "source_hit_rate", "answer_keyword_hit_rate",
+                    "memory_followup_success_rate", "avg_latency_ms",
+                ]
+                if column in runs_df.columns
+            ]
+            st.dataframe(
+                runs_df[columns],
+                use_container_width=True,
+                hide_index=True,
+            )
+        elif latest_run is None:
+            st.info("暂无评估运行记录。")
+    except requests.RequestException as exc:
+        st.error(f"评估运行列表加载失败：{_request_error_message(exc)}")
+
+
 def render_knowledge_base_management(
     access_token: str,
     user_role: str,
@@ -481,7 +714,6 @@ def main() -> None:
         return
 
     user_role = current_user.get("role", "viewer")
-
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
     session_id = st.session_state["session_id"]
@@ -490,7 +722,12 @@ def main() -> None:
         st.header("当前用户")
         st.write(f"{current_user.get('username')} ({user_role})")
         if st.button("退出登录", use_container_width=True):
-            for key in ("access_token", "user", "last_response"):
+            for key in (
+                "access_token",
+                "user",
+                "last_response",
+                "last_question",
+            ):
                 st.session_state.pop(key, None)
             st.rerun()
 
@@ -499,18 +736,10 @@ def main() -> None:
         st.write("API 地址")
         st.code(API_URL)
         st.caption(f"当前 session_id: {session_id}")
-
-        top_k = st.slider(
-            "Top K",
-            min_value=1,
-            max_value=10,
-            value=3,
-            step=1,
-        )
+        top_k = st.slider("Top K", 1, 10, 3, 1)
 
         st.markdown("---")
         st.subheader("示例问题")
-
         examples = [
             "ZP8 工位轮毂误识别可能是什么原因？",
             "扭矩工位连续报警应该怎么排查？",
@@ -520,12 +749,7 @@ def main() -> None:
             "历史上有没有类似的轮毂误识别案例？",
             "你是谁？",
         ]
-
-        selected_example = st.selectbox(
-            "选择示例",
-            examples,
-            index=0,
-        )
+        selected_example = st.selectbox("选择示例", examples, index=0)
 
     question = st.text_area(
         "请输入你的问题",
@@ -533,36 +757,22 @@ def main() -> None:
         height=100,
         placeholder="例如：ZP8 工位轮毂误识别可能是什么原因？",
     )
-
     ask_button = st.button(
         "发送问题",
         type="primary",
         use_container_width=True,
     )
 
-    (
-        tab_answer,
-        tab_citations,
-        tab_tools,
-        tab_contexts,
-        tab_eval,
-        tab_kb,
-        tab_raw,
-    ) = st.tabs([
-        "回答",
-        "引用",
-        "工具结果",
-        "上下文",
-        "评估报告",
-        "Knowledge Base Management",
-        "原始JSON",
-    ])
+    tab_names = ["回答", "引用", "工具结果", "上下文"]
+    if user_role in {"admin", "engineer"}:
+        tab_names.append("RAG Evaluation")
+    tab_names.extend(["Knowledge Base Management", "原始JSON"])
+    tab_handles = dict(zip(tab_names, st.tabs(tab_names)))
 
     if ask_button:
         if not question.strip():
             st.warning("请输入问题。")
             return
-
         with st.spinner("正在调用 Agentic RAG 系统..."):
             try:
                 data = call_graph_chat(
@@ -571,20 +781,17 @@ def main() -> None:
                     session_id=session_id,
                     access_token=access_token,
                 )
-
                 st.session_state["last_response"] = data
-
+                st.session_state["last_question"] = question.strip()
             except requests.exceptions.ConnectionError:
                 st.error(
                     "无法连接 FastAPI 服务。请确认已启动："
                     "uvicorn app.main:app --reload --port 8000"
                 )
                 return
-
             except requests.exceptions.Timeout:
                 st.error("请求超时。可以先关闭 Reranker，或减少 top_k。")
                 return
-
             except requests.HTTPError as exc:
                 st.error(f"请求失败：{_request_error_message(exc)}")
                 return
@@ -593,32 +800,38 @@ def main() -> None:
                 return
 
     data = st.session_state.get("last_response")
-
+    last_question = st.session_state.get("last_question", "")
     if data:
-        with tab_answer:
+        with tab_handles["回答"]:
             render_metrics(data)
             render_answer(data)
-
-        with tab_citations:
+            render_feedback_form(
+                data=data,
+                question=last_question,
+                session_id=session_id,
+                access_token=access_token,
+            )
+        with tab_handles["引用"]:
             render_citations(data)
-
-        with tab_tools:
+        with tab_handles["工具结果"]:
             render_tool_results(data)
-
-        with tab_contexts:
+        with tab_handles["上下文"]:
             render_contexts(data)
-
-        with tab_eval:
-            render_eval_report()
-
-        with tab_raw:
+        with tab_handles["原始JSON"]:
             st.json(data)
     else:
-        with tab_answer:
+        with tab_handles["回答"]:
             st.info("请输入问题并点击发送。")
 
-        with tab_eval:
-            render_eval_report()
+    if "RAG Evaluation" in tab_handles:
+        with tab_handles["RAG Evaluation"]:
+            render_evaluation_dashboard(access_token)
+
+    with tab_handles["Knowledge Base Management"]:
+        render_knowledge_base_management(
+            access_token=access_token,
+            user_role=user_role,
+        )
 
     with tab_kb:
         render_knowledge_base_management(
