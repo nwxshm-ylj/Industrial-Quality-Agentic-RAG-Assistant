@@ -3,6 +3,7 @@ import random
 
 from sqlalchemy import text
 
+from app.core.security import hash_password
 from app.db.session import engine
 
 
@@ -55,10 +56,164 @@ def create_tables():
         intent VARCHAR(50),
         created_at TIMESTAMP DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS documents (
+        id SERIAL PRIMARY KEY,
+        doc_id VARCHAR(100) UNIQUE NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        original_filename VARCHAR(255),
+        doc_type VARCHAR(50),
+        file_ext VARCHAR(20),
+        file_path TEXT,
+        version VARCHAR(50) DEFAULT 'v1',
+        status VARCHAR(50) DEFAULT 'indexed',
+        chunk_count INT DEFAULT 0,
+        content_hash VARCHAR(128),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS document_chunks (
+        id SERIAL PRIMARY KEY,
+        doc_id VARCHAR(100) NOT NULL,
+        chunk_id VARCHAR(150) UNIQUE NOT NULL,
+        chunk_index INT NOT NULL,
+        text TEXT NOT NULL,
+        doc_type VARCHAR(50),
+        source VARCHAR(255),
+        version VARCHAR(50),
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_documents_doc_id
+        ON documents (doc_id);
+    CREATE INDEX IF NOT EXISTS idx_documents_content_hash
+        ON documents (content_hash);
+    CREATE INDEX IF NOT EXISTS idx_document_chunks_doc_id
+        ON document_chunks (doc_id);
+    CREATE INDEX IF NOT EXISTS idx_document_chunks_chunk_id
+        ON document_chunks (chunk_id);
+
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'viewer',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT users_role_check
+            CHECK (role IN ('admin', 'engineer', 'viewer'))
+    );
+
+    CREATE TABLE IF NOT EXISTS operation_audit_logs (
+        id SERIAL PRIMARY KEY,
+        request_id VARCHAR(100),
+        session_id VARCHAR(100),
+        username VARCHAR(100),
+        role VARCHAR(50),
+        action VARCHAR(100) NOT NULL,
+        resource_type VARCHAR(100),
+        resource_id VARCHAR(150),
+        status VARCHAR(50),
+        detail TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_request_id
+        ON operation_audit_logs (request_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_username
+        ON operation_audit_logs (username);
+    CREATE INDEX IF NOT EXISTS idx_audit_created_at
+        ON operation_audit_logs (created_at);
+
+    CREATE TABLE IF NOT EXISTS answer_feedback (
+        id SERIAL PRIMARY KEY,
+        request_id VARCHAR(100),
+        session_id VARCHAR(100),
+        username VARCHAR(100),
+        role VARCHAR(50),
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        rating VARCHAR(20) NOT NULL,
+        comment TEXT,
+        intent VARCHAR(50),
+        citations TEXT,
+        metadata TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT answer_feedback_rating_check
+            CHECK (rating IN ('positive', 'negative', 'neutral'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_request_id
+        ON answer_feedback (request_id);
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_username
+        ON answer_feedback (username);
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_rating
+        ON answer_feedback (rating);
+    CREATE INDEX IF NOT EXISTS idx_answer_feedback_created_at
+        ON answer_feedback (created_at);
+
+    CREATE TABLE IF NOT EXISTS rag_eval_runs (
+        id SERIAL PRIMARY KEY,
+        run_id VARCHAR(100) UNIQUE NOT NULL,
+        username VARCHAR(100),
+        status VARCHAR(50) DEFAULT 'completed',
+        total_questions INT DEFAULT 0,
+        intent_accuracy FLOAT,
+        source_hit_rate FLOAT,
+        answer_keyword_hit_rate FLOAT,
+        memory_followup_success_rate FLOAT,
+        avg_latency_ms FLOAT,
+        report_path TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS rag_eval_items (
+        id SERIAL PRIMARY KEY,
+        run_id VARCHAR(100) NOT NULL,
+        question_id VARCHAR(100),
+        question TEXT NOT NULL,
+        expected_intent VARCHAR(50),
+        actual_intent VARCHAR(50),
+        expected_keywords TEXT,
+        keyword_hit BOOLEAN,
+        expected_sources TEXT,
+        source_hit BOOLEAN,
+        answer TEXT,
+        latency_ms FLOAT,
+        passed BOOLEAN,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rag_eval_runs_run_id
+        ON rag_eval_runs (run_id);
+    CREATE INDEX IF NOT EXISTS idx_rag_eval_runs_created_at
+        ON rag_eval_runs (created_at);
+    CREATE INDEX IF NOT EXISTS idx_rag_eval_items_run_id
+        ON rag_eval_items (run_id);
     """
 
     with engine.begin() as conn:
         conn.execute(text(ddl))
+
+
+def ensure_default_admin() -> None:
+    password_hash = hash_password("admin123")
+    query = text("""
+        INSERT INTO users (username, password_hash, role, is_active)
+        VALUES (:username, :password_hash, 'admin', true)
+        ON CONFLICT (username) DO NOTHING
+    """)
+
+    with engine.begin() as conn:
+        conn.execute(
+            query,
+            {
+                "username": "admin",
+                "password_hash": password_hash,
+            },
+        )
 
 
 def insert_sample_data():
@@ -173,6 +328,7 @@ def insert_sample_data():
 
 def main():
     create_tables()
+    ensure_default_admin()
     insert_sample_data()
     print("PostgreSQL 样例数据初始化完成")
 

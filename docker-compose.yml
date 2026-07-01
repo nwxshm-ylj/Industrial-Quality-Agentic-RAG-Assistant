@@ -41,6 +41,10 @@ services:
       LLM_API_KEY: ${LLM_API_KEY}
       LLM_BASE_URL: ${LLM_BASE_URL}
 
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret_key_change_me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+
       DATABASE_URL: postgresql+psycopg2://rag_user:rag_password@postgres:5432/industrial_rag
 
       RERANKER_MODEL: BAAI/bge-reranker-base
