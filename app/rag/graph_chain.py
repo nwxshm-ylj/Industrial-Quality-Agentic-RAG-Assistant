@@ -12,6 +12,7 @@ class IndustrialGraphRAGChain:
         top_k: int = 5,
         session_id: str = "default",
         request_id: str | None = None,
+        user: dict | None = None,
     ) -> dict:
         request_id = request_id or str(uuid4())
         session_id = session_id or "default"
@@ -19,6 +20,7 @@ class IndustrialGraphRAGChain:
             "question": question,
             "request_id": request_id,
             "session_id": session_id,
+            "user": user,
             "memory_messages": [],
             "intent": "doc_qa",
             "rewritten_query": "",
