@@ -64,6 +64,63 @@ def log_node_event(
     )
 
 
+def log_security_event(
+    *,
+    request_id: str | None,
+    username: str | None,
+    role: str | None,
+    action: str,
+    status: str,
+    error_message: str | None = None,
+) -> None:
+    level = (
+        logging.WARNING
+        if status in {"failed", "denied", "invalid"}
+        else logging.INFO
+    )
+    logger.log(
+        level,
+        action,
+        extra={
+            "event_data": {
+                "request_id": request_id,
+                "username": username,
+                "role": role,
+                "action": action,
+                "status": status,
+                "error_message": error_message,
+            }
+        },
+    )
+
+
+def log_business_event(
+    action: str,
+    *,
+    request_id: str | None = None,
+    session_id: str | None = None,
+    username: str | None = None,
+    role: str | None = None,
+    status: str = "success",
+    latency_ms: float | None = None,
+    error_message: str | None = None,
+    **fields: Any,
+) -> None:
+    event_data: dict[str, Any] = {
+        "request_id": request_id,
+        "session_id": session_id,
+        "username": username,
+        "role": role,
+        "action": action,
+        "status": status,
+        "latency_ms": round(latency_ms, 2) if latency_ms is not None else None,
+        "error_message": error_message,
+    }
+    event_data.update(fields)
+    level = logging.ERROR if status == "failed" else logging.INFO
+    logger.log(level, action, extra={"event_data": event_data})
+
+
 NodeFunction = TypeVar("NodeFunction", bound=Callable[..., dict])
 
 

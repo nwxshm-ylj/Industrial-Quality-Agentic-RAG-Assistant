@@ -3,7 +3,14 @@ from app.graph.state import IndustrialRAGState
 from app.rag.retriever import IndustrialRetriever
 
 
-retriever = IndustrialRetriever()
+retriever: IndustrialRetriever | None = None
+
+
+def get_retriever() -> IndustrialRetriever:
+    global retriever
+    if retriever is None:
+        retriever = IndustrialRetriever()
+    return retriever
 
 
 @observe_node("retrieve")
@@ -12,7 +19,7 @@ def retrieve_node(state: IndustrialRAGState) -> dict:
     rewritten_query = state.get("rewritten_query") or question
     top_k = state.get("top_k", 5)
 
-    contexts = retriever.retrieve(
+    contexts = get_retriever().retrieve(
         question=rewritten_query,
         top_k=top_k
     )

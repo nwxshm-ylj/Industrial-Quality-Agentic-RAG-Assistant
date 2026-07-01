@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     reranker_model: str = "BAAI/bge-reranker-base"
     use_reranker: bool = True
 
+    jwt_secret_key: str = "dev_secret_key_change_me"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 1440
+
     class Config:
         env_file = ".env"
 
