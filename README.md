@@ -1,148 +1,141 @@
 # Industrial Quality Agentic RAG Assistant
 
-面向制造现场质量知识、设备异常诊断、结构化数据分析和企业文档管理的 Agentic RAG 系统。系统以 FastAPI 提供接口，使用 LangGraph 编排意图路由、规则查询、历史案例检索、受限 SQL 分析和混合文档检索，并提供 PostgreSQL 会话记忆、JSON 结构化日志及 Streamlit 管理界面。
+> Enterprise-ready industrial quality Agentic RAG reference implementation — FastAPI + LangGraph + Qdrant + PostgreSQL + Streamlit.
 
-> 当前仓库内置的是可运行的演示数据与规则，不应直接作为生产质量决策系统使用。模型输出仍需结合现场标准和人工复核。
+面向制造现场质量知识问答、设备异常诊断、规则查询、历史案例检索和结构化数据分析的企业级 RAG 项目。v1.0 将多路 Agent 工作流、混合检索、会话记忆、知识库管理、JWT/RBAC、审计、可观测性、用户反馈和离线评估整合为一套可运行、可演示、可扩展的完整链路。
 
-## 核心能力
+> 本项目使用演示数据和规则，适合技术验证、作品展示与架构学习。模型输出不能替代现场标准、质量工程师判断或生产审批。
 
-- Agentic 路由：支持 `doc_qa`、`fault_diagnosis`、`case_search`、`rule_query`、`sql_analysis` 和 `general`。
-- 工业文档问答：支持 Markdown、TXT、PDF、DOCX，覆盖 FMEA、SOP、OCR 规则等知识。
-- 混合检索：融合 Qdrant 向量检索与本地 BM25，可选 CrossEncoder 重排。
-- 规则、案例与 SQL 工具：支持 YAML 规则匹配、PostgreSQL 历史案例查询和受限只读分析。
-- 证据评估与重试：证据不足时扩展查询并最多重试一次。
-- 多轮会话记忆：按 `session_id` 保存最近对话，支持指代补全和连续追问。
-- JWT 与 RBAC：提供 admin、engineer、viewer 角色控制及 PostgreSQL 操作审计。
-- 企业知识库管理：支持上传、元数据、版本、增量入库、删除、文档列表和索引重建。
-- 可观测性：每次 graph-chat 返回 `request_id` 和 `metadata`，主要节点输出包含耗时与状态的 JSON 日志。
-- Streamlit：提供聊天、引用、工具结果、评估报告和 Knowledge Base Management 界面。
-- 离线评估与集成验证：提供 graph、memory、observability 和 document management 测试脚本。
+## 业务场景
 
-## 工作流程
+- 质量工程师查询 FMEA、SOP、检验标准和设备手册。
+- 现场人员诊断轮毂识别、OCR、扭矩报警等制造异常。
+- 管理人员按自然语言查询检测记录、报警数量和质量趋势。
+- 工程师检索历史质量案例、根因和纠正措施。
+- 管理员维护企业文档、版本和向量索引。
+- 团队通过反馈、评估指标、审计与结构化日志持续改进 RAG 质量。
 
-~~~text
-用户 / Streamlit
-       |
-    FastAPI 生成 request_id
-       |
-    load_memory(session_id)
-       |
-    Intent Router
-       |
-       +-- general ------------------------------> generate
-       +-- rule_query --> Rule Tool
-       |                    +-- 命中 ------------> generate
-       |                    +-- 未命中 --> 文档 RAG
-       +-- sql_analysis --> SQL Tool ------------> generate
-       +-- case_search --> Case Retriever -------> generate
-       +-- doc_qa / fault_diagnosis
-                              |
-                         Query Rewriter
-                              |
-                 Qdrant 向量检索 + BM25
-                              |
-                  加权融合 + 可选 Reranker
-                              |
-                     Evidence Judge / Retry
-                              |
-                           generate
-                              |
-                    save_memory -> response
+## 系统架构
+
+~~~mermaid
+flowchart LR
+    User[Admin / Engineer / Viewer] --> UI[Streamlit]
+    User --> API[FastAPI API]
+    UI --> API
+
+    API --> Auth[JWT Authentication + RBAC]
+    API --> Graph[LangGraph Agentic RAG]
+    API --> KB[Knowledge Base Management]
+    API --> Feedback[Feedback Service]
+    API --> Eval[Evaluation Service]
+
+    Graph --> Memory[Conversation Memory]
+    Graph --> Router[Intent Router]
+    Router --> Rule[Rule Tool]
+    Router --> SQL[Restricted SQL Tool]
+    Router --> Case[Case Retriever]
+    Router --> Rewrite[Query Rewriter]
+    Rewrite --> Hybrid[Hybrid Retriever]
+    Hybrid --> Vector[Qdrant Vector Search]
+    Hybrid --> BM25[BM25 chunks.json]
+    Hybrid --> Judge[Evidence Judge + Retry]
+    Judge --> Generator[Answer Generator]
+
+    Auth --> PG[(PostgreSQL)]
+    Memory --> PG
+    SQL --> PG
+    Case --> PG
+    KB --> PG
+    KB --> Vector
+    KB --> BM25
+    Feedback --> PG
+    Eval --> PG
+    Eval --> Graph
+
+    API --> Logs[JSON Structured Logs]
+    API --> Audit[Operation Audit]
+    Audit --> PG
 ~~~
 
-响应保留原有 `intent`、`evidence_score` 等顶层字段，并额外返回 `request_id` 和 `metadata.total_latency_ms`。默认混合检索权重为向量 0.65、BM25 0.35，融合分数过滤阈值为 0.15，证据充分阈值为 0.55。
+详细设计见 [Architecture](docs/architecture.md)。
 
-企业文档入库链路：
+## 核心功能矩阵
 
-~~~text
-Upload -> 安全文件名 / SHA-256 去重 -> 多格式解析 -> Chunk
-       -> PostgreSQL documents/document_chunks
-       -> Qdrant 稳定 point ID
-       -> chunks.json 同步（BM25）
-~~~
+| 能力 | 实现 | 企业价值 |
+|---|---|---|
+| Agentic 路由 | doc_qa、fault_diagnosis、case_search、rule_query、sql_analysis、general | 按问题类型选择最合适的工具和数据源 |
+| Hybrid Search | Qdrant 向量检索 + BM25 + 可选 Reranker | 同时覆盖语义召回和工业关键词精确匹配 |
+| Evidence Judge | 证据评分、不足时改写并重试 | 降低弱证据直接生成答案的风险 |
+| 多轮记忆 | PostgreSQL 按 session_id 保存最近消息 | 支持“那优先排查哪个”等连续追问 |
+| Rule Tool | YAML 工业规则匹配 | 处理 PR、配置映射和判定规则 |
+| SQL Tool | 白名单、只读 SQL 分析 | 查询质量记录、报警和趋势 |
+| Case Retriever | PostgreSQL 历史案例检索 | 复用历史根因和纠正措施 |
+| 知识库管理 | md/txt/pdf/docx 上传、版本、删除、重建 | 从脚本入库升级为可管理知识资产 |
+| 安全体系 | JWT、PBKDF2 密码哈希、RBAC | 管理用户和高风险操作权限 |
+| 审计与可观测性 | request_id、节点 latency、JSON 日志、审计表 | 支持问题定位和操作追溯 |
+| 用户反馈 | positive/negative/neutral + comment | 建立真实用户质量信号 |
+| RAG 评估 | 意图、来源、关键词、记忆、延迟指标 | 量化版本质量并支持回归比较 |
+| 管理界面 | Streamlit 聊天、文档、反馈和评估看板 | 提供完整演示和运营入口 |
 
 ## 技术栈
 
-- Python 3.11、FastAPI、Uvicorn、Streamlit
-- LangChain、LangGraph、OpenAI 兼容聊天模型接口
-- Sentence Transformers：BAAI/bge-small-zh-v1.5
-- Qdrant、BM25、可选 BAAI/bge-reranker-base
-- PostgreSQL、SQLAlchemy
-- Docker Compose
+| 层次 | 技术 |
+|---|---|
+| API | Python 3.11、FastAPI、Pydantic、Uvicorn |
+| Agent 编排 | LangGraph、LangChain |
+| LLM | OpenAI-compatible API，默认 qwen-plus 配置 |
+| 检索 | Sentence Transformers、Qdrant、BM25、CrossEncoder |
+| 数据 | PostgreSQL、SQLAlchemy、chunks.json |
+| 前端 | Streamlit、Pandas、Requests |
+| 安全 | JWT、PBKDF2-SHA256、FastAPI Depends、RBAC |
+| 部署 | Docker、Docker Compose |
+| 可观测性 | JSON structured logging、request_id、latency、audit log |
 
-## 项目结构
+## 快速启动
 
-~~~text
-.
-├── app/
-│   ├── api/                 # Chat 与文档管理 FastAPI 路由
-│   ├── core/                # 环境配置、JSON structured logger
-│   ├── db/                  # SQLAlchemy 连接
-│   ├── graph/               # LangGraph 状态、工作流和节点
-│   ├── memory/              # session_id 会话记忆
-│   ├── rag/                 # Loader、切分、Qdrant、BM25、重排和生成
-│   ├── schemas/             # Chat 与 Document 请求/响应模型
-│   ├── services/            # DocumentService
-│   └── tools/               # Rule、Case、SQL 工具
-├── data/
-│   ├── raw_docs/            # 旧版 Markdown 批量入库源文件
-│   ├── uploads/             # 企业文档上传文件（运行时创建）
-│   ├── processed/           # BM25 chunks.json
-│   ├── rules/               # YAML 工业规则
-│   └── eval/                # 评估集与评估报告
-├── scripts/                 # 初始化、入库、评估和集成验证脚本
-├── ui/                      # Streamlit 前端
-├── docker-compose.yml
-├── Dockerfile
-└── requirements.txt
+### 前置条件
+
+- Docker Desktop 或 Docker Engine + Compose v2
+- 可访问的 OpenAI-compatible LLM
+- 首次启动时可下载 BAAI/bge-small-zh-v1.5
+- 建议至少 8 GB 内存
+
+### 1. 配置环境变量
+
+~~~bash
+cp .env.example .env
 ~~~
 
-## 快速启动：Docker Compose
-
-### 1. 配置模型服务
-
-复制环境变量模板：
+Windows PowerShell：
 
 ~~~powershell
 Copy-Item .env.example .env
 ~~~
 
-至少设置有效的 LLM_API_KEY。默认配置使用阿里云百炼的 OpenAI 兼容接口和 qwen-plus；也可以替换为其他 OpenAI 兼容服务：
+至少修改：
 
 ~~~dotenv
 LLM_MODEL=qwen-plus
-LLM_API_KEY=your_api_key_here
+LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+JWT_SECRET_KEY=replace_with_a_long_random_secret
 ~~~
 
-### 2. 启动基础设施
+### 2. Docker Compose 启动
 
 ~~~bash
 docker compose up -d qdrant postgres
-~~~
-
-### 3. 初始化演示数据库和知识库
-
-~~~bash
 docker compose --profile tools run --rm init-sql
 docker compose --profile tools run --rm ingest
-~~~
-
-> init-sql 会删除并重建三张演示业务表（inspection_record、equipment_alarm、quality_cases），并幂等创建会话与文档管理表；ingest 会删除并重建配置的 Qdrant collection。不要对生产数据库或已有向量索引直接执行这两个命令。
-
-首次入库会下载 Hugging Face 嵌入模型，耗时取决于网络和机器性能。
-
-### 4. 启动 API 和界面
-
-~~~bash
 docker compose up -d --build api streamlit
 ~~~
 
-启动后访问：
+访问：
 
 - Streamlit：http://localhost:30000
-- FastAPI 文档：http://localhost:8000/docs
-- 健康检查：http://localhost:8000/health
+- FastAPI Swagger：http://localhost:8000/docs
+- Health Check：http://localhost:8000/health
+- Qdrant Dashboard：http://localhost:6333/dashboard
 
 查看日志：
 
@@ -150,386 +143,229 @@ docker compose up -d --build api streamlit
 docker compose logs -f api streamlit
 ~~~
 
-停止服务：
+完整部署、初始化和故障排查见 [Deployment](docs/deployment.md)。
 
-~~~bash
-docker compose down
-~~~
+## 默认账号
 
-如需同时删除 Qdrant、PostgreSQL 和模型缓存卷，可执行 docker compose down -v。该操作会永久删除容器卷数据。
+数据库初始化会幂等创建演示管理员：
 
-## 本地开发
+| 字段 | 值 |
+|---|---|
+| Username | admin |
+| Password | admin123 |
+| Role | admin |
 
-要求：Python 3.11、可用的 Docker、可访问的 LLM 接口。以下方式仅在 Docker 中运行 Qdrant 和 PostgreSQL，应用在宿主机运行。
+生产环境必须立即修改默认密码和 JWT_SECRET_KEY，并通过密钥管理系统注入敏感配置。
 
-~~~powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-
-Copy-Item .env.example .env
-# 编辑 .env，填写 LLM_API_KEY 等配置
-
-docker compose up -d qdrant postgres
-python -m scripts.init_sql_data
-python -m scripts.ingest_docs
-~~~
-
-启动 API：
-
-~~~powershell
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-~~~
-
-在另一个终端启动前端：
-
-~~~powershell
-.\.venv\Scripts\Activate.ps1
-streamlit run ui/streamlit_app.py
-~~~
-
-本地前端默认请求 http://127.0.0.1:8000/api/v1/graph-chat，也可以通过 RAG_API_URL 覆盖。
-
-## 配置项
-
-| 变量 | 默认值 | 说明 |
-|---|---|---|
-| QDRANT_URL | http://localhost:6333 | Qdrant 地址 |
-| QDRANT_COLLECTION | industrial_docs | 文档向量 collection |
-| EMBEDDING_MODEL | BAAI/bge-small-zh-v1.5 | 嵌入模型 |
-| LLM_MODEL | qwen-plus | 聊天模型名称 |
-| LLM_API_KEY | 无，必填 | OpenAI 兼容接口密钥 |
-| LLM_BASE_URL | DashScope 兼容接口 | OpenAI 兼容接口地址 |
-| DATABASE_URL | 本地 PostgreSQL 连接串 | SQLAlchemy 数据库地址 |
-| RERANKER_MODEL | BAAI/bge-reranker-base | CrossEncoder 重排模型 |
-| USE_RERANKER | 代码默认 true | 是否启用重排；.env.example 和 Compose 默认关闭 |
-| RAG_API_URL | 本地 graph-chat 接口 | Streamlit 请求的 API 地址 |
-| LOG_LEVEL | INFO | JSON 结构化日志级别 |
-| JWT_SECRET_KEY | dev_secret_key_change_me | JWT 签名密钥；生产环境必须修改 |
-| JWT_ALGORITHM | HS256 | JWT 签名算法 |
-| JWT_ACCESS_TOKEN_EXPIRE_MINUTES | 1440 | Access Token 有效期（分钟） |
-
-建议首次运行保持 USE_RERANKER=false，确认完整链路可用后再启用重排模型。
-
-## Authentication and RBAC
-
-系统使用 JWT Bearer Token 强制保护 `/api/v1/graph-chat` 和全部文档管理接口。密码使用带随机 salt 的 PBKDF2-SHA256 哈希保存，JWT 密钥和有效期从环境变量读取。
-
-### 默认管理员
-
-初始化数据库会在用户不存在时创建：
-
-- username: `admin`
-- password: `admin123`
-- role: `admin`
-
-> 默认账号仅用于首次启动。生产环境必须立即修改默认密码，并将 `JWT_SECRET_KEY` 设置为随机高强度密钥；禁止继续使用代码中的开发默认值。
+## API 示例
 
 登录：
 
 ~~~bash
-curl -X POST http://localhost:8000/api/v1/auth/login -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin123\"}"
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
 ~~~
 
-成功后将 `access_token` 放入请求头：
+将返回的 access_token 保存为 TOKEN，然后调用 graph-chat：
 
-~~~text
-Authorization: Bearer <access_token>
+~~~bash
+curl -X POST http://localhost:8000/api/v1/graph-chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "轮毂识别异常可能是什么原因？",
+    "top_k": 3,
+    "session_id": "demo-session-001"
+  }'
 ~~~
 
-管理员还可以使用：
+关键响应字段包括 answer、citations、request_id、session_id、memory_messages、intent、evidence_score、retry_count 和 metadata.total_latency_ms。
 
-- `POST /api/v1/auth/users`：创建 admin、engineer 或 viewer；
-- `GET /api/v1/auth/users`：查看用户列表。
+更多登录、上传、反馈和评估请求见 [API Examples](docs/api_examples.md)。
 
-### 权限矩阵
+## Streamlit 使用说明
 
-| 操作 | admin | engineer | viewer |
-|---|---:|---:|---:|
-| graph-chat 普通问答 | ✓ | ✓ | ✓ |
+1. 打开 http://localhost:30000。
+2. 使用 admin/admin123 登录。
+3. 在聊天页选择示例问题或输入现场问题。
+4. 查看回答、引用、工具结果、上下文和原始 JSON。
+5. 对回答提交有用、无用或一般反馈。
+6. 在 Knowledge Base Management 中管理文档。
+7. admin/engineer 可进入 RAG Evaluation 查看反馈和评估指标。
+8. 点击退出登录清除前端 Token 与用户状态。
+
+界面按角色隐藏未授权操作；后端仍通过 RBAC 强制校验，前端隐藏不能替代服务端授权。
+
+## 知识库管理
+
+支持 md、txt、pdf、docx：
+
+- 文件安全保存至 data/uploads。
+- SHA-256 content_hash 防止活跃文档重复上传。
+- documents 保存元数据、版本、状态与 chunk 数量。
+- document_chunks 保存可追溯分块。
+- Qdrant 使用稳定 point ID，并按 doc_id 精确删除。
+- 企业 chunks 同步至 data/processed/chunks.json 供 BM25 使用。
+- 支持列表、详情、软删除和原文件重建索引。
+
+Documents are stored with metadata in PostgreSQL, indexed into Qdrant for vector search, and synchronized to chunks.json for BM25 retrieval.
+
+注意：企业文档操作会刷新 chunks.json；当前运行中的 BM25 内存索引需重启 API 后重新加载。Qdrant 检索会立即读取新向量。
+
+## RBAC 权限矩阵
+
+| 功能 | admin | engineer | viewer |
+|---|:---:|:---:|:---:|
+| 普通 graph-chat | ✓ | ✓ | ✓ |
 | SQL analysis / SQL Tool | ✓ | ✓ | ✗ |
-| 查看文档列表与详情 | ✓ | ✓ | ✓ |
+| 查看文档 | ✓ | ✓ | ✓ |
 | 上传文档 | ✓ | ✓ | ✗ |
 | 删除文档 | ✓ | ✗ | ✗ |
 | 重建文档索引 | ✓ | ✗ | ✗ |
-| 创建和查看用户 | ✓ | ✗ | ✗ |
+| 创建与查看用户 | ✓ | ✗ | ✗ |
+| 提交答案反馈 | ✓ | ✓ | ✓ |
+| 查看反馈列表与统计 | ✓ | ✓ | ✗ |
+| 运行和查看 RAG 评估 | ✓ | ✓ | ✗ |
 
-viewer 的 `sql_analysis` 会在 SQL Tool 执行前返回 403，不会访问数据库。
+无 Token 返回 401，角色不足返回 403。权限拒绝会记录结构化日志和 operation_audit_logs。
 
-### 操作审计
+## 可观测性
 
-`operation_audit_logs` 记录登录成功/失败、graph-chat、SQL Tool、文档上传/删除/重建以及权限拒绝。审计字段包括 request_id、session_id、username、role、action、resource 和 status。审计写入失败只输出结构化错误日志，不中断主请求。
+每次 graph-chat：
 
-Streamlit 登录后保存 access token 和用户角色；viewer 只显示文档列表，engineer 可上传，admin 可执行全部管理操作。
-
-## API
-
-### 健康检查
-
-~~~http
-GET /health
-~~~
-
-### 基础 RAG
-
-~~~http
-POST /api/v1/chat
-Content-Type: application/json
-
-{
-  "question": "轮毂识别异常可能是什么原因？",
-  "top_k": 3
-}
-~~~
-
-该接口保留原有单轮混合检索行为。
-
-### Agentic RAG、多轮记忆与可观测性
-
-~~~http
-POST /api/v1/graph-chat
-Content-Type: application/json
-
-{
-  "question": "轮毂识别异常可能是什么原因？",
-  "top_k": 3,
-  "session_id": "quality-session-001"
-}
-~~~
-
-继续使用相同 `session_id` 发送“那优先排查哪个？”，系统会加载最近 6 条历史消息辅助意图识别、查询改写和答案生成。省略 `session_id` 时使用 `default`。
-
-成功响应中的关键字段：
-
-~~~json
-{
-  "request_id": "8a456cf7-...",
-  "session_id": "quality-session-001",
-  "answer": "...",
-  "citations": [],
-  "memory_messages": [],
-  "intent": "fault_diagnosis",
-  "evidence_score": 0.78,
-  "evidence_enough": true,
-  "retry_count": 0,
-  "metadata": {
-    "intent": "fault_diagnosis",
-    "evidence_score": 0.78,
-    "evidence_enough": true,
-    "retry_count": 0,
-    "total_latency_ms": 1320.45
-  }
-}
-~~~
-
-每个主要 LangGraph 节点均输出 JSON 日志，字段包括 `request_id`、`session_id`、`node_name`、`intent`、`latency_ms` 和 `status`。查看容器日志：
+- API 生成 request_id，并通过响应体和 X-Request-ID 返回。
+- LangGraph state 贯穿 request_id 与 session_id。
+- 主要节点记录 node_name、intent、latency_ms 和 status。
+- 响应 metadata 包含 intent、evidence_score、evidence_enough、retry_count、total_latency_ms。
+- graph-chat、登录、SQL、文档、反馈、评估和权限拒绝写入审计日志。
+- 审计失败只记录错误，不阻断主流程。
 
 ~~~bash
 docker compose logs -f api
 ~~~
 
-## Knowledge Base Management
+生产环境可将 JSON 日志采集到 ELK、Loki、OpenSearch 或云日志平台。
 
-支持 `.md`、`.txt`、`.pdf`、`.docx` 上传，以及元数据、版本、增量索引、列表、软删除和重建索引。Streamlit 的 **Knowledge Base Management** Tab 提供对应管理操作。
+## 用户反馈与 RAG 评估
 
-Documents are stored with metadata in PostgreSQL, indexed into Qdrant for vector search, and synchronized to chunks.json for BM25 retrieval.
+反馈保存 request_id、session_id、用户、问题、回答、rating、comment、intent、citations 和 metadata。admin/engineer 可按评分过滤、查看正负向比例和意图分布。
 
-### 数据流与状态
+评估读取 data/eval/eval_questions.json，指标包括：
 
-- 上传文件保存在 `data/uploads/`，文件名经过安全处理。
-- SHA-256 `content_hash` 用于避免重复上传。
-- PostgreSQL `documents` 保存文档元数据，`document_chunks` 保存分块。
-- Qdrant point ID 由 `doc_id + chunk_id` 稳定生成；删除仅过滤指定 `payload.doc_id`。
-- 企业 chunks 与没有 `doc_id` 的 legacy raw_docs chunks 合并写入 `data/processed/chunks.json`。
-- 文档状态为 `uploaded`、`indexed`、`failed` 或 `deleted`。
-
-### 文档管理端点
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| POST | /api/v1/documents/upload | FormData 上传并建立索引 |
-| GET | /api/v1/documents | 默认列出未删除文档；可用 `?status=deleted` 过滤 |
-| GET | /api/v1/documents/{doc_id} | 查询文档详情 |
-| POST | /api/v1/documents/{doc_id}/reindex | 从保存的原文件重建索引 |
-| DELETE | /api/v1/documents/{doc_id} | 删除 Qdrant points/chunks 并软删除 metadata |
-
-上传示例：
-
-~~~bash
-curl -X POST http://localhost:8000/api/v1/documents/upload -F "file=@./example.txt" -F "doc_type=SOP" -F "version=v1"
-~~~
-
-其他操作：
-
-~~~bash
-curl http://localhost:8000/api/v1/documents
-curl http://localhost:8000/api/v1/documents/{doc_id}
-curl -X POST http://localhost:8000/api/v1/documents/{doc_id}/reindex
-curl -X DELETE http://localhost:8000/api/v1/documents/{doc_id}
-~~~
-
-> 上传、删除和重建会立即更新 Qdrant 与 chunks.json。当前 API 进程中的 BM25 实例在启动时加载 chunks.json；如需让 BM25 内存索引读取最新企业文档，请重启 API。Qdrant 向量检索不受此限制。
-
-## 数据与知识库维护
-
-### 旧版 raw_docs 批量入库
-
-`scripts.ingest_docs` 保留用于首次构建演示知识库：
-
-1. 将 UTF-8 Markdown 文件放入 `data/raw_docs/`。
-2. 文件名包含 fmea、sop 或 rule 时，分别标记为 FMEA、SOP、RULE；其他文件为 GENERAL。
-3. 执行：
-
-~~~bash
-python -m scripts.ingest_docs
-~~~
-
-脚本使用 500 字符 chunk、80 字符重叠，写入 `data/processed/chunks.json`，并重建整个 Qdrant collection。它适合初始化演示数据；企业增量文档请使用文档管理 API。重新运行该脚本会重建 collection，已有企业文档需要通过 reindex 接口重新写入 Qdrant。
-
-### 企业文档管理
-
-上传、列表、删除和重建请使用 `/api/v1/documents` 或 Streamlit 管理 Tab。文档操作会记录 `upload_start`、`file_saved`、`document_parsed`、`chunks_created`、`postgres_written`、`qdrant_written`、`document_indexed`、`document_deleted`、`document_reindexed` 和 `error` 等结构化事件。
-
-### 修改规则
-
-编辑 `data/rules/industrial_rules.yaml`。规则工具通过 PR 编码和关键词匹配，修改后需要重启 API。
-
-### 初始化 PostgreSQL
-
-~~~bash
-python -m scripts.init_sql_data
-~~~
-
-脚本会重建并填充三张演示业务表：
-
-- `inspection_record`：AI 视觉检测记录；
-- `equipment_alarm`：设备报警记录；
-- `quality_cases`：历史质量案例。
-
-并幂等创建或保留：
-
-- `conversation_messages`：session_id 多轮消息；
-- `documents`：企业文档元数据与状态；
-- `document_chunks`：企业文档 chunks。
-- `users`：用户、密码哈希、角色和启用状态；
-- `operation_audit_logs`：登录、权限与业务操作审计。
-
-> 该命令会删除并重建三张演示业务表，执行前务必确认 `DATABASE_URL` 指向正确环境。
-
-## 验证与评估
-
-仓库中的测试文件是可直接执行的集成验证脚本，不是 pytest 测试套件。运行前应启动 PostgreSQL、Qdrant，完成数据库初始化，并配置可用的 LLM/Embedding 服务。
-
-核心回归：
-
-~~~bash
-python -m scripts.test_auth_rbac
-python -m scripts.test_graph
-python -m scripts.test_memory
-python -m scripts.test_observability
-python -m scripts.test_document_management
-~~~
-
-工具与检索验证：
-
-~~~bash
-python -m scripts.test_llm
-python -m scripts.test_rule_tool
-python -m scripts.test_sql_tool
-python -m scripts.test_case_tool
-python -m scripts.test_hybrid_retriever
-~~~
-
-Docker 容器内验证：
-
-~~~bash
-docker compose exec api python -m scripts.test_auth_rbac
-docker compose exec api python -m scripts.test_memory
-docker compose exec api python -m scripts.test_observability
-docker compose exec api python -m scripts.test_document_management
-~~~
-
-运行完整离线评估：
-
-~~~bash
-python -m scripts.evaluate_system
-~~~
-
-问题来自 `data/eval/eval_questions.json`，结果写入 `data/eval/eval_report.json`，并可在 Streamlit 的“评估报告”页查看。历史报告只代表特定模型、数据和环境，应以本地重新评估结果为准。
-
-
-## Feedback and RAG Evaluation
-
-系统提供带 JWT 鉴权和 RBAC 控制的用户反馈闭环：
-
-- admin、engineer、viewer 均可对回答提交 positive / negative / neutral 反馈。
-- 反馈记录 request_id、session_id、question、answer、rating、comment、intent、citations 和 metadata，便于定位单次回答。
-- admin、engineer 可查看反馈列表、按 rating 过滤并查看反馈统计；viewer 无权访问全量反馈数据。
-- admin、engineer 可同步运行 RAG 评估、查看历史运行和每题明细。
-- 评估指标包括 intent_accuracy、source_hit_rate、answer_keyword_hit_rate、memory_followup_success_rate 和 avg_latency_ms。
-- Streamlit 的每次回答下方提供反馈表单，并为 admin、engineer 提供 “RAG Evaluation” 看板。
-
-This closes the quality improvement loop for enterprise RAG systems: user questions, model answers, user feedback, evaluation metrics, and iterative optimization.
-
-### Feedback API
-
-提交反馈：
-
-~~~bash
-curl -X POST http://localhost:8000/api/v1/feedback   -H "Authorization: Bearer <access_token>"   -H "Content-Type: application/json"   -d '{
-    "request_id": "<graph-chat request_id>",
-    "session_id": "<session_id>",
-    "question": "轮毂识别异常可能是什么原因？",
-    "answer": "优先检查相机曝光、标定和配置同步。",
-    "rating": "positive",
-    "comment": "引用准确",
-    "intent": "fault_diagnosis",
-    "citations": [],
-    "metadata": {}
-  }'
-~~~
-
-admin、engineer 可查询：
-
-~~~http
-GET /api/v1/feedback?rating=negative&limit=100
-GET /api/v1/feedback/stats
-Authorization: Bearer <access_token>
-~~~
-
-### Evaluation API
-
-~~~http
-POST /api/v1/evaluation/run
-GET /api/v1/evaluation/runs
-GET /api/v1/evaluation/runs/{run_id}
-Authorization: Bearer <access_token>
-~~~
-
-评估问题读取自 data/eval/eval_questions.json。命令行入口保持兼容：
+- intent_accuracy
+- source_hit_rate
+- answer_keyword_hit_rate
+- memory_followup_success_rate
+- avg_latency_ms
 
 ~~~bash
 python -m scripts.evaluate_system
 python -m scripts.test_feedback_evaluation
 ~~~
 
-每次 API 评估会把汇总写入 rag_eval_runs、逐题明细写入 rag_eval_items，并生成 data/eval/eval_report_<run_id>.json。原命令行脚本仍生成 data/eval/eval_report.json。
+API 评估报告写入 PostgreSQL 的 rag_eval_runs、rag_eval_items，并输出 data/eval/eval_report_<run_id>.json。
 
+## 测试命令
 
-## 实现说明与限制
+先启动 PostgreSQL、Qdrant并初始化数据库与知识库：
 
-- 多个模型和检索组件在模块导入阶段初始化，首次启动可能需要较长时间和较多内存。
-- BM25 使用简单的英文/数字 token 与中文单字、bigram，不包含专业分词或词典。
-- chunks.json 会在企业文档操作后更新，但当前进程中的 BM25 内存索引需要重启 API 才会重新加载。
-- `scripts.ingest_docs` 会重建 Qdrant collection；它不是企业增量更新命令。
-- 意图识别优先调用 LLM，失败时使用关键词规则兜底；案例条件提取和规则匹配仍以关键词为主。
-- SQL 工具仅允许 SELECT、白名单表和最大 LIMIT 100；生产环境仍应使用只读账号、独立 schema、查询超时和审计。
-- 会话记忆按 `session_id` 存储最近消息，但尚未实现租户级隔离、过期清理和容量治理。
-- API 已实现 JWT 与角色级 RBAC，但尚未提供 Refresh Token、主动 Token 吊销、MFA、限流和流式输出。
-- 文档权限目前是接口级角色控制，没有租户、部门或单文档级 ACL。
-- 依赖和容器镜像未锁定精确版本，生产部署前应增加 lockfile、固定镜像版本和自动化测试。
-- contexts、SQL 行、历史案例和会话消息可能包含敏感业务数据，生产环境应进行脱敏和权限控制。
+~~~bash
+python -m scripts.init_sql_data
+python -m scripts.ingest_docs
+
+python -m scripts.test_auth_rbac
+python -m scripts.test_document_management
+python -m scripts.test_memory
+python -m scripts.test_observability
+python -m scripts.test_feedback_evaluation
+python -m scripts.test_graph
+~~~
+
+工具与检索专项验证：
+
+~~~bash
+python -m scripts.test_rule_tool
+python -m scripts.test_sql_tool
+python -m scripts.test_case_tool
+python -m scripts.test_hybrid_retriever
+python -m scripts.test_llm
+~~~
+
+发布前静态检查：
+
+~~~bash
+python -m compileall app scripts
+git diff --check
+~~~
+
+Docker 内验证：
+
+~~~bash
+docker compose exec api python -m scripts.test_auth_rbac
+docker compose exec api python -m scripts.test_document_management
+docker compose exec api python -m scripts.test_memory
+docker compose exec api python -m scripts.test_observability
+docker compose exec api python -m scripts.test_feedback_evaluation
+~~~
+
+## 项目亮点
+
+- 不是单一路径的“向量检索 + LLM”，而是可解释的多路 Agentic 工作流。
+- 将 Rule、SQL、Case 和 Document RAG 放入统一 LangGraph state。
+- 同时覆盖语义召回、关键词召回、证据判断和重试。
+- 从离线脚本扩展到带版本、状态和删除能力的知识库管理。
+- JWT/RBAC 在前后端一致执行，SQL 和索引操作有独立授权边界。
+- request_id、节点耗时、审计、用户反馈和离线评估形成质量闭环。
+- 保留 raw_docs 脚本流程，兼顾演示初始化和企业增量入库。
+- 提供完整 Docker Compose、演示脚本和面试讲解材料。
+
+## 项目结构
+
+~~~text
+.
+├── app/
+│   ├── api/          # Auth、Chat、Documents、Feedback、Evaluation
+│   ├── core/         # Config、Security、Dependencies、Logger
+│   ├── graph/        # LangGraph state、workflow、nodes
+│   ├── memory/       # PostgreSQL conversation memory
+│   ├── rag/          # Loader、Splitter、Hybrid Retrieval、Generation
+│   ├── schemas/      # Pydantic API schemas
+│   ├── services/     # Auth、Audit、Document、Feedback、Evaluation
+│   └── tools/        # Rule、SQL、Case tools
+├── data/
+│   ├── raw_docs/
+│   ├── uploads/
+│   ├── processed/
+│   ├── rules/
+│   └── eval/
+├── docs/
+├── scripts/
+├── ui/
+├── docker-compose.yml
+└── Dockerfile
+~~~
+
+## 文档导航
+
+- [系统架构](docs/architecture.md)
+- [部署指南](docs/deployment.md)
+- [API 示例](docs/api_examples.md)
+- [完整 Demo 脚本](docs/demo_script.md)
+- [面试讲解笔记](docs/interview_notes.md)
+
+## Roadmap
+
+- [ ] PostgreSQL/Qdrant schema migration 工具与版本化发布。
+- [ ] 异步文档入库和评估任务队列。
+- [ ] 多租户、部门级数据隔离和细粒度文档 ACL。
+- [ ] OpenTelemetry tracing、Prometheus metrics 和集中日志方案。
+- [ ] BM25 热更新或替换为统一混合检索服务。
+- [ ] RAGAS/LLM-as-a-Judge、基准集版本和趋势对比。
+- [ ] Prompt、模型和索引版本治理及 A/B 测试。
+- [ ] 对象存储、病毒扫描、文件配额和生命周期管理。
+- [ ] CI/CD、依赖锁定、镜像签名和安全扫描。
+- [ ] 流式响应、任务进度和更完整的运营后台。
 
 ## License
 
