@@ -3,6 +3,7 @@ import random
 
 from sqlalchemy import text
 
+from app.core.security import hash_password
 from app.db.session import engine
 
 
@@ -92,10 +93,61 @@ def create_tables():
         ON document_chunks (doc_id);
     CREATE INDEX IF NOT EXISTS idx_document_chunks_chunk_id
         ON document_chunks (chunk_id);
+
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'viewer',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT users_role_check
+            CHECK (role IN ('admin', 'engineer', 'viewer'))
+    );
+
+    CREATE TABLE IF NOT EXISTS operation_audit_logs (
+        id SERIAL PRIMARY KEY,
+        request_id VARCHAR(100),
+        session_id VARCHAR(100),
+        username VARCHAR(100),
+        role VARCHAR(50),
+        action VARCHAR(100) NOT NULL,
+        resource_type VARCHAR(100),
+        resource_id VARCHAR(150),
+        status VARCHAR(50),
+        detail TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_request_id
+        ON operation_audit_logs (request_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_username
+        ON operation_audit_logs (username);
+    CREATE INDEX IF NOT EXISTS idx_audit_created_at
+        ON operation_audit_logs (created_at);
     """
 
     with engine.begin() as conn:
         conn.execute(text(ddl))
+
+
+def ensure_default_admin() -> None:
+    password_hash = hash_password("admin123")
+    query = text("""
+        INSERT INTO users (username, password_hash, role, is_active)
+        VALUES (:username, :password_hash, 'admin', true)
+        ON CONFLICT (username) DO NOTHING
+    """)
+
+    with engine.begin() as conn:
+        conn.execute(
+            query,
+            {
+                "username": "admin",
+                "password_hash": password_hash,
+            },
+        )
 
 
 def insert_sample_data():
@@ -210,6 +262,7 @@ def insert_sample_data():
 
 def main():
     create_tables()
+    ensure_default_admin()
     insert_sample_data()
     print("PostgreSQL 样例数据初始化完成")
 

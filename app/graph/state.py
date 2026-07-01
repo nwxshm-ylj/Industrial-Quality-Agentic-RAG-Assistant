@@ -15,6 +15,7 @@ class IndustrialRAGState(TypedDict):
     question: str
     request_id: str
     session_id: str
+    user: dict[str, Any] | None
     memory_messages: list[dict]
     intent: IntentType
     rewritten_query: str
