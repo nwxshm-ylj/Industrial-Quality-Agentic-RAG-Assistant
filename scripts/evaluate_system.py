@@ -27,6 +27,7 @@ def invoke_graph(question: str, top_k: int = 3) -> dict[str, Any]:
         "question": question,
         "request_id": request_id,
         "session_id": f"evaluation-{request_id}",
+        "user": None,
         "memory_messages": [],
         "intent": "doc_qa",
         "rewritten_query": "",

@@ -1,14 +1,53 @@
-from app.core.logger import observe_node
+from app.core.logger import log_security_event, observe_node
 from app.graph.state import IndustrialRAGState
+from app.services.audit_service import AuditService
 from app.tools.sql_tool import IndustrialSQLTool
 
 
 sql_tool = IndustrialSQLTool()
+audit_service = AuditService()
 
 
 @observe_node("sql_tool")
 def sql_tool_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
+    user = state.get("user")
+    username = user.get("username") if user else None
+    role = user.get("role") if user else None
+    request_id = state.get("request_id")
+    session_id = state.get("session_id")
+
+    if user is not None and role not in {"admin", "engineer"}:
+        detail = f"角色 {role} 无权执行 SQL 分析"
+        log_security_event(
+            request_id=request_id,
+            username=username,
+            role=role,
+            action="permission_denied",
+            status="denied",
+            error_message=detail,
+        )
+        audit_service.log_action(
+            request_id=request_id,
+            session_id=session_id,
+            username=username,
+            role=role,
+            action="permission_denied",
+            resource_type="sql_tool",
+            status="denied",
+            detail=detail,
+        )
+        audit_service.log_action(
+            request_id=request_id,
+            session_id=session_id,
+            username=username,
+            role=role,
+            action="sql_tool_execute",
+            resource_type="sql_tool",
+            status="denied",
+            detail=detail,
+        )
+        raise PermissionError(detail)
 
     try:
         sql_result = sql_tool.run(question)
@@ -22,6 +61,17 @@ def sql_tool_node(state: IndustrialRAGState) -> dict:
         }
 
 
+        audit_service.log_action(
+            request_id=request_id,
+            session_id=session_id,
+            username=username,
+            role=role,
+            action="sql_tool_execute",
+            resource_type="sql_tool",
+            status="success",
+            detail=f"row_count={sql_result.get('row_count', 0)}",
+        )
+
         return {
             "sql_result": sql_result,
             "contexts": [context],
@@ -29,6 +79,16 @@ def sql_tool_node(state: IndustrialRAGState) -> dict:
         }
 
     except Exception as e:
+        audit_service.log_action(
+            request_id=request_id,
+            session_id=session_id,
+            username=username,
+            role=role,
+            action="sql_tool_execute",
+            resource_type="sql_tool",
+            status="failed",
+            detail=str(e),
+        )
         fallback_context = {
             "text": f"SQL查询失败，错误信息：{str(e)}",
             "source": "PostgreSQL",
