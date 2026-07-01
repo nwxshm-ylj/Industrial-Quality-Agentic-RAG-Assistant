@@ -833,6 +833,12 @@ def main() -> None:
             user_role=user_role,
         )
 
+    with tab_kb:
+        render_knowledge_base_management(
+            access_token=access_token,
+            user_role=user_role,
+        )
+
 
 if __name__ == "__main__":
     main()
