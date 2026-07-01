@@ -458,6 +458,65 @@ python -m scripts.evaluate_system
 
 问题来自 `data/eval/eval_questions.json`，结果写入 `data/eval/eval_report.json`，并可在 Streamlit 的“评估报告”页查看。历史报告只代表特定模型、数据和环境，应以本地重新评估结果为准。
 
+
+## Feedback and RAG Evaluation
+
+系统提供带 JWT 鉴权和 RBAC 控制的用户反馈闭环：
+
+- admin、engineer、viewer 均可对回答提交 positive / negative / neutral 反馈。
+- 反馈记录 request_id、session_id、question、answer、rating、comment、intent、citations 和 metadata，便于定位单次回答。
+- admin、engineer 可查看反馈列表、按 rating 过滤并查看反馈统计；viewer 无权访问全量反馈数据。
+- admin、engineer 可同步运行 RAG 评估、查看历史运行和每题明细。
+- 评估指标包括 intent_accuracy、source_hit_rate、answer_keyword_hit_rate、memory_followup_success_rate 和 avg_latency_ms。
+- Streamlit 的每次回答下方提供反馈表单，并为 admin、engineer 提供 “RAG Evaluation” 看板。
+
+This closes the quality improvement loop for enterprise RAG systems: user questions, model answers, user feedback, evaluation metrics, and iterative optimization.
+
+### Feedback API
+
+提交反馈：
+
+~~~bash
+curl -X POST http://localhost:8000/api/v1/feedback   -H "Authorization: Bearer <access_token>"   -H "Content-Type: application/json"   -d '{
+    "request_id": "<graph-chat request_id>",
+    "session_id": "<session_id>",
+    "question": "轮毂识别异常可能是什么原因？",
+    "answer": "优先检查相机曝光、标定和配置同步。",
+    "rating": "positive",
+    "comment": "引用准确",
+    "intent": "fault_diagnosis",
+    "citations": [],
+    "metadata": {}
+  }'
+~~~
+
+admin、engineer 可查询：
+
+~~~http
+GET /api/v1/feedback?rating=negative&limit=100
+GET /api/v1/feedback/stats
+Authorization: Bearer <access_token>
+~~~
+
+### Evaluation API
+
+~~~http
+POST /api/v1/evaluation/run
+GET /api/v1/evaluation/runs
+GET /api/v1/evaluation/runs/{run_id}
+Authorization: Bearer <access_token>
+~~~
+
+评估问题读取自 data/eval/eval_questions.json。命令行入口保持兼容：
+
+~~~bash
+python -m scripts.evaluate_system
+python -m scripts.test_feedback_evaluation
+~~~
+
+每次 API 评估会把汇总写入 rag_eval_runs、逐题明细写入 rag_eval_items，并生成 data/eval/eval_report_<run_id>.json。原命令行脚本仍生成 data/eval/eval_report.json。
+
+
 ## 实现说明与限制
 
 - 多个模型和检索组件在模块导入阶段初始化，首次启动可能需要较长时间和较多内存。

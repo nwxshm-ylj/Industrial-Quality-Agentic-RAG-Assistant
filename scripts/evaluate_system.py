@@ -21,12 +21,16 @@ def load_eval_questions(path: str = EVAL_FILE) -> list[dict[str, Any]]:
         return json.load(f)
 
 
-def invoke_graph(question: str, top_k: int = 3) -> dict[str, Any]:
+def invoke_graph(
+    question: str,
+    top_k: int = 3,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     request_id = str(uuid4())
     result = industrial_rag_app.invoke({
         "question": question,
         "request_id": request_id,
-        "session_id": f"evaluation-{request_id}",
+        "session_id": session_id or f"evaluation-{request_id}",
         "user": None,
         "memory_messages": [],
         "intent": "doc_qa",
@@ -117,51 +121,80 @@ def summarize_citations(citations: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 def evaluate_one(item: dict[str, Any]) -> dict[str, Any]:
     question = item["question"]
+    session_id = f"evaluation-{uuid4()}"
 
     start = time.time()
-    result = invoke_graph(question=question, top_k=3)
-    latency = round(time.time() - start, 3)
+    result = invoke_graph(
+        question=question,
+        top_k=3,
+        session_id=session_id,
+    )
 
+    memory_followup_ok: bool | None = None
+    followup_result: dict[str, Any] | None = None
+    followup_question = item.get("followup_question")
+    if followup_question:
+        followup_result = invoke_graph(
+            question=str(followup_question),
+            top_k=3,
+            session_id=session_id,
+        )
+        memory_followup_ok = check_answer_keywords(
+            result=followup_result,
+            expected_keywords=item.get("expected_followup_keywords"),
+        )
+
+    latency = round(time.time() - start, 3)
     intent_ok = check_intent(
         result=result,
         expected_intent=item.get("expected_intent"),
     )
-
     doc_type_ok = check_doc_type(
         result=result,
         expected_doc_type=item.get("expected_doc_type"),
     )
-
     source_ok = check_source(
         result=result,
         expected_source_contains=item.get("expected_source_contains"),
     )
-
     answer_keywords_ok = check_answer_keywords(
         result=result,
         expected_keywords=item.get("expected_answer_keywords"),
     )
 
-    all_ok = all([
-        intent_ok,
-        doc_type_ok,
-        source_ok,
-        answer_keywords_ok,
-    ])
+    checks = [intent_ok, doc_type_ok, source_ok, answer_keywords_ok]
+    if memory_followup_ok is not None:
+        checks.append(memory_followup_ok)
+    all_ok = all(checks)
+    answer = str(result.get("answer", ""))
 
     return {
         "id": item.get("id"),
         "question": question,
         "expected_intent": item.get("expected_intent"),
         "actual_intent": result.get("intent"),
+        "expected_keywords": item.get("expected_answer_keywords") or [],
+        "expected_sources": (
+            [item["expected_source_contains"]]
+            if item.get("expected_source_contains")
+            else []
+        ),
         "intent_ok": intent_ok,
         "doc_type_ok": doc_type_ok,
         "source_ok": source_ok,
         "answer_keywords_ok": answer_keywords_ok,
+        "memory_followup_ok": memory_followup_ok,
         "all_ok": all_ok,
         "latency_seconds": latency,
-        "answer_preview": str(result.get("answer", ""))[:300],
+        "latency_ms": round(latency * 1000, 2),
+        "answer": answer,
+        "answer_preview": answer[:300],
         "citations": summarize_citations(result.get("citations", [])),
+        "followup_answer": (
+            str(followup_result.get("answer", ""))
+            if followup_result
+            else None
+        ),
     }
 
 
@@ -176,8 +209,24 @@ def calculate_metrics(results: list[dict[str, Any]]) -> dict[str, Any]:
         return round(count / total, 4)
 
     avg_latency = round(
-        sum(item.get("latency_seconds", 0.0) for item in results) / total,
+        sum(float(item.get("latency_seconds") or 0.0) for item in results) / total,
         3
+    )
+
+    memory_results = [
+        item for item in results
+        if item.get("memory_followup_ok") is not None
+    ]
+    memory_followup_success_rate = (
+        round(
+            sum(
+                1 for item in memory_results
+                if item.get("memory_followup_ok")
+            ) / len(memory_results),
+            4,
+        )
+        if memory_results
+        else 0.0
     )
 
     metrics = {
@@ -186,8 +235,11 @@ def calculate_metrics(results: list[dict[str, Any]]) -> dict[str, Any]:
         "intent_accuracy": rate("intent_ok"),
         "doc_type_accuracy": rate("doc_type_ok"),
         "source_accuracy": rate("source_ok"),
+        "source_hit_rate": rate("source_ok"),
         "answer_keyword_hit_rate": rate("answer_keywords_ok"),
+        "memory_followup_success_rate": memory_followup_success_rate,
         "avg_latency_seconds": avg_latency,
+        "avg_latency_ms": round(avg_latency * 1000, 2),
     }
 
     return metrics
