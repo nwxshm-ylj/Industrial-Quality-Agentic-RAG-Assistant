@@ -12,6 +12,7 @@
 - 规则、案例与 SQL 工具：支持 YAML 规则匹配、PostgreSQL 历史案例查询和受限只读分析。
 - 证据评估与重试：证据不足时扩展查询并最多重试一次。
 - 多轮会话记忆：按 `session_id` 保存最近对话，支持指代补全和连续追问。
+- JWT 与 RBAC：提供 admin、engineer、viewer 角色控制及 PostgreSQL 操作审计。
 - 企业知识库管理：支持上传、元数据、版本、增量入库、删除、文档列表和索引重建。
 - 可观测性：每次 graph-chat 返回 `request_id` 和 `metadata`，主要节点输出包含耗时与状态的 JSON 日志。
 - Streamlit：提供聊天、引用、工具结果、评估报告和 Knowledge Base Management 界面。
@@ -205,8 +206,62 @@ streamlit run ui/streamlit_app.py
 | USE_RERANKER | 代码默认 true | 是否启用重排；.env.example 和 Compose 默认关闭 |
 | RAG_API_URL | 本地 graph-chat 接口 | Streamlit 请求的 API 地址 |
 | LOG_LEVEL | INFO | JSON 结构化日志级别 |
+| JWT_SECRET_KEY | dev_secret_key_change_me | JWT 签名密钥；生产环境必须修改 |
+| JWT_ALGORITHM | HS256 | JWT 签名算法 |
+| JWT_ACCESS_TOKEN_EXPIRE_MINUTES | 1440 | Access Token 有效期（分钟） |
 
 建议首次运行保持 USE_RERANKER=false，确认完整链路可用后再启用重排模型。
+
+## Authentication and RBAC
+
+系统使用 JWT Bearer Token 强制保护 `/api/v1/graph-chat` 和全部文档管理接口。密码使用带随机 salt 的 PBKDF2-SHA256 哈希保存，JWT 密钥和有效期从环境变量读取。
+
+### 默认管理员
+
+初始化数据库会在用户不存在时创建：
+
+- username: `admin`
+- password: `admin123`
+- role: `admin`
+
+> 默认账号仅用于首次启动。生产环境必须立即修改默认密码，并将 `JWT_SECRET_KEY` 设置为随机高强度密钥；禁止继续使用代码中的开发默认值。
+
+登录：
+
+~~~bash
+curl -X POST http://localhost:8000/api/v1/auth/login -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin123\"}"
+~~~
+
+成功后将 `access_token` 放入请求头：
+
+~~~text
+Authorization: Bearer <access_token>
+~~~
+
+管理员还可以使用：
+
+- `POST /api/v1/auth/users`：创建 admin、engineer 或 viewer；
+- `GET /api/v1/auth/users`：查看用户列表。
+
+### 权限矩阵
+
+| 操作 | admin | engineer | viewer |
+|---|---:|---:|---:|
+| graph-chat 普通问答 | ✓ | ✓ | ✓ |
+| SQL analysis / SQL Tool | ✓ | ✓ | ✗ |
+| 查看文档列表与详情 | ✓ | ✓ | ✓ |
+| 上传文档 | ✓ | ✓ | ✗ |
+| 删除文档 | ✓ | ✗ | ✗ |
+| 重建文档索引 | ✓ | ✗ | ✗ |
+| 创建和查看用户 | ✓ | ✗ | ✗ |
+
+viewer 的 `sql_analysis` 会在 SQL Tool 执行前返回 403，不会访问数据库。
+
+### 操作审计
+
+`operation_audit_logs` 记录登录成功/失败、graph-chat、SQL Tool、文档上传/删除/重建以及权限拒绝。审计字段包括 request_id、session_id、username、role、action、resource 和 status。审计写入失败只输出结构化错误日志，不中断主请求。
+
+Streamlit 登录后保存 access token 和用户角色；viewer 只显示文档列表，engineer 可上传，admin 可执行全部管理操作。
 
 ## API
 
@@ -357,6 +412,8 @@ python -m scripts.init_sql_data
 - `conversation_messages`：session_id 多轮消息；
 - `documents`：企业文档元数据与状态；
 - `document_chunks`：企业文档 chunks。
+- `users`：用户、密码哈希、角色和启用状态；
+- `operation_audit_logs`：登录、权限与业务操作审计。
 
 > 该命令会删除并重建三张演示业务表，执行前务必确认 `DATABASE_URL` 指向正确环境。
 
@@ -367,6 +424,7 @@ python -m scripts.init_sql_data
 核心回归：
 
 ~~~bash
+python -m scripts.test_auth_rbac
 python -m scripts.test_graph
 python -m scripts.test_memory
 python -m scripts.test_observability
@@ -386,6 +444,7 @@ python -m scripts.test_hybrid_retriever
 Docker 容器内验证：
 
 ~~~bash
+docker compose exec api python -m scripts.test_auth_rbac
 docker compose exec api python -m scripts.test_memory
 docker compose exec api python -m scripts.test_observability
 docker compose exec api python -m scripts.test_document_management
@@ -407,8 +466,9 @@ python -m scripts.evaluate_system
 - `scripts.ingest_docs` 会重建 Qdrant collection；它不是企业增量更新命令。
 - 意图识别优先调用 LLM，失败时使用关键词规则兜底；案例条件提取和规则匹配仍以关键词为主。
 - SQL 工具仅允许 SELECT、白名单表和最大 LIMIT 100；生产环境仍应使用只读账号、独立 schema、查询超时和审计。
-- 会话记忆按 `session_id` 存储最近消息，但当前没有用户身份、租户隔离、过期清理和容量治理。
-- API 尚未实现认证、授权、限流和流式输出；文档管理接口部署到生产前必须增加访问控制。
+- 会话记忆按 `session_id` 存储最近消息，但尚未实现租户级隔离、过期清理和容量治理。
+- API 已实现 JWT 与角色级 RBAC，但尚未提供 Refresh Token、主动 Token 吊销、MFA、限流和流式输出。
+- 文档权限目前是接口级角色控制，没有租户、部门或单文档级 ACL。
 - 依赖和容器镜像未锁定精确版本，生产部署前应增加 lockfile、固定镜像版本和自动化测试。
 - contexts、SQL 行、历史案例和会话消息可能包含敏感业务数据，生产环境应进行脱敏和权限控制。
 

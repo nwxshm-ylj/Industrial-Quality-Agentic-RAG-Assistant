@@ -13,6 +13,7 @@ DEFAULT_API_URL = "http://127.0.0.1:8000/api/v1/graph-chat"
 API_URL = os.getenv("RAG_API_URL", DEFAULT_API_URL)
 API_ROOT_URL = API_URL.partition("/api/v1/")[0]
 DOCUMENTS_API_URL = f"{API_ROOT_URL}/api/v1/documents"
+AUTH_LOGIN_URL = f"{API_ROOT_URL}/api/v1/auth/login"
 
 EVAL_REPORT_PATH = Path("data/eval/eval_report.json")
 
@@ -24,23 +25,37 @@ st.set_page_config(
 )
 
 
+def _auth_headers(access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+def login_user(username: str, password: str) -> dict[str, Any]:
+    response = requests.post(
+        AUTH_LOGIN_URL,
+        json={"username": username, "password": password},
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def call_graph_chat(
     question: str,
     top_k: int,
     session_id: str,
+    access_token: str,
 ) -> dict[str, Any]:
     payload = {
         "question": question,
         "top_k": top_k,
         "session_id": session_id,
     }
-
     response = requests.post(
         API_URL,
         json=payload,
+        headers=_auth_headers(access_token),
         timeout=180,
     )
-
     response.raise_for_status()
     return response.json()
 
@@ -49,6 +64,7 @@ def upload_knowledge_document(
     uploaded_file: Any,
     doc_type: str | None,
     version: str,
+    access_token: str,
 ) -> dict[str, Any]:
     response = requests.post(
         f"{DOCUMENTS_API_URL}/upload",
@@ -63,30 +79,45 @@ def upload_knowledge_document(
             "doc_type": doc_type or "",
             "version": version,
         },
+        headers=_auth_headers(access_token),
         timeout=300,
     )
     response.raise_for_status()
     return response.json()
 
 
-def fetch_knowledge_documents() -> dict[str, Any]:
-    response = requests.get(DOCUMENTS_API_URL, timeout=30)
+def fetch_knowledge_documents(
+    access_token: str,
+) -> dict[str, Any]:
+    response = requests.get(
+        DOCUMENTS_API_URL,
+        headers=_auth_headers(access_token),
+        timeout=30,
+    )
     response.raise_for_status()
     return response.json()
 
 
-def delete_knowledge_document(doc_id: str) -> dict[str, Any]:
+def delete_knowledge_document(
+    doc_id: str,
+    access_token: str,
+) -> dict[str, Any]:
     response = requests.delete(
         f"{DOCUMENTS_API_URL}/{doc_id}",
+        headers=_auth_headers(access_token),
         timeout=120,
     )
     response.raise_for_status()
     return response.json()
 
 
-def reindex_knowledge_document(doc_id: str) -> dict[str, Any]:
+def reindex_knowledge_document(
+    doc_id: str,
+    access_token: str,
+) -> dict[str, Any]:
     response = requests.post(
         f"{DOCUMENTS_API_URL}/{doc_id}/reindex",
+        headers=_auth_headers(access_token),
         timeout=300,
     )
     response.raise_for_status()
@@ -104,6 +135,28 @@ def _request_error_message(exc: requests.RequestException) -> str:
             pass
         return response.text or str(exc)
     return str(exc)
+
+
+def render_login() -> None:
+    st.subheader("用户登录")
+    st.caption("请输入企业账号访问聊天和知识库管理功能。")
+    with st.form("login_form"):
+        username = st.text_input("用户名")
+        password = st.text_input("密码", type="password")
+        submitted = st.form_submit_button(
+            "登录",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if submitted:
+        try:
+            result = login_user(username.strip(), password)
+            st.session_state["access_token"] = result["access_token"]
+            st.session_state["user"] = result["user"]
+            st.rerun()
+        except requests.RequestException as exc:
+            st.error(f"登录失败：{_request_error_message(exc)}")
 
 
 def load_eval_report() -> dict[str, Any] | None:
@@ -301,48 +354,56 @@ def render_eval_report() -> None:
         )
 
 
-def render_knowledge_base_management() -> None:
+def render_knowledge_base_management(
+    access_token: str,
+    user_role: str,
+) -> None:
     st.subheader("Knowledge Base Management")
     st.caption("上传、查看、删除或重建企业知识库文档索引。")
 
-    uploaded_file = st.file_uploader(
-        "上传文档",
-        type=["md", "txt", "pdf", "docx"],
-        key="kb_upload_file",
-    )
-    upload_col1, upload_col2 = st.columns(2)
-    doc_type = upload_col1.text_input(
-        "文档类型（可选）",
-        key="kb_doc_type",
-        placeholder="例如 FMEA / SOP / RULE",
-    )
-    version = upload_col2.text_input(
-        "版本",
-        value="v1",
-        key="kb_version",
-    )
+    can_upload = user_role in {"admin", "engineer"}
+    if can_upload:
+        uploaded_file = st.file_uploader(
+            "上传文档",
+            type=["md", "txt", "pdf", "docx"],
+            key="kb_upload_file",
+        )
+        upload_col1, upload_col2 = st.columns(2)
+        doc_type = upload_col1.text_input(
+            "文档类型（可选）",
+            key="kb_doc_type",
+            placeholder="例如 FMEA / SOP / RULE",
+        )
+        version = upload_col2.text_input(
+            "版本",
+            value="v1",
+            key="kb_version",
+        )
 
-    if st.button("上传并入库", key="kb_upload_button"):
-        if uploaded_file is None:
-            st.warning("请选择要上传的文档。")
-        else:
-            try:
-                with st.spinner("正在解析并建立索引..."):
-                    result = upload_knowledge_document(
-                        uploaded_file=uploaded_file,
-                        doc_type=doc_type.strip() or None,
-                        version=version.strip() or "v1",
+        if st.button("上传并入库", key="kb_upload_button"):
+            if uploaded_file is None:
+                st.warning("请选择要上传的文档。")
+            else:
+                try:
+                    with st.spinner("正在解析并建立索引..."):
+                        result = upload_knowledge_document(
+                            uploaded_file=uploaded_file,
+                            doc_type=doc_type.strip() or None,
+                            version=version.strip() or "v1",
+                            access_token=access_token,
+                        )
+                    st.success(
+                        f"文档已入库：{result.get('doc_id')}，"
+                        f"chunks={result.get('chunk_count')}"
                     )
-                st.success(
-                    f"文档已入库：{result.get('doc_id')}，"
-                    f"chunks={result.get('chunk_count')}"
-                )
-            except requests.RequestException as exc:
-                st.error(f"上传失败：{_request_error_message(exc)}")
+                except requests.RequestException as exc:
+                    st.error(f"上传失败：{_request_error_message(exc)}")
+    else:
+        st.info("viewer 角色仅可查看知识库文档。")
 
     st.markdown("---")
     try:
-        document_data = fetch_knowledge_documents()
+        document_data = fetch_knowledge_documents(access_token)
     except requests.RequestException as exc:
         st.error(f"读取文档列表失败：{_request_error_message(exc)}")
         return
@@ -367,6 +428,11 @@ def render_knowledge_base_management() -> None:
         hide_index=True,
     )
 
+    if user_role != "admin":
+        if user_role == "engineer":
+            st.caption("engineer 可以上传和查看，删除与重建仅限 admin。")
+        return
+
     document_options = {
         f"{doc.get('filename')} | {doc.get('doc_id')}": doc.get("doc_id")
         for doc in documents
@@ -382,7 +448,10 @@ def render_knowledge_base_management() -> None:
     if action_col1.button("重建索引", key="kb_reindex_button"):
         try:
             with st.spinner("正在重建索引..."):
-                result = reindex_knowledge_document(selected_doc_id)
+                result = reindex_knowledge_document(
+                    selected_doc_id,
+                    access_token,
+                )
             st.success(result.get("message", "索引重建完成"))
             st.rerun()
         except requests.RequestException as exc:
@@ -390,7 +459,10 @@ def render_knowledge_base_management() -> None:
 
     if action_col2.button("删除文档", key="kb_delete_button"):
         try:
-            result = delete_knowledge_document(selected_doc_id)
+            result = delete_knowledge_document(
+                selected_doc_id,
+                access_token,
+            )
             st.success(result.get("message", "文档已删除"))
             st.rerun()
         except requests.RequestException as exc:
@@ -401,13 +473,29 @@ def main() -> None:
     st.title("🏭 Industrial Agentic RAG Assistant")
     st.caption("工业质量知识库与设备异常诊断 Agentic RAG 系统")
 
+    access_token = st.session_state.get("access_token")
+    current_user = st.session_state.get("user")
+    if not access_token or not current_user:
+        st.info("请先登录后使用系统。")
+        render_login()
+        return
+
+    user_role = current_user.get("role", "viewer")
+
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
     session_id = st.session_state["session_id"]
 
     with st.sidebar:
-        st.header("配置")
+        st.header("当前用户")
+        st.write(f"{current_user.get('username')} ({user_role})")
+        if st.button("退出登录", use_container_width=True):
+            for key in ("access_token", "user", "last_response"):
+                st.session_state.pop(key, None)
+            st.rerun()
 
+        st.markdown("---")
+        st.header("配置")
         st.write("API 地址")
         st.code(API_URL)
         st.caption(f"当前 session_id: {session_id}")
@@ -481,6 +569,7 @@ def main() -> None:
                     question=question.strip(),
                     top_k=top_k,
                     session_id=session_id,
+                    access_token=access_token,
                 )
 
                 st.session_state["last_response"] = data
@@ -496,8 +585,11 @@ def main() -> None:
                 st.error("请求超时。可以先关闭 Reranker，或减少 top_k。")
                 return
 
-            except Exception as e:
-                st.error(f"请求失败：{repr(e)}")
+            except requests.HTTPError as exc:
+                st.error(f"请求失败：{_request_error_message(exc)}")
+                return
+            except Exception as exc:
+                st.error(f"请求失败：{repr(exc)}")
                 return
 
     data = st.session_state.get("last_response")
@@ -529,7 +621,10 @@ def main() -> None:
             render_eval_report()
 
     with tab_kb:
-        render_knowledge_base_management()
+        render_knowledge_base_management(
+            access_token=access_token,
+            user_role=user_role,
+        )
 
 
 if __name__ == "__main__":
