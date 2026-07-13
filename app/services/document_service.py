@@ -7,12 +7,18 @@ from uuid import uuid4
 
 from sqlalchemy import text
 
+from app.core.config import settings
 from app.core.logger import logger
 from app.db.session import engine
-from app.rag.chunk_store import refresh_chunk_store_from_db
+from app.rag.embeddings.factory import get_embedding_provider
 from app.rag.loader import SUPPORTED_DOCUMENT_EXTENSIONS, load_single_document
+from app.rag.search_backends.base import (
+    KeywordSearchBackend,
+    VectorSearchBackend,
+)
+from app.rag.search_backends.opensearch_backend import OpenSearchKeywordBackend
+from app.rag.search_backends.qdrant_backend import QdrantVectorSearchBackend
 from app.rag.splitter import infer_doc_type, split_docs
-from app.rag.vectorstore import QdrantVectorStore
 
 
 DOCUMENT_STATUSES = {"uploaded", "indexed", "deleted", "failed"}
@@ -25,6 +31,8 @@ PUBLIC_DOCUMENT_FIELDS = (
     "version",
     "status",
     "chunk_count",
+    "failed_stage",
+    "error_message",
     "created_at",
     "updated_at",
 )
@@ -38,17 +46,42 @@ class DocumentService:
     def __init__(
         self,
         uploads_dir: str | Path = "data/uploads",
-        vectorstore: QdrantVectorStore | None = None,
+        vectorstore: VectorSearchBackend | None = None,
+        vector_backend: VectorSearchBackend | None = None,
+        keyword_backend: KeywordSearchBackend | None = None,
     ):
         self.uploads_dir = Path(uploads_dir)
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
-        self._vectorstore = vectorstore
+        self._vector_backend = vector_backend or vectorstore
+        self._keyword_backend = keyword_backend
 
     @property
-    def vectorstore(self) -> QdrantVectorStore:
-        if self._vectorstore is None:
-            self._vectorstore = QdrantVectorStore()
-        return self._vectorstore
+    def vector_backend(self) -> VectorSearchBackend:
+        if self._vector_backend is None:
+            provider = get_embedding_provider()
+            self._vector_backend = QdrantVectorSearchBackend(
+                provider,
+                collection_name=settings.qdrant_collection,
+                collection_alias=settings.qdrant_collection_alias,
+            )
+        return self._vector_backend
+
+    @property
+    def keyword_backend(self) -> KeywordSearchBackend:
+        if self._keyword_backend is None:
+            self._keyword_backend = OpenSearchKeywordBackend(
+                index_name=(
+                    f"{settings.opensearch_index_prefix}_keyword_"
+                    f"{settings.keyword_index_version}"
+                )
+            )
+        return self._keyword_backend
+
+    @property
+    def vectorstore(self) -> VectorSearchBackend:
+        """Backward-compatible alias used by existing integration scripts."""
+
+        return self.vector_backend
 
     def upload_and_index_document(
         self,
@@ -63,6 +96,8 @@ class DocumentService:
         effective_doc_type = doc_type
         normalized_version = version or "v1"
         record_created = False
+        operation_id = uuid4().hex
+        failed_stage = "upload_start"
 
         self._log_event(
             "upload_start",
@@ -113,6 +148,7 @@ class DocumentService:
             )
             record_created = True
 
+            failed_stage = "file_save"
             file_path.write_bytes(file_bytes)
             self._log_event(
                 "file_saved",
@@ -124,6 +160,7 @@ class DocumentService:
                 status="uploaded",
             )
 
+            failed_stage = "parse"
             parsed_document = load_single_document(str(file_path))
             self._log_event(
                 "document_parsed",
@@ -135,6 +172,7 @@ class DocumentService:
                 status="uploaded",
             )
 
+            failed_stage = "chunk"
             chunks = self._create_document_chunks(
                 parsed_document=parsed_document,
                 doc_id=doc_id,
@@ -153,6 +191,7 @@ class DocumentService:
                 chunk_count=len(chunks),
             )
 
+            failed_stage = "postgres"
             self._replace_chunks_in_postgres(doc_id, chunks)
             self._log_event(
                 "postgres_written",
@@ -165,7 +204,13 @@ class DocumentService:
                 chunk_count=len(chunks),
             )
 
-            self.vectorstore.add_document_chunks(doc_id, chunks)
+            failed_stage = "qdrant"
+            self.vector_backend.upsert_document_chunks(
+                doc_id,
+                chunks,
+                index_status="staging",
+                index_operation_id=operation_id,
+            )
             self._log_event(
                 "qdrant_written",
                 started_at,
@@ -177,12 +222,42 @@ class DocumentService:
                 chunk_count=len(chunks),
             )
 
+            failed_stage = "opensearch"
+            self.keyword_backend.upsert_document_chunks(
+                doc_id,
+                chunks,
+                index_status="staging",
+                index_operation_id=operation_id,
+            )
+            self._log_event(
+                "opensearch_written",
+                started_at,
+                doc_id=doc_id,
+                filename=safe_filename,
+                doc_type=effective_doc_type,
+                version=normalized_version,
+                status="uploaded",
+                chunk_count=len(chunks),
+            )
+
+            failed_stage = "index_promotion"
+            self.vector_backend.set_document_index_status(
+                doc_id,
+                "indexed",
+                index_operation_id=operation_id,
+            )
+            self.keyword_backend.set_document_index_status(
+                doc_id,
+                "indexed",
+                index_operation_id=operation_id,
+            )
+
+            failed_stage = "document_status"
             self._set_document_status(
                 doc_id=doc_id,
                 status="indexed",
                 chunk_count=len(chunks),
             )
-            refresh_chunk_store_from_db()
             document = self._get_document_record(doc_id)
             if document is None:
                 raise RuntimeError(f"文档入库后无法读取元数据: {doc_id}")
@@ -201,7 +276,20 @@ class DocumentService:
 
         except Exception as exc:
             if record_created:
-                self._mark_document_failed(doc_id)
+                self._cleanup_operation_indexes(doc_id, operation_id)
+                if failed_stage in {
+                    "postgres",
+                    "qdrant",
+                    "opensearch",
+                    "index_promotion",
+                    "document_status",
+                }:
+                    self._delete_postgres_chunks(doc_id)
+                self._mark_document_failed(
+                    doc_id,
+                    failed_stage=failed_stage,
+                    error_message=str(exc),
+                )
             self._log_event(
                 "error",
                 started_at,
@@ -227,7 +315,7 @@ class DocumentService:
             SELECT
                 doc_id, filename, original_filename, doc_type, file_ext,
                 file_path, version, status, chunk_count, content_hash,
-                created_at, updated_at
+                failed_stage, error_message, created_at, updated_at
             FROM documents
             {where_clause}
             ORDER BY updated_at DESC, id DESC
@@ -245,6 +333,7 @@ class DocumentService:
 
     def delete_document(self, doc_id: str) -> dict:
         started_at = perf_counter()
+        failed_stage = "qdrant_delete"
         document = self._get_document_record(doc_id)
         if document is None:
             raise DocumentNotFoundError(f"文档不存在: {doc_id}")
@@ -257,8 +346,11 @@ class DocumentService:
             }
 
         try:
-            self.vectorstore.delete_by_doc_id(doc_id)
+            self.vector_backend.delete_by_doc_id(doc_id)
+            failed_stage = "opensearch_delete"
+            self.keyword_backend.delete_by_doc_id(doc_id)
 
+            failed_stage = "postgres_delete"
             with engine.begin() as conn:
                 conn.execute(
                     text("DELETE FROM document_chunks WHERE doc_id = :doc_id"),
@@ -267,7 +359,9 @@ class DocumentService:
                 conn.execute(
                     text("""
                         UPDATE documents
-                        SET status = 'deleted', chunk_count = 0, updated_at = NOW()
+                        SET status = 'deleted', chunk_count = 0,
+                            failed_stage = NULL, error_message = NULL,
+                            updated_at = NOW()
                         WHERE doc_id = :doc_id
                     """),
                     {"doc_id": doc_id},
@@ -277,7 +371,6 @@ class DocumentService:
             if file_path and file_path.exists():
                 file_path.unlink()
 
-            refresh_chunk_store_from_db()
             self._log_event(
                 "document_deleted",
                 started_at,
@@ -294,6 +387,11 @@ class DocumentService:
             }
 
         except Exception as exc:
+            self._mark_document_failed(
+                doc_id,
+                failed_stage=failed_stage,
+                error_message=str(exc),
+            )
             self._log_event(
                 "error",
                 started_at,
@@ -311,6 +409,9 @@ class DocumentService:
 
     def reindex_document(self, doc_id: str) -> dict:
         started_at = perf_counter()
+        operation_id = uuid4().hex
+        failed_stage = "parse"
+        promoted = False
         document = self._get_document_record(doc_id)
         if document is None:
             raise DocumentNotFoundError(f"文档不存在: {doc_id}")
@@ -324,7 +425,6 @@ class DocumentService:
             raise FileNotFoundError(f"原文档不存在，无法重建索引: {file_path}")
 
         try:
-            self._set_document_status(doc_id, "uploaded")
             parsed_document = load_single_document(str(file_path))
             self._log_event(
                 "document_parsed",
@@ -333,15 +433,17 @@ class DocumentService:
                 filename=document["filename"],
                 doc_type=document["doc_type"],
                 version=document["version"],
-                status="uploaded",
+                status=document["status"],
             )
 
+            failed_stage = "chunk"
             chunks = self._create_document_chunks(
                 parsed_document=parsed_document,
                 doc_id=doc_id,
                 source=document["filename"],
                 doc_type=document["doc_type"],
                 version=document["version"],
+                chunk_id_namespace=operation_id,
             )
             self._log_event(
                 "chunks_created",
@@ -350,11 +452,70 @@ class DocumentService:
                 filename=document["filename"],
                 doc_type=document["doc_type"],
                 version=document["version"],
-                status="uploaded",
+                status=document["status"],
                 chunk_count=len(chunks),
             )
 
-            self.vectorstore.delete_by_doc_id(doc_id)
+            failed_stage = "qdrant"
+            self.vector_backend.upsert_document_chunks(
+                doc_id,
+                chunks,
+                index_status="staging",
+                index_operation_id=operation_id,
+            )
+            self._log_event(
+                "qdrant_written",
+                started_at,
+                doc_id=doc_id,
+                filename=document["filename"],
+                doc_type=document["doc_type"],
+                version=document["version"],
+                status=document["status"],
+                chunk_count=len(chunks),
+            )
+
+            failed_stage = "opensearch"
+            self.keyword_backend.upsert_document_chunks(
+                doc_id,
+                chunks,
+                index_status="staging",
+                index_operation_id=operation_id,
+            )
+            self._log_event(
+                "opensearch_written",
+                started_at,
+                doc_id=doc_id,
+                filename=document["filename"],
+                doc_type=document["doc_type"],
+                version=document["version"],
+                status=document["status"],
+                chunk_count=len(chunks),
+            )
+
+            failed_stage = "index_promotion"
+            self.vector_backend.set_document_index_status(
+                doc_id,
+                "indexed",
+                index_operation_id=operation_id,
+            )
+            self.keyword_backend.set_document_index_status(
+                doc_id,
+                "indexed",
+                index_operation_id=operation_id,
+            )
+            promoted = True
+
+            failed_stage = "old_index_cleanup"
+            self.vector_backend.delete_by_doc_id(
+                doc_id,
+                exclude_operation_id=operation_id,
+            )
+            self.keyword_backend.delete_by_doc_id(
+                doc_id,
+                exclude_operation_id=operation_id,
+            )
+
+            failed_stage = "postgres"
             self._replace_chunks_in_postgres(doc_id, chunks)
             self._log_event(
                 "postgres_written",
@@ -363,24 +524,12 @@ class DocumentService:
                 filename=document["filename"],
                 doc_type=document["doc_type"],
                 version=document["version"],
-                status="uploaded",
+                status=document["status"],
                 chunk_count=len(chunks),
             )
 
-            self.vectorstore.add_document_chunks(doc_id, chunks)
-            self._log_event(
-                "qdrant_written",
-                started_at,
-                doc_id=doc_id,
-                filename=document["filename"],
-                doc_type=document["doc_type"],
-                version=document["version"],
-                status="uploaded",
-                chunk_count=len(chunks),
-            )
-
+            failed_stage = "document_status"
             self._set_document_status(doc_id, "indexed", len(chunks))
-            refresh_chunk_store_from_db()
             self._log_event(
                 "document_reindexed",
                 started_at,
@@ -399,7 +548,13 @@ class DocumentService:
             }
 
         except Exception as exc:
-            self._mark_document_failed(doc_id)
+            if not promoted:
+                self._cleanup_operation_indexes(doc_id, operation_id)
+            self._mark_document_failed(
+                doc_id,
+                failed_stage=failed_stage,
+                error_message=str(exc),
+            )
             self._log_event(
                 "error",
                 started_at,
@@ -454,10 +609,10 @@ class DocumentService:
             SELECT
                 doc_id, filename, original_filename, doc_type, file_ext,
                 file_path, version, status, chunk_count, content_hash,
-                created_at, updated_at
+                failed_stage, error_message, created_at, updated_at
             FROM documents
             WHERE content_hash = :content_hash
-              AND status <> 'deleted'
+              AND status IN ('uploaded', 'indexed')
             ORDER BY updated_at DESC
             LIMIT 1
         """)
@@ -511,6 +666,7 @@ class DocumentService:
         source: str,
         doc_type: str,
         version: str,
+        chunk_id_namespace: str | None = None,
     ) -> list[dict]:
         chunks = split_docs([
             {
@@ -522,9 +678,14 @@ class DocumentService:
             raise ValueError(f"文档切分后没有有效内容: {source}")
 
         for index, chunk in enumerate(chunks):
+            chunk_id = (
+                f"{doc_id}_{chunk_id_namespace}_{index}"
+                if chunk_id_namespace
+                else f"{doc_id}_{index}"
+            )
             chunk["metadata"].update({
                 "doc_id": doc_id,
-                "chunk_id": f"{doc_id}_{index}",
+                "chunk_id": chunk_id,
                 "chunk_index": index,
                 "source": source,
                 "doc_type": doc_type,
@@ -579,7 +740,7 @@ class DocumentService:
             SELECT
                 doc_id, filename, original_filename, doc_type, file_ext,
                 file_path, version, status, chunk_count, content_hash,
-                created_at, updated_at
+                failed_stage, error_message, created_at, updated_at
             FROM documents
             WHERE doc_id = :doc_id
             LIMIT 1
@@ -600,7 +761,10 @@ class DocumentService:
         if chunk_count is None:
             query = text("""
                 UPDATE documents
-                SET status = :status, updated_at = NOW()
+                SET status = :status,
+                    failed_stage = NULL,
+                    error_message = NULL,
+                    updated_at = NOW()
                 WHERE doc_id = :doc_id
             """)
             parameters = {"doc_id": doc_id, "status": status}
@@ -609,6 +773,8 @@ class DocumentService:
                 UPDATE documents
                 SET status = :status,
                     chunk_count = :chunk_count,
+                    failed_stage = NULL,
+                    error_message = NULL,
                     updated_at = NOW()
                 WHERE doc_id = :doc_id
             """)
@@ -621,9 +787,30 @@ class DocumentService:
         with engine.begin() as conn:
             conn.execute(query, parameters)
 
-    def _mark_document_failed(self, doc_id: str) -> None:
+    def _mark_document_failed(
+        self,
+        doc_id: str,
+        *,
+        failed_stage: str,
+        error_message: str,
+    ) -> None:
         try:
-            self._set_document_status(doc_id, "failed")
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        UPDATE documents
+                        SET status = 'failed',
+                            failed_stage = :failed_stage,
+                            error_message = :error_message,
+                            updated_at = NOW()
+                        WHERE doc_id = :doc_id
+                    """),
+                    {
+                        "doc_id": doc_id,
+                        "failed_stage": failed_stage[:100],
+                        "error_message": error_message,
+                    },
+                )
         except Exception as exc:
             logger.error(
                 "document_status_update_failed",
@@ -638,6 +825,67 @@ class DocumentService:
                         "chunk_count": 0,
                         "latency_ms": 0.0,
                         "error_message": str(exc),
+                    }
+                },
+                exc_info=True,
+            )
+
+    def _cleanup_operation_indexes(
+        self,
+        doc_id: str,
+        operation_id: str,
+    ) -> None:
+        for backend_name, backend_getter in (
+            ("qdrant", lambda: self.vector_backend),
+            ("opensearch", lambda: self.keyword_backend),
+        ):
+            try:
+                backend = backend_getter()
+                backend.delete_by_doc_id(
+                    doc_id,
+                    index_operation_id=operation_id,
+                )
+            except Exception as cleanup_error:
+                logger.error(
+                    "document_index_compensation_failed",
+                    extra={
+                        "event_data": {
+                            "event": "error",
+                            "doc_id": doc_id,
+                            "backend": backend_name,
+                            "operation_id": operation_id,
+                            "status": "failed",
+                            "error_message": str(cleanup_error),
+                        }
+                    },
+                    exc_info=True,
+                )
+
+    def _delete_postgres_chunks(self, doc_id: str) -> None:
+        try:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("DELETE FROM document_chunks WHERE doc_id = :doc_id"),
+                    {"doc_id": doc_id},
+                )
+                conn.execute(
+                    text("""
+                        UPDATE documents
+                        SET chunk_count = 0, updated_at = NOW()
+                        WHERE doc_id = :doc_id
+                    """),
+                    {"doc_id": doc_id},
+                )
+        except Exception as cleanup_error:
+            logger.error(
+                "document_postgres_compensation_failed",
+                extra={
+                    "event_data": {
+                        "event": "error",
+                        "doc_id": doc_id,
+                        "backend": "postgres",
+                        "status": "failed",
+                        "error_message": str(cleanup_error),
                     }
                 },
                 exc_info=True,
@@ -681,6 +929,10 @@ class DocumentService:
                         2,
                     ),
                     "error_message": error_message,
+                    "embedding_provider": settings.embedding_provider,
+                    "embedding_model": settings.qwen_embedding_model,
+                    "embedding_dimension": settings.qwen_embedding_dimension,
+                    "embedding_index_version": settings.embedding_index_version,
                 }
             },
             exc_info=exc_info,

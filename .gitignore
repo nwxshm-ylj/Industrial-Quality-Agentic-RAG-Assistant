@@ -45,3 +45,4 @@ models/
 
 # Large local data cache
 data/processed/*.tmp
+.agents/

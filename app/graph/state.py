@@ -22,6 +22,7 @@ class IndustrialRAGState(TypedDict):
     contexts: list[dict]
     answer: str
     citations: list[dict]
+    retrieval_metadata: dict[str, Any]
     evidence_score: float
     evidence_enough: bool
     retry_count: int

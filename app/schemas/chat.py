@@ -10,14 +10,18 @@ class ChatRequest(BaseModel):
 
 
 class Citation(BaseModel):
+    doc_id: str | None = None
     source: str | None = None
     doc_type: str | None = None
     chunk_id: str | None = None
+    version: str | None = None
     score: float | None = None
     retrieval_source: str | None = None
     vector_score: float | None = None
     bm25_score: float | None = None
+    keyword_score: float | None = None
     hybrid_score: float | None = None
+    rrf_score: float | None = None
     rerank_score: float | None = None
     final_score_type: str | None = None
 
