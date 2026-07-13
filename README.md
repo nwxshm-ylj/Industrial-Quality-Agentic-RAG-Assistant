@@ -37,7 +37,7 @@ flowchart LR
     Router --> Rewrite[Query Rewriter]
     Rewrite --> Hybrid[Hybrid Retriever]
     Hybrid --> Vector[Qdrant Vector Search]
-    Hybrid --> BM25[BM25 chunks.json]
+    Hybrid --> Keyword[OpenSearch Keyword Search]
     Hybrid --> Judge[Evidence Judge + Retry]
     Judge --> Generator[Answer Generator]
 
@@ -47,7 +47,7 @@ flowchart LR
     Case --> PG
     KB --> PG
     KB --> Vector
-    KB --> BM25
+    KB --> Keyword
     Feedback --> PG
     Eval --> PG
     Eval --> Graph
@@ -64,7 +64,7 @@ flowchart LR
 | 能力 | 实现 | 企业价值 |
 |---|---|---|
 | Agentic 路由 | doc_qa、fault_diagnosis、case_search、rule_query、sql_analysis、general | 按问题类型选择最合适的工具和数据源 |
-| Hybrid Search | Qdrant 向量检索 + BM25 + 可选 Reranker | 同时覆盖语义召回和工业关键词精确匹配 |
+| Hybrid Search | 千问 Embedding + Qdrant Alias + OpenSearch + RRF + 可选 Reranker | 同时覆盖语义召回和工业关键词精确匹配，关键词故障时可降级为 vector-only |
 | Evidence Judge | 证据评分、不足时改写并重试 | 降低弱证据直接生成答案的风险 |
 | 多轮记忆 | PostgreSQL 按 session_id 保存最近消息 | 支持“那优先排查哪个”等连续追问 |
 | Rule Tool | YAML 工业规则匹配 | 处理 PR、配置映射和判定规则 |
@@ -84,8 +84,8 @@ flowchart LR
 | API | Python 3.11、FastAPI、Pydantic、Uvicorn |
 | Agent 编排 | LangGraph、LangChain |
 | LLM | OpenAI-compatible API，默认 qwen-plus 配置 |
-| 检索 | Sentence Transformers、Qdrant、BM25、CrossEncoder |
-| 数据 | PostgreSQL、SQLAlchemy、chunks.json |
+| 检索 | Qwen text-embedding-v4、Qdrant、OpenSearch、RRF、CrossEncoder |
+| 数据 | PostgreSQL、SQLAlchemy、Qdrant、OpenSearch |
 | 前端 | Streamlit、Pandas、Requests |
 | 安全 | JWT、PBKDF2-SHA256、FastAPI Depends、RBAC |
 | 部署 | Docker、Docker Compose |
@@ -97,7 +97,7 @@ flowchart LR
 
 - Docker Desktop 或 Docker Engine + Compose v2
 - 可访问的 OpenAI-compatible LLM
-- 首次启动时可下载 BAAI/bge-small-zh-v1.5
+- 千问 Embedding API Key；仅 Legacy ingest 或启用本地 Reranker 时需要 Hugging Face 模型
 - 建议至少 8 GB 内存
 
 ### 1. 配置环境变量
@@ -118,15 +118,18 @@ Copy-Item .env.example .env
 LLM_MODEL=qwen-plus
 LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+QWEN_EMBEDDING_API_KEY=your_dashscope_api_key
 JWT_SECRET_KEY=replace_with_a_long_random_secret
 ~~~
 
 ### 2. Docker Compose 启动
 
 ~~~bash
-docker compose up -d qdrant postgres
+docker compose up -d qdrant postgres opensearch
 docker compose --profile tools run --rm init-sql
-docker compose --profile tools run --rm ingest
+docker compose run --rm api python -m scripts.migrate_online_indexes
+# 先运行检索与评估测试，通过后再切换稳定 Alias
+docker compose run --rm api python -m scripts.migrate_online_indexes --activate-alias
 docker compose up -d --build api streamlit
 ~~~
 
@@ -136,6 +139,7 @@ docker compose up -d --build api streamlit
 - FastAPI Swagger：http://localhost:8000/docs
 - Health Check：http://localhost:8000/health
 - Qdrant Dashboard：http://localhost:6333/dashboard
+- OpenSearch：http://localhost:9200
 
 查看日志：
 
@@ -205,13 +209,13 @@ curl -X POST http://localhost:8000/api/v1/graph-chat \
 - SHA-256 content_hash 防止活跃文档重复上传。
 - documents 保存元数据、版本、状态与 chunk 数量。
 - document_chunks 保存可追溯分块。
-- Qdrant 使用稳定 point ID，并按 doc_id 精确删除。
-- 企业 chunks 同步至 data/processed/chunks.json 供 BM25 使用。
+- Qdrant 使用稳定 point ID、版本化 Collection 和稳定 Alias，并按 doc_id 精确删除。
+- OpenSearch 保存在线关键词索引，企业检索运行时不依赖 data/processed/chunks.json。
 - 支持列表、详情、软删除和原文件重建索引。
 
-Documents are stored with metadata in PostgreSQL, indexed into Qdrant for vector search, and synchronized to chunks.json for BM25 retrieval.
+Documents are stored with metadata in PostgreSQL and indexed into Qdrant and OpenSearch for online hybrid retrieval.
 
-注意：企业文档操作会刷新 chunks.json；当前运行中的 BM25 内存索引需重启 API 后重新加载。Qdrant 检索会立即读取新向量。
+注意：data/processed/chunks.json 和 scripts/ingest_docs.py 仅保留给 Legacy Demo；scripts/ingest_docs.py 会重建 Legacy Qdrant Collection，不属于企业在线入库流程。
 
 ## RBAC 权限矩阵
 
@@ -268,11 +272,11 @@ API 评估报告写入 PostgreSQL 的 rag_eval_runs、rag_eval_items，并输出
 
 ## 测试命令
 
-先启动 PostgreSQL、Qdrant并初始化数据库与知识库：
+先启动 PostgreSQL、Qdrant、OpenSearch，并在隔离的演示环境初始化数据库和在线索引：
 
 ~~~bash
 python -m scripts.init_sql_data
-python -m scripts.ingest_docs
+python -m scripts.migrate_online_indexes
 
 python -m scripts.test_auth_rbac
 python -m scripts.test_document_management
@@ -289,6 +293,12 @@ python -m scripts.test_rule_tool
 python -m scripts.test_sql_tool
 python -m scripts.test_case_tool
 python -m scripts.test_hybrid_retriever
+python -m scripts.test_embedding_provider_mock
+python -m scripts.test_qdrant_vector_backend
+python -m scripts.test_opensearch_keyword_backend
+python -m scripts.test_rrf_fusion
+python -m scripts.test_online_hybrid_retriever
+python -m scripts.test_index_activation_guard
 python -m scripts.test_llm
 ~~~
 
@@ -360,7 +370,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 - [ ] 异步文档入库和评估任务队列。
 - [ ] 多租户、部门级数据隔离和细粒度文档 ACL。
 - [ ] OpenTelemetry tracing、Prometheus metrics 和集中日志方案。
-- [ ] BM25 热更新或替换为统一混合检索服务。
+- [ ] 增加 indexing_jobs、后台入库进度和失败任务重试。
 - [ ] RAGAS/LLM-as-a-Judge、基准集版本和趋势对比。
 - [ ] Prompt、模型和索引版本治理及 A/B 测试。
 - [ ] 对象存储、病毒扫描、文件配额和生命周期管理。

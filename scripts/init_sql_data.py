@@ -69,9 +69,16 @@ def create_tables():
         status VARCHAR(50) DEFAULT 'indexed',
         chunk_count INT DEFAULT 0,
         content_hash VARCHAR(128),
+        failed_stage VARCHAR(100),
+        error_message TEXT,
         created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP DEFAULT NOW()
     );
+
+    ALTER TABLE documents
+        ADD COLUMN IF NOT EXISTS failed_stage VARCHAR(100);
+    ALTER TABLE documents
+        ADD COLUMN IF NOT EXISTS error_message TEXT;
 
     CREATE TABLE IF NOT EXISTS document_chunks (
         id SERIAL PRIMARY KEY,

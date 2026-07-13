@@ -72,7 +72,7 @@ flowchart TB
     subgraph Data
         PostgreSQL[(PostgreSQL)]
         Qdrant[(Qdrant)]
-        Chunks[(chunks.json)]
+        OpenSearch[(OpenSearch)]
         Uploads[(data/uploads)]
         Rules[(YAML Rules)]
     end
@@ -98,10 +98,10 @@ flowchart TB
     Case --> PostgreSQL
     DocService --> PostgreSQL
     DocService --> Qdrant
-    DocService --> Chunks
+    DocService --> OpenSearch
     DocService --> Uploads
     Retrieve --> Qdrant
-    Retrieve --> Chunks
+    Retrieve --> OpenSearch
     Rule --> Rules
     FeedbackService --> PostgreSQL
     EvalService --> Graph
@@ -155,11 +155,12 @@ Important state fields:
 Hybrid retrieval combines complementary signals:
 
 - Vector search captures semantic similarity and paraphrases.
-- BM25 captures model codes, alarm codes, part numbers, abbreviations, and exact industrial terminology.
+- OpenSearch keyword retrieval captures model codes, alarm codes, part numbers, abbreviations, and exact industrial terminology.
+- Reciprocal Rank Fusion combines vector and keyword rankings without assuming comparable raw score scales.
 - Optional CrossEncoder reranking improves final ordering at a higher latency and memory cost.
 - Evidence Judge prevents weak retrieval from being treated as strong evidence and can trigger one rewrite/retry.
 
-The current defaults use vector weight 0.65 and BM25 weight 0.35. These values are configuration/implementation defaults, not universal optimums; production tuning should use a versioned evaluation set.
+The online path uses Qwen document/query embeddings, a versioned Qdrant collection queried through a stable alias, an OpenSearch keyword index, and RRF with a default k of 60. If OpenSearch is unavailable, retrieval may degrade to vector-only and reports that state in response metadata.
 
 ## 6. Knowledge ingestion flow
 
@@ -170,7 +171,7 @@ sequenceDiagram
     participant DS as DocumentService
     participant PG as PostgreSQL
     participant QD as Qdrant
-    participant BM as chunks.json
+    participant OS as OpenSearch
 
     U->>API: Upload file + doc_type + version
     API->>DS: file bytes
@@ -178,8 +179,10 @@ sequenceDiagram
     DS->>PG: create uploaded metadata
     DS->>DS: parse and split
     DS->>PG: write document_chunks
-    DS->>QD: add stable document points
-    DS->>BM: refresh enterprise chunks
+    DS->>QD: write staging document points
+    DS->>OS: bulk write staging keyword documents
+    DS->>QD: promote operation to indexed
+    DS->>OS: promote operation to indexed
     DS->>PG: status = indexed
     API-->>U: document metadata
 ~~~
@@ -210,8 +213,9 @@ UI role checks improve usability. They are not security boundaries; API checks r
 | Store | Main data |
 |---|---|
 | PostgreSQL | users, audit logs, conversations, documents, chunks, feedback, evaluation runs/items, quality records |
-| Qdrant | Document vectors and payload metadata |
-| data/processed/chunks.json | BM25-compatible chunks |
+| Qdrant | Qwen document vectors and versioned payload metadata; runtime queries use a stable alias |
+| OpenSearch | Online keyword documents used by Hybrid Search |
+| data/processed/chunks.json | Legacy Demo BM25 data only; not an online runtime dependency |
 | data/uploads | Uploaded source files |
 | data/rules | Rule Tool YAML |
 | data/eval | Evaluation questions and JSON reports |
@@ -236,7 +240,8 @@ request_id correlates API responses, node logs, feedback, and audit records. ses
 
 ## 10. Current boundaries
 
-- BM25 is file-backed and loaded into process memory; document updates require API restart for BM25 refresh.
+- `scripts/ingest_docs.py` and `chunks.json` remain Legacy Demo assets and are isolated from the online Qwen/OpenSearch path.
+- Full online migration is allowed only before the stable Qdrant alias targets the new collection; later repairs use per-document reindex.
 - Evaluation runs synchronously in v1.0.
 - PostgreSQL initialization is demo-oriented and recreates three sample business tables.
 - SQL validation is intentionally restricted but should still use a dedicated read-only production account.

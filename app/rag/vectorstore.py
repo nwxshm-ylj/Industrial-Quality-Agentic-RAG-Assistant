@@ -19,7 +19,8 @@ class QdrantVectorStore:
     def __init__(self):
         self.client = QdrantClient(url=settings.qdrant_url)
         self.model = SentenceTransformer(settings.embedding_model)
-        self.collection_name = settings.qdrant_collection
+        # Legacy BM25/BGE ingestion is isolated from online Qwen collections.
+        self.collection_name = settings.legacy_qdrant_collection
 
     def _create_collection_if_missing(self) -> None:
         if self.client.collection_exists(self.collection_name):

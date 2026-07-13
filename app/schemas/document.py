@@ -12,6 +12,8 @@ class DocumentInfo(BaseModel):
     version: str
     status: str
     chunk_count: int
+    failed_stage: str | None = None
+    error_message: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

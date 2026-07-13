@@ -27,6 +27,7 @@ class IndustrialGraphRAGChain:
             "contexts": [],
             "answer": "",
             "citations": [],
+            "retrieval_metadata": {},
             "evidence_score": 0.0,
             "evidence_enough": False,
             "retry_count": 0,
@@ -58,6 +59,7 @@ class IndustrialGraphRAGChain:
             "retry_count": result.get("retry_count"),
             "total_latency_ms": total_latency_ms,
         }
+        metadata.update(result.get("retrieval_metadata", {}))
 
         log_node_event(
             state=result,

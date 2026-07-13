@@ -6,7 +6,6 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from app.db.session import engine
-from app.rag.chunk_store import refresh_chunk_store_from_db
 from app.services.document_service import DocumentService
 
 
@@ -32,6 +31,14 @@ def verify_infrastructure(service: DocumentService) -> None:
     except Exception as exc:
         raise RuntimeError(
             "Qdrant 或嵌入模型不可用，请检查 Qdrant、网络和模型配置"
+        ) from exc
+
+    try:
+        if not service.keyword_backend.is_available():
+            raise RuntimeError("OpenSearch ping failed")
+    except Exception as exc:
+        raise RuntimeError(
+            "OpenSearch is unavailable; check OPENSEARCH_URL and container health"
         ) from exc
 
 
@@ -134,6 +141,11 @@ def main() -> None:
                 pass
 
             try:
+                service.keyword_backend.delete_by_doc_id(cleanup_doc_id)
+            except Exception:
+                pass
+
+            try:
                 with engine.begin() as conn:
                     conn.execute(
                         text(
@@ -155,12 +167,6 @@ def main() -> None:
 
         if uploaded_path and uploaded_path.exists():
             uploaded_path.unlink()
-
-        try:
-            refresh_chunk_store_from_db()
-        except Exception:
-            pass
-
 
 if __name__ == "__main__":
     main()

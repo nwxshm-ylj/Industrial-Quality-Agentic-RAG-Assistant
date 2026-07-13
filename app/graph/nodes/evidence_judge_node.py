@@ -12,7 +12,11 @@ def evidence_judge_node(state: IndustrialRAGState) -> dict:
         evidence_enough = False
     else:
         scores = [
-            float(ctx.get("score", 0.0))
+            float(
+                ctx.get("evidence_signal_score")
+                if ctx.get("evidence_signal_score") is not None
+                else ctx.get("score", 0.0)
+            )
             for ctx in contexts
         ]
 

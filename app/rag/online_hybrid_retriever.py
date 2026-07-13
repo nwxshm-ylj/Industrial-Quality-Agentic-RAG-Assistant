@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+from functools import lru_cache
+from typing import Any
+
+from app.core.logger import log_business_event
+from app.rag.embeddings.factory import get_embedding_provider
+from app.rag.fusion import reciprocal_rank_fusion
+from app.rag.search_backends.base import (
+    KeywordSearchBackend,
+    KeywordSearchError,
+    VectorSearchBackend,
+)
+from app.rag.search_backends.opensearch_backend import OpenSearchKeywordBackend
+from app.rag.search_backends.qdrant_backend import QdrantVectorSearchBackend
+
+
+class OnlineHybridRetriever:
+    def __init__(
+        self,
+        vector_backend: VectorSearchBackend,
+        keyword_backend: KeywordSearchBackend,
+        *,
+        degraded_mode: str = "vector_only",
+        rrf_k: int = 60,
+        use_reranker: bool = False,
+        reranker: Any | None = None,
+    ) -> None:
+        if degraded_mode != "vector_only":
+            raise ValueError(
+                f"Unsupported HYBRID_DEGRADED_MODE: {degraded_mode}"
+            )
+        self.vector_backend = vector_backend
+        self.keyword_backend = keyword_backend
+        self.degraded_mode = degraded_mode
+        self.rrf_k = rrf_k
+        self.use_reranker = use_reranker
+        self.reranker = reranker
+
+        if self.use_reranker and self.reranker is None:
+            try:
+                from app.rag.reranker import IndustrialReranker
+
+                self.reranker = IndustrialReranker()
+            except Exception as exc:
+                log_business_event(
+                    "reranker_unavailable",
+                    status="degraded",
+                    error_message=str(exc),
+                )
+                self.use_reranker = False
+
+    def retrieve(
+        self,
+        question: str,
+        *,
+        top_k: int = 5,
+        vector_top_k: int = 20,
+        keyword_top_k: int = 20,
+        rerank_candidate_k: int = 20,
+    ) -> dict:
+        vector_results = self.vector_backend.search(
+            question,
+            top_k=vector_top_k,
+        )
+        degraded = False
+        degraded_reason = None
+
+        try:
+            keyword_results = self.keyword_backend.search(
+                question,
+                top_k=keyword_top_k,
+            )
+        except KeywordSearchError as exc:
+            if self.degraded_mode != "vector_only":
+                raise
+            keyword_results = []
+            degraded = True
+            degraded_reason = str(exc)
+            log_business_event(
+                "hybrid_search_degraded",
+                status="degraded",
+                error_message=degraded_reason,
+                degraded=True,
+                degraded_reason=degraded_reason,
+                retrieval_mode="vector_only",
+            )
+
+        merged = reciprocal_rank_fusion(
+            vector_results,
+            keyword_results,
+            rrf_k=self.rrf_k,
+        )
+        candidates = merged[:rerank_candidate_k]
+
+        if self.use_reranker and self.reranker is not None and candidates:
+            results = self.reranker.rerank(
+                question=question,
+                documents=candidates,
+                top_k=top_k,
+            )
+            for item in results:
+                item["score"] = item.get("rerank_score")
+                item["evidence_signal_score"] = item.get("rerank_score")
+                item["final_score_type"] = "rerank_score"
+        else:
+            results = candidates[:top_k]
+
+        return {
+            "contexts": results,
+            "metadata": {
+                "degraded": degraded,
+                "degraded_reason": degraded_reason,
+                "retrieval_mode": "vector_only" if degraded else "hybrid",
+                "vector_result_count": len(vector_results),
+                "keyword_result_count": len(keyword_results),
+            },
+        }
+
+
+@lru_cache(maxsize=1)
+def build_online_hybrid_retriever() -> OnlineHybridRetriever:
+    from app.core.config import settings
+
+    provider = get_embedding_provider()
+    vector_backend = QdrantVectorSearchBackend(
+        provider,
+        collection_name=settings.qdrant_collection,
+        collection_alias=settings.qdrant_collection_alias,
+    )
+
+    backend_name = settings.keyword_search_backend.strip().lower()
+    if backend_name != "opensearch":
+        raise ValueError(f"Unsupported keyword search backend: {backend_name}")
+    keyword_backend = OpenSearchKeywordBackend(
+        index_name=(
+            f"{settings.opensearch_index_prefix}_keyword_"
+            f"{settings.keyword_index_version}"
+        )
+    )
+    return OnlineHybridRetriever(
+        vector_backend,
+        keyword_backend,
+        degraded_mode=settings.hybrid_degraded_mode,
+        use_reranker=settings.use_reranker,
+    )
+
+
+def clear_online_hybrid_retriever_cache() -> None:
+    build_online_hybrid_retriever.cache_clear()
