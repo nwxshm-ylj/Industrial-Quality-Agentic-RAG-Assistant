@@ -2,12 +2,12 @@ import re
 from typing import Any
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
 from sqlalchemy import text
 
 from app.core.config import settings
 from app.db.session import engine
 from app.observability.model_usage import invoke_observed_chat_model
+from app.prompting import get_prompt_registry
 
 
 class IndustrialSQLTool:
@@ -172,41 +172,21 @@ class IndustrialSQLTool:
 - 设备报警记录：查询 equipment_alarm 表
 """
 
-        system_prompt = """
-你是一个 PostgreSQL 查询生成助手。
-
-任务：
-根据用户问题生成一条安全的 SELECT SQL。
-
-要求：
-1. 只能生成 SELECT 语句。
-2. 不能生成 DELETE、UPDATE、DROP、INSERT、ALTER、CREATE 等语句。
-3. 只能查询给定的三张表。
-4. 必须添加 LIMIT，最大 LIMIT 100。
-5. 不要使用不存在的字段。
-6. 只输出 SQL，不要解释，不要 Markdown。
-7. 时间条件可以使用 NOW() - INTERVAL '7 days' 这类 PostgreSQL 语法。
-"""
-
-        user_prompt = f"""
-数据库结构：
-{schema}
-
-用户问题：
-{question}
-
-请生成 PostgreSQL SQL：
-"""
+        rendered_prompt = get_prompt_registry().render(
+            "sql_generator",
+            {
+                "schema": schema,
+                "question": question,
+            },
+        )
 
         response = invoke_observed_chat_model(
             self.llm,
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ],
+            list(rendered_prompt.messages),
             component="sql_generator",
             provider=settings.llm_provider,
             model_name=settings.llm_model,
+            prompt_reference=rendered_prompt.reference,
         )
 
         sql = str(response.content).strip()

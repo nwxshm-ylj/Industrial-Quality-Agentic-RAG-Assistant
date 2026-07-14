@@ -1,8 +1,8 @@
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.config import settings
 from app.observability.model_usage import invoke_observed_chat_model
+from app.prompting import get_prompt_registry
 
 
 class AnswerGenerator:
@@ -24,40 +24,22 @@ class AnswerGenerator:
         context_text = self._format_contexts(contexts)
         memory_text = self._format_memory(memory_messages)
 
-        system_prompt = """
-你是一个工业质量知识库助手，擅长根据设备手册、FMEA、SOP、质量案例和规则文档回答制造现场问题。
-
-回答要求：
-1. 必须以给定的参考资料作为事实依据。
-2. 历史对话只用于理解上下文和指代，不能替代参考资料。
-3. 如果资料中没有依据，不要编造。
-4. 回答要结构化。
-5. 对故障诊断类问题，按照“可能原因、排查步骤、处理建议、依据来源”组织。
-6. 不要输出无依据的绝对结论。
-"""
-
-        user_prompt = f"""
-历史对话：
-{memory_text}
-
-用户当前问题：
-{question}
-
-参考资料：
-{context_text}
-
-请结合历史对话和参考资料回答用户当前问题，并以参考资料作为主要依据。
-"""
+        rendered_prompt = get_prompt_registry().render(
+            "answer_generator",
+            {
+                "memory_text": memory_text,
+                "question": question,
+                "context_text": context_text,
+            },
+        )
 
         response = invoke_observed_chat_model(
             self.llm,
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ],
+            list(rendered_prompt.messages),
             component="answer_generator",
             provider=settings.llm_provider,
             model_name=settings.llm_model,
+            prompt_reference=rendered_prompt.reference,
         )
 
         content = response.content

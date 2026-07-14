@@ -5,6 +5,8 @@ from app.core.metrics import (
     record_http_request,
     record_model_usage,
     record_node_execution,
+    record_prompt_invocation,
+    record_prompt_render,
     record_retrieval,
     record_retrieval_evaluation,
     record_document_operation,
@@ -40,6 +42,20 @@ def main() -> None:
         output_tokens=5,
         measurement_source="provider",
     )
+    record_prompt_render(
+        prompt_id="mock.prompt",
+        prompt_version="1.0.0",
+        component="mock_component",
+        status="success",
+        latency_ms=1.0,
+    )
+    record_prompt_invocation(
+        prompt_id="mock.prompt",
+        prompt_version="1.0.0",
+        component="mock_component",
+        status="success",
+        latency_ms=5.0,
+    )
     record_retrieval(
         retrieval_mode="hybrid",
         status="success",
@@ -67,6 +83,8 @@ def main() -> None:
     assert "industrial_rag_http_requests_total" in text_payload
     assert "industrial_rag_node_executions_total" in text_payload
     assert "industrial_rag_model_calls_total" in text_payload
+    assert "industrial_rag_prompt_renders_total" in text_payload
+    assert "industrial_rag_prompt_invocations_total" in text_payload
     assert "industrial_rag_retrieval_requests_total" in text_payload
     assert "industrial_rag_retrieval_evaluation_score" in text_payload
     assert "industrial_rag_retrieval_evaluation_latency_ms" in text_payload

@@ -118,6 +118,26 @@ MODEL_COST = _counter(
     "Calculated model cost at event time",
     ("provider", "model", "operation", "currency"),
 )
+PROMPT_INVOCATIONS = _counter(
+    "industrial_rag_prompt_invocations_total",
+    "Versioned prompt model invocations",
+    ("prompt_id", "prompt_version", "component", "status"),
+)
+PROMPT_INVOCATION_DURATION = _histogram(
+    "industrial_rag_prompt_invocation_duration_seconds",
+    "Versioned prompt model invocation duration",
+    ("prompt_id", "prompt_version", "component"),
+)
+PROMPT_RENDERS = _counter(
+    "industrial_rag_prompt_renders_total",
+    "Versioned prompt render attempts",
+    ("prompt_id", "prompt_version", "component", "status"),
+)
+PROMPT_RENDER_DURATION = _histogram(
+    "industrial_rag_prompt_render_duration_seconds",
+    "Versioned prompt render duration",
+    ("prompt_id", "prompt_version", "component"),
+)
 RETRIEVAL_REQUESTS = _counter(
     "industrial_rag_retrieval_requests_total",
     "Retrieval executions",
@@ -254,6 +274,48 @@ def record_model_usage(
     if cost is not None and MODEL_COST:
         MODEL_COST.labels(*base_labels, _safe_label(currency, "unknown")).inc(
             max(cost, 0.0)
+        )
+
+
+def record_prompt_invocation(
+    *,
+    prompt_id: str,
+    prompt_version: str,
+    component: str,
+    status: str,
+    latency_ms: float,
+) -> None:
+    labels = (
+        _safe_label(prompt_id),
+        _safe_label(prompt_version),
+        _safe_label(component),
+    )
+    if PROMPT_INVOCATIONS:
+        PROMPT_INVOCATIONS.labels(*labels, _safe_label(status)).inc()
+    if PROMPT_INVOCATION_DURATION:
+        PROMPT_INVOCATION_DURATION.labels(*labels).observe(
+            max(latency_ms, 0.0) / 1000
+        )
+
+
+def record_prompt_render(
+    *,
+    prompt_id: str,
+    prompt_version: str,
+    component: str,
+    status: str,
+    latency_ms: float,
+) -> None:
+    labels = (
+        _safe_label(prompt_id),
+        _safe_label(prompt_version),
+        _safe_label(component),
+    )
+    if PROMPT_RENDERS:
+        PROMPT_RENDERS.labels(*labels, _safe_label(status)).inc()
+    if PROMPT_RENDER_DURATION:
+        PROMPT_RENDER_DURATION.labels(*labels).observe(
+            max(latency_ms, 0.0) / 1000
         )
 
 

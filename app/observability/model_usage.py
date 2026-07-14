@@ -3,11 +3,13 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Any
 
-from app.core.metrics import record_model_usage
+from app.core.logger import log_business_event
+from app.core.metrics import record_model_usage, record_prompt_invocation
 from app.core.telemetry import traced_span
-from app.core.telemetry_context import add_ai_usage_event
+from app.core.telemetry_context import add_ai_usage_event, get_request_context
 from app.observability.pricing import get_model_price_catalog
 from app.observability.usage_models import AIUsageEvent
+from app.prompting.models import PromptReference
 
 
 def invoke_observed_chat_model(
@@ -17,6 +19,7 @@ def invoke_observed_chat_model(
     component: str,
     provider: str,
     model_name: str,
+    prompt_reference: PromptReference | None = None,
 ) -> Any:
     operation = "chat_completion"
     started_at = perf_counter()
@@ -26,6 +29,21 @@ def invoke_observed_chat_model(
         "ai.operation": operation,
         "rag.component": component,
     }
+    prompt_metadata = (
+        prompt_reference.to_metadata()
+        if prompt_reference is not None
+        else {}
+    )
+    if prompt_reference is not None:
+        attributes.update(
+            {
+                "ai.prompt.id": prompt_reference.prompt_id,
+                "ai.prompt.version": prompt_reference.version,
+                "ai.prompt.component": prompt_reference.component,
+                "ai.prompt.release": prompt_reference.release_id,
+                "ai.prompt.hash": prompt_reference.content_hash,
+            }
+        )
     try:
         with traced_span(f"ai.{component}", attributes=attributes):
             response = model.invoke(messages)
@@ -38,6 +56,14 @@ def invoke_observed_chat_model(
             model_name=model_name,
             latency_ms=latency_ms,
             status="failed",
+            error_type=type(exc).__name__,
+            metadata=prompt_metadata,
+        )
+        _log_prompt_invocation(
+            prompt_reference=prompt_reference,
+            component=component,
+            status="failed",
+            latency_ms=latency_ms,
             error_type=type(exc).__name__,
         )
         raise
@@ -55,6 +81,13 @@ def invoke_observed_chat_model(
         output_tokens=usage["output_tokens"],
         total_tokens=usage["total_tokens"],
         measurement_source=usage["measurement_source"],
+        metadata=prompt_metadata,
+    )
+    _log_prompt_invocation(
+        prompt_reference=prompt_reference,
+        component=component,
+        status="success",
+        latency_ms=latency_ms,
     )
     return response
 
@@ -178,6 +211,39 @@ def _record_ai_event(
         cost=event.cost,
         currency=event.currency,
     )
+    if metadata and metadata.get("prompt_id") and metadata.get("prompt_version"):
+        record_prompt_invocation(
+            prompt_id=str(metadata["prompt_id"]),
+            prompt_version=str(metadata["prompt_version"]),
+            component=str(metadata.get("prompt_component") or component),
+            status=status,
+            latency_ms=latency_ms,
+        )
+
+
+def _log_prompt_invocation(
+    *,
+    prompt_reference: PromptReference | None,
+    component: str,
+    status: str,
+    latency_ms: float,
+    error_type: str | None = None,
+) -> None:
+    if prompt_reference is None:
+        return
+    context = get_request_context()
+    log_business_event(
+        "prompt_model_invocation",
+        request_id=context.request_id if context else None,
+        session_id=context.session_id if context else None,
+        username=context.username if context else None,
+        role=context.role if context else None,
+        status=status,
+        latency_ms=latency_ms,
+        error_message=error_type,
+        component=component,
+        **prompt_reference.to_metadata(),
+    )
 
 
 def _as_optional_int(value: Any) -> int | None:
@@ -187,4 +253,3 @@ def _as_optional_int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
-

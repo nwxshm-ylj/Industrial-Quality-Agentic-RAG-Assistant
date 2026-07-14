@@ -40,6 +40,11 @@ flowchart LR
     Hybrid --> Keyword[OpenSearch Keyword Search]
     Hybrid --> Judge[Evidence Judge + Retry]
     Judge --> Generator[Answer Generator]
+    Router --> Prompt[Versioned Prompt Registry]
+    Rewrite --> Prompt
+    Generator --> Prompt
+    SQL --> Prompt
+    Prompt --> LLM[OpenAI-compatible LLM]
 
     Auth --> PG[(PostgreSQL)]
     Memory --> PG
@@ -73,6 +78,7 @@ flowchart LR
 | 知识库管理 | md/txt/pdf/docx 上传、版本、删除、重建 | 从脚本入库升级为可管理知识资产 |
 | 安全体系 | JWT、PBKDF2 密码哈希、RBAC | 管理用户和高风险操作权限 |
 | 审计与可观测性 | request_id、节点 latency、JSON 日志、审计表 | 支持问题定位和操作追溯 |
+| Prompt 工程 | 文件化 Catalog、语义版本、Release Manifest、Hash 校验 | 支持 Prompt 评审、测试、观测、发布与回滚 |
 | 用户反馈 | positive/negative/neutral + comment | 建立真实用户质量信号 |
 | RAG 评估 | 意图、来源、关键词、记忆、延迟指标 | 量化版本质量并支持回归比较 |
 | 管理界面 | Streamlit 聊天、文档、反馈和评估看板 | 提供完整演示和运营入口 |
@@ -234,6 +240,42 @@ Documents are stored with metadata in PostgreSQL and indexed into Qdrant and Ope
 
 无 Token 返回 401，角色不足返回 403。权限拒绝会记录结构化日志和 operation_audit_logs。
 
+## Prompt 工程与版本治理
+
+项目使用文件化 Prompt Catalog 管理生产 Prompt，当前覆盖 Intent Router、首次查询改写、证据不足重试改写、Answer Generator 和 SQL Generator。Prompt 不再散落在节点代码中，而是作为可审查、可测试的版本化资产保存在 `prompts/catalog/`。
+
+核心机制：
+
+- 每个 Prompt 使用不可变语义版本，例如 `1.0.0`；已发布文件不得原地修改。
+- `prompts/releases/stable.yaml` 定义当前生产 Release，`candidate.yaml` 用于候选版本验证。
+- Release Manifest 同时锁定 Prompt ID、版本、文件路径和 SHA-256，内容被意外修改时应用启动失败。
+- Prompt Registry 在应用进程内单例缓存，请求链路不会反复读取 YAML 或重复创建 Registry。
+- 输入变量执行声明、必填、最大长度和模板字段校验；历史对话、问题和参考资料按不可信数据处理。
+- Prompt 正文、用户问题、Memory 和检索原文默认不写入日志。
+- 模型用量事件、OpenTelemetry Trace、结构化日志和 Prometheus 指标记录 Prompt ID、版本、Release、Hash、耗时和执行状态。
+- `/api/v1/graph-chat` 保留原有字段，并在 `metadata` 中增量返回 `prompt_release` 和 `prompt_versions`。
+- SQL Prompt 只负责生成候选 SQL，SELECT 限制、表白名单、LIMIT、RBAC 和数据库权限仍由代码执行，Prompt 不是安全边界。
+
+配置示例：
+
+~~~dotenv
+PROMPT_CATALOG_PATH=prompts/catalog
+PROMPT_RELEASE_PATH=prompts/releases/stable.yaml
+PROMPT_VALIDATE_ON_STARTUP=true
+PROMPT_EXPOSE_VERSION_IN_RESPONSE=true
+~~~
+
+发布流程：新增 Prompt 版本 → 更新 candidate Release → 运行 Mock、回归和离线评估 → 审核指标与负反馈样本 → 将 stable Release 指向新版本。回滚时只恢复上一个已验证的 Release Manifest，不需要修改 LangGraph 工作流。
+
+以下离线校验不会调用真实收费 LLM：
+
+~~~bash
+python -m scripts.validate_prompts
+python -m scripts.test_prompt_registry
+python -m scripts.test_prompt_rendering
+python -m scripts.test_prompt_components_mock
+~~~
+
 ## 可观测性
 
 每次 graph-chat：
@@ -242,6 +284,7 @@ Documents are stored with metadata in PostgreSQL and indexed into Qdrant and Ope
 - LangGraph state 贯穿 request_id 与 session_id。
 - 主要节点记录 node_name、intent、latency_ms 和 status。
 - 响应 metadata 包含 intent、evidence_score、evidence_enough、retry_count、total_latency_ms。
+- Prompt 模型调用记录 prompt_id、prompt_version、prompt_release、prompt_hash 和 latency_ms。
 - graph-chat、登录、SQL、文档、反馈、评估和权限拒绝写入审计日志。
 - 审计失败只记录错误，不阻断主流程。
 
@@ -301,6 +344,10 @@ python -m scripts.test_memory
 python -m scripts.test_observability
 python -m scripts.test_feedback_evaluation
 python -m scripts.test_retrieval_evaluation
+python -m scripts.validate_prompts
+python -m scripts.test_prompt_registry
+python -m scripts.test_prompt_rendering
+python -m scripts.test_prompt_components_mock
 python -m scripts.test_graph
 ~~~
 
@@ -357,6 +404,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 │   ├── core/         # Config、Security、Dependencies、Logger
 │   ├── graph/        # LangGraph state、workflow、nodes
 │   ├── memory/       # PostgreSQL conversation memory
+│   ├── prompting/    # Prompt Registry、严格渲染与版本引用
 │   ├── rag/          # Loader、Splitter、Hybrid Retrieval、Generation
 │   ├── schemas/      # Pydantic API schemas
 │   ├── services/     # Auth、Audit、Document、Feedback、Evaluation
@@ -368,6 +416,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 │   ├── rules/
 │   └── eval/
 ├── docs/
+├── prompts/          # Prompt Catalog 与 stable/candidate Release
 ├── scripts/
 ├── ui/
 ├── docker-compose.yml
@@ -416,7 +465,8 @@ design, usage tables, APIs, privacy constraints, pricing configuration, and test
 - [x] OpenTelemetry tracing、Prometheus metrics、集中日志和用量分析。
 - [ ] 增加 indexing_jobs、后台入库进度和失败任务重试。
 - [ ] RAGAS/LLM-as-a-Judge、基准集版本和趋势对比。
-- [ ] Prompt、模型和索引版本治理及 A/B 测试。
+- [x] Prompt Catalog、Release Manifest、版本 Hash、运行观测与回滚基础能力。
+- [ ] Prompt A/B 测试、审批流与独立运营管理界面。
 - [ ] 对象存储、病毒扫描、文件配额和生命周期管理。
 - [ ] CI/CD、依赖锁定、镜像签名和安全扫描。
 - [ ] 流式响应、任务进度和更完整的运营后台。

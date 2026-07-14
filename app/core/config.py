@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     llm_api_key: str
     llm_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
+    prompt_catalog_path: str = "prompts/catalog"
+    prompt_release_path: str = "prompts/releases/stable.yaml"
+    prompt_validate_on_startup: bool = True
+    prompt_expose_version_in_response: bool = True
+
     database_url: str = "postgresql+psycopg2://rag_user:rag_password@localhost:5432/industrial_rag"
 
     reranker_model: str = "BAAI/bge-reranker-base"

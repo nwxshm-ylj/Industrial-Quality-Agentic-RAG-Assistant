@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from app.core.logger import log_business_event
 from app.db.session import engine
+from app.prompting import get_prompt_registry
 from app.services.audit_service import AuditService
 from scripts.evaluate_system import (
     calculate_metrics,
@@ -182,6 +183,7 @@ class EvaluationService:
                 "run_id": run_id,
                 "username": username,
                 "created_at": datetime.now(timezone.utc).isoformat(),
+                "prompt_release": get_prompt_registry().release_metadata(),
                 "metrics": {**metrics, **summary},
                 "results": results,
             }

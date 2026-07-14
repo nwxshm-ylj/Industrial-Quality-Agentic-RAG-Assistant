@@ -1,0 +1,29 @@
+release_id: industrial-prompts-2026-07-14.1
+channel: stable
+created_at: "2026-07-14T00:00:00+08:00"
+prompts:
+  intent_router:
+    id: industrial.intent_router
+    version: 1.0.0
+    file: industrial.intent_router/1.0.0.yaml
+    sha256: 2fa916be7aaca2052675f380538952e73b92feb40859deb02a558b5a38268a2e
+  query_rewriter_initial:
+    id: industrial.query_rewriter.initial
+    version: 1.0.0
+    file: industrial.query_rewriter.initial/1.0.0.yaml
+    sha256: 72a26d21ea0cb474cb26d58672dd0436c4f5e9be250ab176e43d92af2b04f0b7
+  query_rewriter_retry:
+    id: industrial.query_rewriter.retry
+    version: 1.0.0
+    file: industrial.query_rewriter.retry/1.0.0.yaml
+    sha256: 123923944c8dc3d7e37de51f95791f75280a32271716d6a67d3409af9d18b74c
+  answer_generator:
+    id: industrial.answer_generator
+    version: 1.0.0
+    file: industrial.answer_generator/1.0.0.yaml
+    sha256: 43c753ad482a0cd10fd673d5ef376755c878defcc2910b06f64e99129066fcd4
+  sql_generator:
+    id: industrial.sql_generator
+    version: 1.0.0
+    file: industrial.sql_generator/1.0.0.yaml
+    sha256: 2e2abae8bdd84f3039bf4fe124f3047f01f192b254fdd7f7b10b11bd30cc6e4a
