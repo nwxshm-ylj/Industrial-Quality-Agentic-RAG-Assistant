@@ -12,6 +12,7 @@ from app.observability.model_usage import (
     extract_chat_usage,
     invoke_observed_chat_model,
 )
+from app.prompting.models import PromptReference
 
 
 @dataclass
@@ -48,6 +49,13 @@ def main() -> None:
             component="mock_component",
             provider="mock",
             model_name="mock-chat",
+            prompt_reference=PromptReference(
+                prompt_id="mock.prompt",
+                version="1.0.0",
+                component="mock_component",
+                release_id="mock-release",
+                content_hash="0" * 64,
+            ),
         )
         assert response.content == "mock answer"
         context = get_request_context()
@@ -57,6 +65,8 @@ def main() -> None:
         assert event.input_tokens == 12
         assert event.output_tokens == 7
         assert event.measurement_source == "provider"
+        assert event.metadata["prompt_id"] == "mock.prompt"
+        assert event.metadata["prompt_version"] == "1.0.0"
         print("Observed model usage mock test passed")
     finally:
         reset_request_context(token)
@@ -64,4 +74,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

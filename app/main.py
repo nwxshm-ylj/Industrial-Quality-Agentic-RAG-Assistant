@@ -31,6 +31,7 @@ from app.core.telemetry_context import (
 from app.db.session import engine
 from app.rag.opensearch_client import get_opensearch_client
 from app.rag.qdrant_client import get_qdrant_client
+from app.prompting import get_prompt_registry
 from app.services.usage_service import UsageService
 
 
@@ -71,6 +72,25 @@ app = FastAPI(
     description="工业质量知识库与设备异常诊断 RAG 系统",
     version="0.1.0"
 )
+
+
+@app.on_event("startup")
+def validate_active_prompt_release() -> None:
+    if not settings.prompt_validate_on_startup:
+        log_business_event(
+            "prompt_registry_startup_validation_skipped",
+            status="success",
+        )
+        return
+    registry = get_prompt_registry()
+    metadata = registry.release_metadata()
+    log_business_event(
+        "prompt_registry_startup_validated",
+        status="success",
+        prompt_release=metadata["release_id"],
+        prompt_channel=metadata["channel"],
+        prompt_count=len(metadata["versions"]),
+    )
 
 
 @app.middleware("http")
@@ -222,6 +242,19 @@ def readiness_check():
     }
 
     try:
+        prompt_metadata = get_prompt_registry().release_metadata()
+        checks["prompt_registry"] = {
+            "status": "ready",
+            "release_id": prompt_metadata["release_id"],
+            "channel": prompt_metadata["channel"],
+        }
+    except Exception as exc:
+        checks["prompt_registry"] = {
+            "status": "unavailable",
+            "error_type": type(exc).__name__,
+        }
+
+    try:
         opensearch_ready = bool(get_opensearch_client().ping())
         checks["opensearch"] = {
             "status": "ready" if opensearch_ready else "unavailable"
@@ -234,7 +267,12 @@ def readiness_check():
 
     critical_ready = all(
         checks[name]["status"] == "ready"
-        for name in ("postgresql", "qdrant", "model_configuration")
+        for name in (
+            "postgresql",
+            "qdrant",
+            "model_configuration",
+            "prompt_registry",
+        )
     )
     opensearch_ready = checks["opensearch"]["status"] == "ready"
     status = (

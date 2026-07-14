@@ -12,6 +12,8 @@ from app.core.telemetry_context import (
     update_request_context,
 )
 from app.graph.workflow import industrial_rag_app
+from app.core.config import settings
+from app.prompting import get_prompt_registry
 from app.services.usage_service import UsageService
 
 
@@ -64,14 +66,21 @@ class IndustrialGraphRAGChain:
         }
         started_at = perf_counter()
         graph_trace_id: str | None = None
+        prompt_release_metadata: dict = {}
 
         try:
+            prompt_release_metadata = get_prompt_registry().release_metadata()
+            update_request_context(
+                prompt_release=prompt_release_metadata["release_id"],
+                prompt_versions=prompt_release_metadata["versions"],
+            )
             with traced_span(
                 "rag.graph_chat",
                 attributes={
                     "rag.request_id": request_id,
                     "rag.session_id": session_id,
                     "rag.top_k": top_k,
+                    "rag.prompt.release": prompt_release_metadata["release_id"],
                 },
             ):
                 graph_trace_id, _ = get_current_trace_ids()
@@ -116,6 +125,9 @@ class IndustrialGraphRAGChain:
             "total_latency_ms": total_latency_ms,
         }
         metadata.update(result.get("retrieval_metadata", {}))
+        if settings.prompt_expose_version_in_response:
+            metadata["prompt_release"] = prompt_release_metadata["release_id"]
+            metadata["prompt_versions"] = prompt_release_metadata["versions"]
         trace_id = graph_trace_id
         if trace_id:
             metadata["trace_id"] = trace_id

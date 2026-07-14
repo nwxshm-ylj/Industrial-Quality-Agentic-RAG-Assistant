@@ -5,6 +5,7 @@ from typing import Any
 from uuid import uuid4
 
 from app.graph.workflow import industrial_rag_app
+from app.prompting import get_prompt_registry
 
 
 EVAL_FILE = "data/eval/eval_questions.json"
@@ -287,6 +288,7 @@ def main():
     metrics = calculate_metrics(results)
 
     report = {
+        "prompt_release": get_prompt_registry().release_metadata(),
         "metrics": metrics,
         "results": results,
     }

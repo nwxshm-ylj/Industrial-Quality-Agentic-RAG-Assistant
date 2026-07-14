@@ -1,10 +1,10 @@
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.core.config import settings
-from app.core.logger import observe_node
+from app.core.logger import log_business_event, observe_node
 from app.graph.state import IndustrialRAGState
 from app.observability.model_usage import invoke_observed_chat_model
+from app.prompting import get_prompt_registry
 
 
 llm = ChatOpenAI(
@@ -23,64 +23,36 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
     retry_count = state.get("retry_count", 0)
     memory_text = _format_memory(state.get("memory_messages", []))
 
-    system_prompt = """
-你是一个工业RAG检索查询改写助手。
-
-你的任务是把用户问题改写成更适合工业知识库检索的查询语句。
-
-要求：
-1. 保留用户原始意图。
-2. 补充工业相关关键词。
-3. 根据意图补充合适的检索方向。
-4. 结合历史对话补全当前问题中的指代和省略，使查询可独立理解。
-5. 不要回答问题。
-6. 不要解释。
-7. 只输出一行检索查询语句。
-"""
-
     intent_hint = _get_intent_hint(intent)
 
-    if retry_count == 0:
-        user_prompt = f"""
-历史对话：
-{memory_text}
-
-用户当前问题：
-{question}
-
-识别到的问题意图：
-{intent}
-
-意图说明：
-{intent_hint}
-
-请改写成适合工业知识库检索的查询语句。
-"""
-    else:
-        user_prompt = f"""
-历史对话：
-{memory_text}
-
-用户当前问题：
-{question}
-
-识别到的问题意图：
-{intent}
-
-上一次检索证据不足，请扩展更多同义词、工业术语和可能相关字段。
-只输出一行新的检索查询语句。
-"""
-
     try:
+        if retry_count == 0:
+            prompt_component = "query_rewriter_initial"
+            prompt_variables = {
+                "memory_text": memory_text,
+                "question": question,
+                "intent": intent,
+                "intent_hint": intent_hint,
+            }
+        else:
+            prompt_component = "query_rewriter_retry"
+            prompt_variables = {
+                "memory_text": memory_text,
+                "question": question,
+                "intent": intent,
+            }
+
+        rendered_prompt = get_prompt_registry().render(
+            prompt_component,
+            prompt_variables,
+        )
         response = invoke_observed_chat_model(
             llm,
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ],
+            list(rendered_prompt.messages),
             component="query_rewriter",
             provider=settings.llm_provider,
             model_name=settings.llm_model,
+            prompt_reference=rendered_prompt.reference,
         )
 
         rewritten_query = str(response.content).strip()
@@ -88,7 +60,19 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
         if not rewritten_query:
             rewritten_query = question
 
-    except Exception:
+    except Exception as exc:
+        log_business_event(
+            "query_rewriter_model_fallback",
+            request_id=state.get("request_id"),
+            session_id=state.get("session_id"),
+            status="failed",
+            error_message=type(exc).__name__,
+            prompt_component=(
+                "query_rewriter_initial"
+                if retry_count == 0
+                else "query_rewriter_retry"
+            ),
+        )
         rewritten_query = question
 
     return {

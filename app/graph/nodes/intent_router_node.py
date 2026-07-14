@@ -1,10 +1,10 @@
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.core.config import settings
-from app.core.logger import observe_node
+from app.core.logger import log_business_event, observe_node
 from app.graph.state import IndustrialRAGState
 from app.observability.model_usage import invoke_observed_chat_model
+from app.prompting import get_prompt_registry
 
 
 llm = ChatOpenAI(
@@ -31,56 +31,21 @@ def intent_router_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
     memory_text = _format_memory(state.get("memory_messages", []))
 
-    system_prompt = """
-你是一个工业RAG系统的意图识别器。
-
-请根据用户问题，判断其属于以下哪一种意图：
-
-1. doc_qa
-普通工业文档问答，例如询问某个标准、SOP、设备说明、FMEA内容。
-
-2. fault_diagnosis
-故障诊断类问题，例如询问异常原因、排查步骤、处理建议、设备报警、AI视觉误判、OCR失败、扭矩报警。
-
-3. case_search
-历史案例查询，例如询问过去是否发生过类似问题、历史8D案例、相似故障、复发案例。
-
-4. rule_query
-规则查询，例如询问PR规则、配置映射、字段校验规则、判定规则。
-
-5. sql_analysis
-结构化数据分析，例如最近一周、统计、数量、趋势、Top问题、数据库记录、报警次数。
-
-6. general
-与工业知识库无关的一般问题。
-
-要求：
-结合历史对话理解当前问题中的指代和省略。
-只输出一个标签，不要解释。
-可选标签只能是：
-doc_qa, fault_diagnosis, case_search, rule_query, sql_analysis, general
-"""
-
-    user_prompt = f"""
-历史对话：
-{memory_text}
-
-用户当前问题：
-{question}
-
-请输出意图标签：
-"""
-
     try:
+        rendered_prompt = get_prompt_registry().render(
+            "intent_router",
+            {
+                "memory_text": memory_text,
+                "question": question,
+            },
+        )
         response = invoke_observed_chat_model(
             llm,
-            [
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=user_prompt),
-            ],
+            list(rendered_prompt.messages),
             component="intent_router",
             provider=settings.llm_provider,
             model_name=settings.llm_model,
+            prompt_reference=rendered_prompt.reference,
         )
 
         intent = str(response.content).strip().lower()
@@ -94,7 +59,15 @@ doc_qa, fault_diagnosis, case_search, rule_query, sql_analysis, general
         if intent not in VALID_INTENTS:
             intent = _rule_based_intent(question)
 
-    except Exception:
+    except Exception as exc:
+        log_business_event(
+            "intent_router_model_fallback",
+            request_id=state.get("request_id"),
+            session_id=state.get("session_id"),
+            status="failed",
+            error_message=type(exc).__name__,
+            prompt_component="intent_router",
+        )
         intent = _rule_based_intent(question)
 
     return {
