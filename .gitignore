@@ -45,4 +45,5 @@ models/
 
 # Large local data cache
 data/processed/*.tmp
+data/eval/retrieval_eval_report*.json
 .agents/

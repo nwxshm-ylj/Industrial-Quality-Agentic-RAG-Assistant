@@ -270,6 +270,23 @@ python -m scripts.test_feedback_evaluation
 
 API 评估报告写入 PostgreSQL 的 rag_eval_runs、rag_eval_items，并输出 data/eval/eval_report_<run_id>.json。
 
+独立检索评估不会调用答案生成 LLM，而是直接评估在线 Qdrant + OpenSearch +
+RRF 排名链路。基准集位于 `data/eval/retrieval_eval_questions.json`，支持：
+
+- Precision@K、Recall@K、HitRate@K、MRR@K、nDCG@K
+- 检索总耗时 P50/P95/P99
+- Qdrant、OpenSearch、RRF、Reranker 耗时拆分
+- 降级查询比例与逐问题排名明细
+
+~~~bash
+python -m scripts.test_retrieval_evaluation
+python -m scripts.evaluate_retrieval --top-k 5 --k-values 1,3,5
+~~~
+
+版本化报告写入 `data/eval/retrieval_eval_report_<run_id>.json`，Streamlit 的
+RAG Evaluation 页面以及 Grafana Retrieval and Quality Dashboard 可展示最新指标。
+详见 [Retrieval Evaluation](docs/retrieval_evaluation.md)。
+
 ## 测试命令
 
 先启动 PostgreSQL、Qdrant、OpenSearch，并在隔离的演示环境初始化数据库和在线索引：
@@ -283,6 +300,7 @@ python -m scripts.test_document_management
 python -m scripts.test_memory
 python -m scripts.test_observability
 python -m scripts.test_feedback_evaluation
+python -m scripts.test_retrieval_evaluation
 python -m scripts.test_graph
 ~~~
 
@@ -364,12 +382,38 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 - [完整 Demo 脚本](docs/demo_script.md)
 - [面试讲解笔记](docs/interview_notes.md)
 
+## Enterprise Observability and Usage Analytics
+
+The optional observability stack adds OpenTelemetry traces, Prometheus metrics,
+centralized JSON logs with Loki, Tempo trace navigation, PostgreSQL usage facts, and
+provisioned Grafana dashboards.
+
+It tracks request and LangGraph latency, model/embedding calls, provider-reported
+tokens, calculated cost, Hybrid Search degradation, retrieval timing, feedback, and
+evaluation trends. Existing `request_id`, response metadata, JWT/RBAC, memory, and
+graph-chat fields remain compatible.
+
+~~~bash
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.observability.yml \
+  up -d --build
+~~~
+
+- Grafana: http://localhost:3000
+- Prometheus: http://localhost:9090
+- Readiness: http://localhost:8000/health/ready
+- Metrics: http://localhost:8000/metrics
+
+See [Enterprise Observability and Usage Analytics](docs/observability.md) for signal
+design, usage tables, APIs, privacy constraints, pricing configuration, and tests.
+
 ## Roadmap
 
 - [ ] PostgreSQL/Qdrant schema migration 工具与版本化发布。
 - [ ] 异步文档入库和评估任务队列。
 - [ ] 多租户、部门级数据隔离和细粒度文档 ACL。
-- [ ] OpenTelemetry tracing、Prometheus metrics 和集中日志方案。
+- [x] OpenTelemetry tracing、Prometheus metrics、集中日志和用量分析。
 - [ ] 增加 indexing_jobs、后台入库进度和失败任务重试。
 - [ ] RAGAS/LLM-as-a-Judge、基准集版本和趋势对比。
 - [ ] Prompt、模型和索引版本治理及 A/B 测试。

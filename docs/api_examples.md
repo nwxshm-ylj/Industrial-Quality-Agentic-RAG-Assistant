@@ -228,6 +228,31 @@ curl "$API_BASE/api/v1/evaluation/runs/RUN_ID" \
   -H "Authorization: Bearer $TOKEN"
 ~~~
 
+### Retrieval-only evaluation
+
+This path evaluates ranked Qdrant + OpenSearch retrieval without invoking the
+answer-generating LLM. It still calls the configured query EmbeddingProvider.
+
+~~~bash
+curl -X POST "$API_BASE/api/v1/evaluation/retrieval/run" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "top_k": 5,
+    "k_values": [1, 3, 5]
+  }'
+
+curl "$API_BASE/api/v1/evaluation/retrieval/runs?limit=20" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl "$API_BASE/api/v1/evaluation/retrieval/runs/RETRIEVAL_RUN_ID" \
+  -H "Authorization: Bearer $TOKEN"
+~~~
+
+The response includes Precision@K, Recall@K, HitRate@K, MRR@K, nDCG@K,
+P50/P95/P99 retrieval latency, backend latency breakdown, degraded status, and
+ranked result identifiers. Document text is not copied into the report.
+
 ## 8. User administration
 
 admin only:
@@ -258,5 +283,39 @@ curl "$API_BASE/api/v1/auth/users" \
 | 422 | Pydantic request validation failed |
 | 500 | Internal operation failed |
 | 503 | Evaluation failed because a required model/service was unavailable |
+
+## Observability and usage analytics
+
+The existing Bearer token is required for the following admin/engineer endpoints.
+
+~~~bash
+curl -s "$API_BASE/api/v1/observability/analytics/overview" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -s "$API_BASE/api/v1/observability/analytics/timeseries?granularity=day" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -s "$API_BASE/api/v1/observability/analytics/models" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -s "$API_BASE/api/v1/observability/analytics/retrieval" \
+  -H "Authorization: Bearer $TOKEN"
+~~~
+
+Inspect one request by the `request_id` returned from graph-chat:
+
+~~~bash
+curl -s "$API_BASE/api/v1/observability/requests/c2ec3b4e-..." \
+  -H "Authorization: Bearer $TOKEN"
+~~~
+
+Operational endpoints used by the container platform and Prometheus do not invoke a
+paid model API:
+
+~~~bash
+curl -s "$API_BASE/health/live"
+curl -s "$API_BASE/health/ready"
+curl -s "$API_BASE/metrics"
+~~~
 
 The API also returns X-Request-ID for support and log correlation.

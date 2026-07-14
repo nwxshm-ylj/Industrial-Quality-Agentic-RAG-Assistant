@@ -1,0 +1,60 @@
+{
+  "uid": "industrial-rag-usage",
+  "title": "Industrial RAG - Usage and Cost",
+  "tags": ["industrial-rag", "usage"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Requests",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT COUNT(*) AS value FROM rag_request_runs WHERE $__timeFilter(created_at)", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total tokens",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT COALESCE(SUM(total_tokens), 0) AS value FROM rag_request_runs WHERE $__timeFilter(created_at)", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Calculated cost",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT COALESCE(SUM(calculated_cost), 0) AS value FROM rag_request_runs WHERE $__timeFilter(created_at)", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Average latency ms",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT COALESCE(AVG(total_latency_ms), 0) AS value FROM rag_request_runs WHERE $__timeFilter(created_at)", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Daily requests and tokens",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT $__timeGroupAlias(created_at, '1d'), COUNT(*) AS requests, SUM(total_tokens) AS tokens FROM rag_request_runs WHERE $__timeFilter(created_at) GROUP BY 1 ORDER BY 1", "format": "time_series", "refId": "A"}],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6}
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Usage by model",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT provider, model, operation, COUNT(*) AS calls, SUM(total_tokens) AS tokens, SUM(cost) AS cost FROM ai_usage_events WHERE $__timeFilter(created_at) GROUP BY provider, model, operation ORDER BY calls DESC", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6}
+    }
+  ]
+}
+

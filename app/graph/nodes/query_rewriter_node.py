@@ -4,6 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from app.core.config import settings
 from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
+from app.observability.model_usage import invoke_observed_chat_model
 
 
 llm = ChatOpenAI(
@@ -71,10 +72,16 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
 """
 
     try:
-        response = llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ])
+        response = invoke_observed_chat_model(
+            llm,
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+            ],
+            component="query_rewriter",
+            provider=settings.llm_provider,
+            model_name=settings.llm_model,
+        )
 
         rewritten_query = str(response.content).strip()
 

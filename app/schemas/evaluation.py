@@ -41,3 +41,44 @@ class EvalRunResponse(EvalRunInfo):
 class EvalRunListResponse(BaseModel):
     runs: list[EvalRunInfo]
     total: int
+
+
+class RetrievalEvalRunRequest(BaseModel):
+    top_k: int = Field(default=5, ge=1, le=100)
+    k_values: list[int] = Field(
+        default_factory=lambda: [1, 3, 5],
+        min_length=1,
+        max_length=10,
+    )
+    max_questions: int | None = Field(default=None, ge=1, le=1000)
+
+
+class RetrievalEvalRunSummary(BaseModel):
+    total_questions: int
+    successful_questions: int
+    failed_questions: int
+    degraded_questions: int
+    degraded_rate: float
+
+
+class RetrievalEvalRunInfo(BaseModel):
+    run_id: str
+    status: str
+    dataset_name: str | None = None
+    started_at: datetime
+    completed_at: datetime
+    username: str | None = None
+    config: dict
+    summary: RetrievalEvalRunSummary
+    metrics: dict[str, float]
+    latency: dict
+    report_path: str | None = None
+
+
+class RetrievalEvalRunResponse(RetrievalEvalRunInfo):
+    items: list[dict] = Field(default_factory=list)
+
+
+class RetrievalEvalRunListResponse(BaseModel):
+    runs: list[RetrievalEvalRunInfo] = Field(default_factory=list)
+    total: int

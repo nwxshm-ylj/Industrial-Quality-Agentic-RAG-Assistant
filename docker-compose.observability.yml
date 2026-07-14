@@ -1,0 +1,114 @@
+services:
+  api:
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      TELEMETRY_ENABLED: "true"
+      METRICS_ENABLED: "true"
+      USAGE_ANALYTICS_ENABLED: "true"
+      OTEL_SERVICE_NAME: industrial-quality-rag-api
+      OTEL_SERVICE_VERSION: ${APP_VERSION:-1.0.0}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_TRACE_SAMPLE_RATIO: ${OTEL_TRACE_SAMPLE_RATIO:-1.0}
+    depends_on:
+      otel-collector:
+        condition: service_started
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    container_name: industrial-rag-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./monitoring/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8888:8888"
+    depends_on:
+      tempo:
+        condition: service_started
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: industrial-rag-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    container_name: industrial-rag-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./monitoring/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: industrial-rag-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./monitoring/loki/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.7.5
+    container_name: industrial-rag-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: industrial-rag-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_password}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  tempo_data:
+  loki_data:
+  alloy_data:
+  grafana_data:

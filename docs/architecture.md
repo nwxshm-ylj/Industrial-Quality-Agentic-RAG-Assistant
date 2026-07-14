@@ -224,19 +224,44 @@ UI role checks improve usability. They are not security boundaries; API checks r
 
 ~~~mermaid
 flowchart LR
-    Question --> Answer
-    Answer --> Feedback
-    Answer --> Logs
-    Answer --> Audit
-    Feedback --> Stats
-    EvalSet[Evaluation Set] --> EvalRun[Evaluation Run]
-    EvalRun --> Metrics
-    Stats --> Improve[Prompt / Data / Retrieval Improvement]
-    Metrics --> Improve
-    Improve --> Question
+    Client --> API[FastAPI request context]
+    API --> Graph[LangGraph spans]
+    Graph --> Dependencies[LLM / Embedding / PostgreSQL / Qdrant / OpenSearch]
+    API --> JSON[Structured JSON logs]
+    Graph --> Usage[Request usage context]
+    API --> OTEL[OpenTelemetry Collector]
+    OTEL --> Tempo
+    API --> Prometheus
+    JSON --> Alloy --> Loki
+    Usage --> UsageDB[(PostgreSQL usage facts)]
+    Tempo --> Grafana
+    Prometheus --> Grafana
+    Loki --> Grafana
+    UsageDB --> Grafana
+    Feedback --> UsageDB
+    Evaluation --> UsageDB
 ~~~
 
-request_id correlates API responses, node logs, feedback, and audit records. session_id correlates conversational history. Node latency and total latency make slow stages visible.
+The existing `request_id` remains the business correlation identifier. A standard
+`trace_id` and per-operation `span_id` add distributed trace navigation without
+changing the graph-chat contract. `session_id` correlates conversational history.
+
+Operational signals are separated by purpose:
+
+- OpenTelemetry spans cover HTTP, graph nodes, model calls, embeddings, retrieval,
+  and database operations.
+- Prometheus metrics expose low-cardinality request, node, model, and retrieval
+  counters and latency histograms.
+- JSON logs include request, trace, service, environment, status, and error fields;
+  sensitive content is filtered before serialization.
+- `rag_request_runs`, `ai_usage_events`, and `retrieval_events` store request-level
+  usage facts, token counts, calculated cost, retrieval mode, and dependency timing.
+- Grafana dashboards combine Prometheus, Tempo, Loki, PostgreSQL feedback, and
+  evaluation data.
+
+Question text, answers, prompts, document content, API keys, JWTs, and passwords are
+not stored in metrics or trace attributes. Cost is calculated only when the reviewed
+pricing catalog contains the provider/model entry; missing prices remain unpriced.
 
 ## 10. Current boundaries
 
@@ -245,4 +270,4 @@ request_id correlates API responses, node logs, feedback, and audit records. ses
 - Evaluation runs synchronously in v1.0.
 - PostgreSQL initialization is demo-oriented and recreates three sample business tables.
 - SQL validation is intentionally restricted but should still use a dedicated read-only production account.
-- Multi-tenancy, document ACL, queue workers, distributed tracing, and object storage are roadmap items.
+- Multi-tenancy, document ACL, queue workers, production trace tail sampling, and object storage are roadmap items.

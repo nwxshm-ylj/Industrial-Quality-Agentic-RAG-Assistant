@@ -1,0 +1,7 @@
+version: unpriced-v1
+currency: CNY
+
+# Add reviewed provider prices before enabling cost reporting. Historical events
+# store the pricing version and calculated cost used at request time.
+models: {}
+

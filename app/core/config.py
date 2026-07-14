@@ -1,9 +1,27 @@
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    environment: str = "development"
+
+    telemetry_enabled: bool = True
+    metrics_enabled: bool = True
+    usage_analytics_enabled: bool = True
+    otel_service_name: str = "industrial-quality-rag-api"
+    otel_service_version: str = "1.0.0"
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_trace_sample_ratio: float = 1.0
+    otel_export_timeout_seconds: float = 5.0
+    telemetry_capture_content: bool = False
+    model_pricing_path: str = "data/config/model_pricing.yaml"
+    usage_retention_days: int = 90
+    usage_background_workers: int = 4
+    usage_background_max_pending: int = 1000
+
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "industrial_docs_qwen_1024_v1"
     qdrant_collection_alias: str = "industrial_docs_active"
@@ -35,6 +53,7 @@ class Settings(BaseSettings):
     hybrid_degraded_mode: str = "vector_only"
 
     llm_model: str = "qwen-plus"
+    llm_provider: str = "qwen"
     llm_api_key: str
     llm_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
@@ -46,9 +65,5 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "dev_secret_key_change_me"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440
-
-    class Config:
-        env_file = ".env"
-
 
 settings = Settings()

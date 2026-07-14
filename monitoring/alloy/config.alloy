@@ -1,0 +1,45 @@
+discovery.docker "industrial_rag" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "industrial_rag" {
+  targets = discovery.docker.industrial_rag.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/industrial-rag-(.*)"
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "industrial_rag" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.industrial_rag.output
+  forward_to = [loki.process.industrial_rag.receiver]
+}
+
+loki.process "industrial_rag" {
+  stage.json {
+    expressions = {
+      level      = "level",
+      request_id = "request_id",
+      trace_id   = "trace_id",
+      action     = "action",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+
+  forward_to = [loki.write.industrial_rag.receiver]
+}
+
+loki.write "industrial_rag" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+

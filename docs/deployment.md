@@ -7,7 +7,8 @@ Recommended local environment:
 - Docker Desktop or Docker Engine with Compose v2
 - 8 GB RAM minimum; more if Reranker is enabled
 - Internet access for the configured LLM and first embedding-model download
-- Available ports 8000, 30000, 5432, 6333, and 6334
+- Available application ports 8000, 30000, 5432, 6333, 6334, and 9200
+- Optional observability ports 3000, 3100, 3200, 4317, 4318, and 9090
 
 The repository mounts the local data directory into API, Streamlit, and tool containers. Ensure it is writable.
 
@@ -48,6 +49,16 @@ Copy-Item .env.example .env
 | JWT_ACCESS_TOKEN_EXPIRE_MINUTES | 1440 | Token lifetime |
 | LOG_LEVEL | INFO | Application log level |
 | RAG_API_URL | local graph-chat URL | Streamlit API target outside Compose |
+| TELEMETRY_ENABLED | true | Enable trace instrumentation |
+| USAGE_ANALYTICS_ENABLED | true | Persist request/model/retrieval usage facts |
+| OTEL_SERVICE_NAME | industrial-quality-rag-api | Trace service name |
+| OTEL_SERVICE_VERSION | 1.0.0 | Deployed application version |
+| OTEL_EXPORTER_OTLP_ENDPOINT | empty | Optional Collector base endpoint |
+| OTEL_TRACE_SAMPLE_RATIO | 1.0 | Head sampling ratio from 0 to 1 |
+| MODEL_PRICING_PATH | data/config/model_pricing.yaml | Reviewed cost catalog |
+| USAGE_RETENTION_DAYS | 90 | Usage fact retention window |
+| USAGE_BACKGROUND_WORKERS | 4 | Concurrent background usage writers |
+| USAGE_BACKGROUND_MAX_PENDING | 1000 | Bounded pending usage tasks |
 
 Do not commit a real .env file. Production secrets should come from a secrets manager or orchestrator secret.
 
@@ -71,7 +82,7 @@ docker compose --profile tools run --rm init-sql
 This command:
 
 - recreates and seeds inspection_record, equipment_alarm, and quality_cases;
-- idempotently creates memory, document, user, audit, feedback, and evaluation tables;
+- idempotently creates memory, document, user, audit, feedback, evaluation, and usage analytics tables;
 - creates admin/admin123 only when admin does not already exist.
 
 Warning: it is a demo initialization command and must not target a production database containing real business records.
@@ -128,6 +139,43 @@ Expected health response:
 ~~~json
 {"status":"ok"}
 ~~~
+
+Additional operational endpoints:
+
+- `/health/live` checks only that the API process is alive.
+- `/health/ready` checks PostgreSQL usage tables, the active Qdrant alias, model
+  configuration, and OpenSearch. It never calls a paid LLM or embedding API.
+- `/metrics` exposes Prometheus metrics and must be restricted to the monitoring
+  network in production.
+
+### 3.6 Optional observability stack
+
+The observability stack is isolated in an additive Compose file so the base
+application remains runnable without Grafana, Tempo, Loki, or Prometheus:
+
+~~~bash
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.observability.yml \
+  up -d --build
+~~~
+
+Endpoints:
+
+- Grafana: http://localhost:3000
+- Prometheus: http://localhost:9090
+- Loki: http://localhost:3100
+- Tempo: http://localhost:3200
+- OTLP HTTP: http://localhost:4318
+
+Change `GRAFANA_ADMIN_PASSWORD` before starting the stack. Grafana data sources and
+dashboards are provisioned from `monitoring/grafana`; Prometheus rules are stored in
+`monitoring/prometheus/alerts.yml`.
+
+JSON logs are collected from Docker through Grafana Alloy. On platforms where the
+Docker socket cannot be mounted, metrics, traces, usage analytics, and the API remain
+available, but Loki container log collection must be configured using the platform's
+supported log source.
 
 ## 4. Local application development
 
@@ -265,11 +313,26 @@ Change the host side of the relevant docker-compose port mapping or stop the con
 python -m compileall app scripts
 git diff --check
 
+python -m scripts.test_telemetry_context
+python -m scripts.test_model_usage_mock
+python -m scripts.test_metrics
+python -m scripts.test_observability_stack
+
 docker compose exec api python -m scripts.test_auth_rbac
 docker compose exec api python -m scripts.test_document_management
 docker compose exec api python -m scripts.test_memory
 docker compose exec api python -m scripts.test_observability
+docker compose exec api python -m scripts.test_usage_analytics
 docker compose exec api python -m scripts.test_feedback_evaluation
+~~~
+
+Validate the additive Compose stack:
+
+~~~bash
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.observability.yml \
+  config --quiet
 ~~~
 
 A complete verification requires PostgreSQL, Qdrant, OpenSearch, a Qwen embedding credential, and a working LLM endpoint. Default unit tests remain fully offline through mocks.
