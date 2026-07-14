@@ -199,6 +199,122 @@ def create_tables():
         ON rag_eval_runs (created_at);
     CREATE INDEX IF NOT EXISTS idx_rag_eval_items_run_id
         ON rag_eval_items (run_id);
+
+    CREATE TABLE IF NOT EXISTS rag_request_runs (
+        id BIGSERIAL PRIMARY KEY,
+        request_id VARCHAR(100) UNIQUE NOT NULL,
+        trace_id VARCHAR(100),
+        session_id VARCHAR(100),
+        username VARCHAR(100),
+        role VARCHAR(50),
+        route VARCHAR(255),
+        method VARCHAR(20),
+        intent VARCHAR(50),
+        status VARCHAR(50) NOT NULL,
+        http_status INT,
+        total_latency_ms FLOAT,
+        evidence_score FLOAT,
+        evidence_enough BOOLEAN,
+        retry_count INT DEFAULT 0,
+        retrieval_mode VARCHAR(50),
+        degraded BOOLEAN DEFAULT false,
+        degraded_reason TEXT,
+        context_count INT DEFAULT 0,
+        citation_count INT DEFAULT 0,
+        llm_call_count INT DEFAULT 0,
+        input_tokens BIGINT DEFAULT 0,
+        output_tokens BIGINT DEFAULT 0,
+        total_tokens BIGINT DEFAULT 0,
+        embedding_tokens BIGINT DEFAULT 0,
+        calculated_cost NUMERIC(18, 8) DEFAULT 0,
+        currency VARCHAR(20),
+        error_type VARCHAR(150),
+        metadata TEXT,
+        started_at TIMESTAMP NOT NULL,
+        completed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_usage_events (
+        id BIGSERIAL PRIMARY KEY,
+        event_id VARCHAR(100) UNIQUE NOT NULL,
+        request_id VARCHAR(100) NOT NULL,
+        trace_id VARCHAR(100),
+        component VARCHAR(100) NOT NULL,
+        operation VARCHAR(100) NOT NULL,
+        provider VARCHAR(100) NOT NULL,
+        model VARCHAR(150) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        latency_ms FLOAT,
+        input_tokens BIGINT,
+        output_tokens BIGINT,
+        total_tokens BIGINT,
+        input_text_count INT,
+        input_char_count BIGINT,
+        cost NUMERIC(18, 8),
+        currency VARCHAR(20),
+        pricing_version VARCHAR(100),
+        measurement_source VARCHAR(50),
+        error_type VARCHAR(150),
+        metadata TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS retrieval_events (
+        id BIGSERIAL PRIMARY KEY,
+        event_id VARCHAR(100) UNIQUE NOT NULL,
+        request_id VARCHAR(100) NOT NULL,
+        trace_id VARCHAR(100),
+        operation VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        latency_ms FLOAT,
+        top_k INT,
+        vector_hit_count INT DEFAULT 0,
+        keyword_hit_count INT DEFAULT 0,
+        fused_hit_count INT DEFAULT 0,
+        returned_count INT DEFAULT 0,
+        reranker_used BOOLEAN DEFAULT false,
+        retrieval_mode VARCHAR(50),
+        degraded BOOLEAN DEFAULT false,
+        degraded_reason TEXT,
+        qdrant_latency_ms FLOAT,
+        opensearch_latency_ms FLOAT,
+        fusion_latency_ms FLOAT,
+        reranker_latency_ms FLOAT,
+        collection_name VARCHAR(150),
+        keyword_index VARCHAR(150),
+        embedding_index_version VARCHAR(100),
+        error_type VARCHAR(150),
+        query_hash VARCHAR(128),
+        metadata TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rag_request_runs_created_at
+        ON rag_request_runs (created_at);
+    CREATE INDEX IF NOT EXISTS idx_rag_request_runs_intent
+        ON rag_request_runs (intent);
+    CREATE INDEX IF NOT EXISTS idx_rag_request_runs_status
+        ON rag_request_runs (status);
+    CREATE INDEX IF NOT EXISTS idx_rag_request_runs_username
+        ON rag_request_runs (username);
+    CREATE INDEX IF NOT EXISTS idx_rag_request_runs_trace_id
+        ON rag_request_runs (trace_id);
+    CREATE INDEX IF NOT EXISTS idx_rag_request_runs_session_id
+        ON rag_request_runs (session_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_events_request_id
+        ON ai_usage_events (request_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_events_created_at
+        ON ai_usage_events (created_at);
+    CREATE INDEX IF NOT EXISTS idx_ai_usage_events_model
+        ON ai_usage_events (provider, model);
+    CREATE INDEX IF NOT EXISTS idx_retrieval_events_request_id
+        ON retrieval_events (request_id);
+    CREATE INDEX IF NOT EXISTS idx_retrieval_events_created_at
+        ON retrieval_events (created_at);
+    CREATE INDEX IF NOT EXISTS idx_retrieval_events_mode
+        ON retrieval_events (retrieval_mode, degraded);
     """
 
     with engine.begin() as conn:

@@ -2,6 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.core.config import settings
+from app.observability.model_usage import invoke_observed_chat_model
 
 
 class AnswerGenerator:
@@ -48,10 +49,16 @@ class AnswerGenerator:
 请结合历史对话和参考资料回答用户当前问题，并以参考资料作为主要依据。
 """
 
-        response = self.llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ])
+        response = invoke_observed_chat_model(
+            self.llm,
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+            ],
+            component="answer_generator",
+            provider=settings.llm_provider,
+            model_name=settings.llm_model,
+        )
 
         content = response.content
 

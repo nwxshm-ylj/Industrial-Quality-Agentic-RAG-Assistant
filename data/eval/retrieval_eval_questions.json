@@ -1,0 +1,38 @@
+[
+  {
+    "id": "RET001",
+    "question": "轮毂识别异常可能是什么原因？",
+    "relevance_field": "source",
+    "relevant_ids": ["ai_vision_fmea.md"]
+  },
+  {
+    "id": "RET002",
+    "question": "轮毂误识别时应该优先检查相机曝光还是系统配置？",
+    "relevance_field": "source",
+    "relevant_ids": ["ai_vision_fmea.md"]
+  },
+  {
+    "id": "RET003",
+    "question": "合格证上的 VIN 为什么识别失败？",
+    "relevance_field": "source",
+    "relevant_ids": ["ocr_certificate_rule.md"]
+  },
+  {
+    "id": "RET004",
+    "question": "OCR 模板和打印位置异常应该如何排查？",
+    "relevance_field": "source",
+    "relevant_ids": ["ocr_certificate_rule.md"]
+  },
+  {
+    "id": "RET005",
+    "question": "同一工位连续出现扭矩报警应该怎么处理？",
+    "relevance_field": "source",
+    "relevant_ids": ["torque_alarm_sop.md"]
+  },
+  {
+    "id": "RET006",
+    "question": "拧紧枪标定异常和套筒磨损会造成什么问题？",
+    "relevance_field": "source",
+    "relevant_ids": ["torque_alarm_sop.md"]
+  }
+]

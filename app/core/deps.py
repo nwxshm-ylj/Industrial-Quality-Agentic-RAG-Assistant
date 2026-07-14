@@ -7,6 +7,7 @@ from app.core.logger import log_security_event
 from app.core.security import decode_access_token
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService, VALID_ROLES
+from app.core.telemetry_context import update_request_context
 
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -76,6 +77,10 @@ def get_current_user(
             "用户不存在或已停用",
             username=str(username),
         )
+    update_request_context(
+        username=user.get("username"),
+        role=user.get("role"),
+    )
     return user
 
 

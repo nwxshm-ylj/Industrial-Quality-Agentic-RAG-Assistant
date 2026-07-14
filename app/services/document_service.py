@@ -8,6 +8,7 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.metrics import record_document_operation
 from app.core.logger import logger
 from app.db.session import engine
 from app.rag.embeddings.factory import get_embedding_provider
@@ -912,6 +913,12 @@ class DocumentService:
         level: int = logging.INFO,
         exc_info: bool = False,
     ) -> None:
+        latency_ms = (perf_counter() - started_at) * 1000
+        record_document_operation(
+            operation=event,
+            status=status,
+            latency_ms=latency_ms,
+        )
         logger.log(
             level,
             event,
@@ -924,10 +931,7 @@ class DocumentService:
                     "version": version,
                     "status": status,
                     "chunk_count": chunk_count,
-                    "latency_ms": round(
-                        (perf_counter() - started_at) * 1000,
-                        2,
-                    ),
+                    "latency_ms": round(latency_ms, 2),
                     "error_message": error_message,
                     "embedding_provider": settings.embedding_provider,
                     "embedding_model": settings.qwen_embedding_model,

@@ -188,6 +188,34 @@ def run_evaluation_api(access_token: str) -> dict[str, Any]:
     return response.json()
 
 
+def fetch_retrieval_evaluation_runs(
+    access_token: str,
+) -> dict[str, Any]:
+    response = requests.get(
+        f"{EVALUATION_API_URL}/retrieval/runs",
+        headers=_auth_headers(access_token),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def run_retrieval_evaluation_api(
+    access_token: str,
+    *,
+    top_k: int = 5,
+) -> dict[str, Any]:
+    k_values = sorted({1, 3, 5, top_k})
+    response = requests.post(
+        f"{EVALUATION_API_URL}/retrieval/run",
+        json={"top_k": top_k, "k_values": k_values},
+        headers=_auth_headers(access_token),
+        timeout=900,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def _request_error_message(exc: requests.RequestException) -> str:
     response = getattr(exc, "response", None)
     if response is not None:
@@ -585,6 +613,115 @@ def render_evaluation_dashboard(access_token: str) -> None:
             st.info("暂无评估运行记录。")
     except requests.RequestException as exc:
         st.error(f"评估运行列表加载失败：{_request_error_message(exc)}")
+
+
+    st.markdown("#### Retrieval Evaluation (Recall / MRR)")
+    st.caption(
+        "Evaluates ranked Qdrant + OpenSearch retrieval without calling the "
+        "answer-generating LLM. Query Embedding API usage still applies."
+    )
+    latest_retrieval_run: dict[str, Any] | None = None
+    retrieval_top_k = st.selectbox(
+        "Retrieval Top K",
+        options=[5, 10, 20],
+        index=0,
+        key="retrieval_eval_top_k",
+    )
+    if st.button(
+        "Run Retrieval Evaluation",
+        type="primary",
+        key="run_retrieval_evaluation",
+    ):
+        with st.spinner("Running retrieval-only evaluation..."):
+            try:
+                latest_retrieval_run = run_retrieval_evaluation_api(
+                    access_token,
+                    top_k=int(retrieval_top_k),
+                )
+                st.success(
+                    "Retrieval evaluation completed: "
+                    f"{latest_retrieval_run.get('run_id')}"
+                )
+            except requests.RequestException as exc:
+                st.error(
+                    "Retrieval evaluation failed: "
+                    f"{_request_error_message(exc)}"
+                )
+
+    try:
+        retrieval_payload = fetch_retrieval_evaluation_runs(access_token)
+        retrieval_runs = retrieval_payload.get("runs") or []
+        if latest_retrieval_run is None and retrieval_runs:
+            latest_retrieval_run = retrieval_runs[0]
+
+        if latest_retrieval_run:
+            configured_k = latest_retrieval_run.get("config", {}).get(
+                "k_values", [5]
+            )
+            metric_k = max(int(value) for value in configured_k)
+            metrics = latest_retrieval_run.get("metrics") or {}
+            total_latency = (
+                latest_retrieval_run.get("latency", {})
+                .get("retrieval_total", {})
+            )
+            metric_cols = st.columns(5)
+            metric_cols[0].metric(
+                f"Recall@{metric_k}",
+                f"{float(metrics.get(f'recall@{metric_k}') or 0) * 100:.1f}%",
+            )
+            metric_cols[1].metric(
+                f"MRR@{metric_k}",
+                round(float(metrics.get(f"mrr@{metric_k}") or 0), 4),
+            )
+            metric_cols[2].metric(
+                f"HitRate@{metric_k}",
+                f"{float(metrics.get(f'hit_rate@{metric_k}') or 0) * 100:.1f}%",
+            )
+            metric_cols[3].metric(
+                f"nDCG@{metric_k}",
+                round(float(metrics.get(f"ndcg@{metric_k}") or 0), 4),
+            )
+            metric_cols[4].metric(
+                "Retrieval P95 (ms)",
+                round(float(total_latency.get("p95_ms") or 0), 2),
+            )
+
+        if retrieval_runs:
+            retrieval_rows = []
+            for run in retrieval_runs:
+                k_values = run.get("config", {}).get("k_values", [5])
+                metric_k = max(int(value) for value in k_values)
+                metrics = run.get("metrics") or {}
+                summary = run.get("summary") or {}
+                latency = run.get("latency", {}).get("retrieval_total", {})
+                retrieval_rows.append({
+                    "run_id": run.get("run_id"),
+                    "completed_at": run.get("completed_at"),
+                    "status": run.get("status"),
+                    "questions": summary.get("total_questions"),
+                    f"recall@{metric_k}": metrics.get(f"recall@{metric_k}"),
+                    f"mrr@{metric_k}": metrics.get(f"mrr@{metric_k}"),
+                    f"hit_rate@{metric_k}": metrics.get(
+                        f"hit_rate@{metric_k}"
+                    ),
+                    f"ndcg@{metric_k}": metrics.get(f"ndcg@{metric_k}"),
+                    "p50_ms": latency.get("p50_ms"),
+                    "p95_ms": latency.get("p95_ms"),
+                    "p99_ms": latency.get("p99_ms"),
+                    "degraded_rate": summary.get("degraded_rate"),
+                })
+            st.dataframe(
+                pd.DataFrame(retrieval_rows),
+                use_container_width=True,
+                hide_index=True,
+            )
+        elif latest_retrieval_run is None:
+            st.info("No retrieval evaluation reports yet.")
+    except requests.RequestException as exc:
+        st.error(
+            "Retrieval evaluation list failed: "
+            f"{_request_error_message(exc)}"
+        )
 
 
 def render_knowledge_base_management(

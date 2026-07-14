@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from app.core.config import settings
 from app.db.session import engine
+from app.observability.model_usage import invoke_observed_chat_model
 
 
 class IndustrialSQLTool:
@@ -197,10 +198,16 @@ class IndustrialSQLTool:
 请生成 PostgreSQL SQL：
 """
 
-        response = self.llm.invoke([
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_prompt),
-        ])
+        response = invoke_observed_chat_model(
+            self.llm,
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=user_prompt),
+            ],
+            component="sql_generator",
+            provider=settings.llm_provider,
+            model_name=settings.llm_model,
+        )
 
         sql = str(response.content).strip()
         sql = self._clean_sql(sql)

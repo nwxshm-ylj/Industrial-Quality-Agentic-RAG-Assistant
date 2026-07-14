@@ -1,0 +1,60 @@
+{
+  "uid": "industrial-rag-operations",
+  "title": "Industrial RAG - Operations",
+  "tags": ["industrial-rag", "operations"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Request rate",
+      "datasource": {"type": "prometheus", "uid": "industrial-rag-prometheus"},
+      "targets": [{"expr": "sum(rate(industrial_rag_http_requests_total{route=\"/api/v1/graph-chat\"}[5m]))", "legendFormat": "req/s"}],
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "5xx error rate",
+      "datasource": {"type": "prometheus", "uid": "industrial-rag-prometheus"},
+      "targets": [{"expr": "sum(rate(industrial_rag_http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(industrial_rag_http_requests_total[5m])), 0.001)", "legendFormat": "error ratio"}],
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Graph p95 latency",
+      "datasource": {"type": "prometheus", "uid": "industrial-rag-prometheus"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(industrial_rag_graph_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95"}],
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Retrieval degraded rate",
+      "datasource": {"type": "prometheus", "uid": "industrial-rag-prometheus"},
+      "targets": [{"expr": "sum(rate(industrial_rag_retrieval_degraded_total[5m])) / clamp_min(sum(rate(industrial_rag_retrieval_requests_total[5m])), 0.001)", "legendFormat": "degraded ratio"}],
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "LangGraph node p95 latency",
+      "datasource": {"type": "prometheus", "uid": "industrial-rag-prometheus"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(industrial_rag_node_duration_seconds_bucket[5m])) by (le, node_name))", "legendFormat": "{{node_name}}"}],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6}
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "Application errors",
+      "datasource": {"type": "loki", "uid": "industrial-rag-loki"},
+      "targets": [{"expr": "{service=\"api\", level=\"ERROR\"}", "refId": "A"}],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6}
+    }
+  ]
+}
+

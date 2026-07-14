@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from threading import Lock
+from time import perf_counter
 from typing import Any, Protocol
 
 import requests
@@ -10,6 +11,8 @@ from app.rag.embeddings.base import (
     EmbeddingDimensionError,
     EmbeddingProviderError,
 )
+from app.core.telemetry import traced_span
+from app.observability.model_usage import record_embedding_call
 
 
 class QwenEmbeddingProvider:
@@ -75,6 +78,8 @@ class QwenEmbeddingProvider:
         *,
         text_type: str,
     ) -> list[list[float]]:
+        operation = f"embedding_{text_type}"
+        started_at = perf_counter()
         payload = {
             "model": self.model_name,
             "input": {"texts": texts},
@@ -86,19 +91,65 @@ class QwenEmbeddingProvider:
         }
 
         try:
-            response = self._client.post(
-                self.endpoint,
-                json=payload,
-                timeout=(10.0, 30.0),
+            with traced_span(
+                f"ai.{operation}",
+                attributes={
+                    "ai.provider": self.provider_name,
+                    "ai.model": self.model_name,
+                    "ai.operation": operation,
+                    "ai.embedding.dimension": self.dimension,
+                    "ai.input_text_count": len(texts),
+                },
+            ):
+                response = self._client.post(
+                    self.endpoint,
+                    json=payload,
+                    timeout=(10.0, 30.0),
+                )
+                response.raise_for_status()
+                data = response.json()
+                vectors = self._parse_vectors(data, expected_count=len(texts))
+                self._validate_dimension_once(vectors)
+            input_tokens = self._extract_input_tokens(data)
+            record_embedding_call(
+                component="embedding_provider",
+                operation=operation,
+                provider=self.provider_name,
+                model_name=self.model_name,
+                latency_ms=(perf_counter() - started_at) * 1000,
+                input_text_count=len(texts),
+                input_char_count=sum(len(text) for text in texts),
+                input_tokens=input_tokens,
+                status="success",
+                metadata={
+                    "embedding_dimension": self.dimension,
+                    "embedding_index_version": self.index_version,
+                },
             )
-            response.raise_for_status()
-            data = response.json()
-            vectors = self._parse_vectors(data, expected_count=len(texts))
-            self._validate_dimension_once(vectors)
             return vectors
-        except EmbeddingProviderError:
-            raise
-        except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+        except (
+            EmbeddingProviderError,
+            requests.RequestException,
+            ValueError,
+            KeyError,
+            TypeError,
+        ) as exc:
+            record_embedding_call(
+                component="embedding_provider",
+                operation=operation,
+                provider=self.provider_name,
+                model_name=self.model_name,
+                latency_ms=(perf_counter() - started_at) * 1000,
+                input_text_count=len(texts),
+                input_char_count=sum(len(text) for text in texts),
+                input_tokens=None,
+                status="failed",
+                error_type=type(exc).__name__,
+                metadata={
+                    "embedding_dimension": self.dimension,
+                    "embedding_index_version": self.index_version,
+                },
+            )
             log_business_event(
                 "embedding_request_failed",
                 status="failed",
@@ -109,9 +160,22 @@ class QwenEmbeddingProvider:
                 embedding_index_version=self.index_version,
                 text_type=text_type,
             )
+            if isinstance(exc, EmbeddingProviderError):
+                raise
             raise EmbeddingProviderError(
                 f"Qwen embedding request failed: {exc}"
             ) from exc
+
+    @staticmethod
+    def _extract_input_tokens(payload: dict[str, Any]) -> int | None:
+        usage = payload.get("usage") or payload.get("output", {}).get("usage") or {}
+        if not isinstance(usage, dict):
+            return None
+        value = usage.get("input_tokens", usage.get("total_tokens"))
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
 
     def _parse_vectors(
         self,

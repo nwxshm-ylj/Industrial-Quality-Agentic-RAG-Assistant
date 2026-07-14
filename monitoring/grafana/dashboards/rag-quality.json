@@ -1,0 +1,59 @@
+{
+  "uid": "industrial-rag-quality",
+  "title": "Industrial RAG - Retrieval and Quality",
+  "tags": ["industrial-rag", "retrieval", "quality"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "type": "piechart",
+      "title": "Intent distribution",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT COALESCE(intent, 'unknown') AS intent, COUNT(*) AS requests FROM rag_request_runs WHERE $__timeFilter(created_at) GROUP BY intent", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Retrieval modes",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT retrieval_mode, COUNT(*) AS requests, SUM(CASE WHEN degraded THEN 1 ELSE 0 END) AS degraded, AVG(latency_ms) AS avg_latency_ms, AVG(returned_count) AS avg_results FROM retrieval_events WHERE $__timeFilter(created_at) GROUP BY retrieval_mode", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Positive feedback rate",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT COALESCE(SUM(CASE WHEN rating = 'positive' THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*), 0), 0) AS value FROM answer_feedback WHERE $__timeFilter(created_at)", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0}
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Recent evaluation runs",
+      "datasource": {"type": "postgres", "uid": "industrial-rag-postgres"},
+      "targets": [{"rawSql": "SELECT created_at, run_id, status, intent_accuracy, source_hit_rate, answer_keyword_hit_rate, memory_followup_success_rate, avg_latency_ms FROM rag_eval_runs WHERE $__timeFilter(created_at) ORDER BY created_at DESC LIMIT 20", "format": "table", "refId": "A"}],
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 8}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Latest retrieval ranking quality @5",
+      "datasource": {"type": "prometheus", "uid": "industrial-rag-prometheus"},
+      "targets": [{"expr": "industrial_rag_retrieval_evaluation_score{k=\"5\",metric=~\"recall|mrr|hit_rate|ndcg\"}", "legendFormat": "{{metric}}@{{k}}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18}
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Latest retrieval latency percentiles (ms)",
+      "datasource": {"type": "prometheus", "uid": "industrial-rag-prometheus"},
+      "targets": [{"expr": "industrial_rag_retrieval_evaluation_latency_ms", "legendFormat": "{{quantile}}", "refId": "A"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18}
+    }
+  ]
+}
