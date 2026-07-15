@@ -148,7 +148,7 @@ export function AppShell() {
             <div>
               <span className="status-pulse" />
               <strong>Enterprise Console</strong>
-              <small>Frontend Phase 5 · v0.5.0</small>
+              <small>Frontend Phase 6 · v0.6.0</small>
             </div>
           )}
           <Tooltip title={collapsed ? "展开导航" : "收起导航"} placement="right">

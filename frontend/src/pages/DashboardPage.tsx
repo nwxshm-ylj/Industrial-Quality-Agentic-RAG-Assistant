@@ -41,12 +41,12 @@ export function DashboardPage() {
     <div className="dashboard-page page-stack">
       <section className="welcome-panel">
         <div className="welcome-panel__copy">
-            <Typography.Text className="page-eyebrow">PHASE 5 ENTERPRISE CONTROL</Typography.Text>
+            <Typography.Text className="page-eyebrow">PHASE 6 RELEASE CONFIDENCE</Typography.Text>
           <Typography.Title level={1}>
             欢迎回来，{user?.username}
           </Typography.Title>
           <Typography.Paragraph>
-            React 企业工作台已形成问答、知识入库、质量评估、运行可观测性与安全管理的完整控制面。
+            React 企业工作台已形成问答、知识入库、质量评估、安全管理与自动化发布门禁的完整控制面。
           </Typography.Paragraph>
           <Space wrap>
             <Button type="primary" size="large" onClick={() => navigate("/chat")}>
@@ -93,7 +93,7 @@ export function DashboardPage() {
                 <Typography.Text className="page-eyebrow">DELIVERY STATUS</Typography.Text>
                 <Typography.Title level={4}>React 前端迁移路径</Typography.Title>
               </div>
-              <Tag color="processing" bordered={false}>PHASE 5</Tag>
+              <Tag color="processing" bordered={false}>PHASE 6</Tag>
             </div>
             <div className="phase-list">
               <div className="phase-item phase-item--done">
@@ -108,8 +108,11 @@ export function DashboardPage() {
               <div className="phase-item phase-item--done">
                 <span>04</span><div><strong>评估与可观测性</strong><small>反馈、Recall/MRR、Token、成本与请求追踪</small></div><b>已实现</b>
               </div>
-              <div className="phase-item phase-item--active">
+              <div className="phase-item phase-item--done">
                 <span>05</span><div><strong>企业管理控制台</strong><small>用户、审计、健康检查与发布验收</small></div><b>已实现</b>
+              </div>
+              <div className="phase-item phase-item--active">
+                <span>06</span><div><strong>发布质量门禁</strong><small>Playwright、CI、容器健康与回滚基线</small></div><b>已实现</b>
               </div>
             </div>
           </Card>

@@ -260,6 +260,39 @@ npm test
 npm run build
 ~~~
 
+Phase 6 建立自动化发布质量门禁：
+
+- Playwright Mock API E2E 覆盖登录、RBAC 导航、聊天、反馈、用户管理、审计日志与系统健康，不调用真实收费 API。
+- GitHub Actions 自动执行 Python compileall、Compose 配置检查、React typecheck/unit/build 和 Chromium E2E。
+- PostgreSQL、FastAPI、React 增加容器健康检查与启动依赖，避免前端在 API 未就绪时提前启动。
+- Nginx 增加 CSP、Permissions Policy、25 MB 上传限制、HTML 禁缓存和评估接口长任务超时。
+- `scripts.validate_release_env` 在发布前检查模型凭据、JWT Secret、数据库密码、Qdrant Alias、Embedding 维度和 Prompt Release。
+- `scripts.release_check` 提供跨平台快速发布门禁，真实服务集成与浏览器测试通过参数显式启用。
+
+~~~powershell
+python -m scripts.release_check
+Copy-Item .env.production.example .env.production
+# 填写真实配置并替换全部 CHANGE_ME
+python -m scripts.validate_release_env --env-file .env.production --production
+
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+~~~
+
+Docker Compose 内置 PostgreSQL 使用同一组配置：
+
+~~~dotenv
+POSTGRES_USER=rag_user
+POSTGRES_PASSWORD=使用_urlsafe_强密码
+POSTGRES_DB=industrial_rag
+DATABASE_URL=postgresql+psycopg2://rag_user:使用_urlsafe_强密码@postgres:5432/industrial_rag
+~~~
+
+`POSTGRES_PASSWORD` 必须与 `DATABASE_URL` 中的密码一致。生产启动时使用 `docker compose --env-file .env.production ...`，不要依赖开发环境 `.env`。
+
+完整发布与回滚步骤见 [Enterprise Release Guide](docs/release.md)。
+
 本地开发：
 
 ~~~bash
