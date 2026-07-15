@@ -143,7 +143,7 @@ export function ObservabilityPage() {
         </Card>
         <Card className="trend-card" bordered={false}>
           <div className="obs-card-heading"><div><Typography.Text className="panel-kicker">LATENCY TREND</Typography.Text><Typography.Title level={4}>平均延迟趋势</Typography.Title></div><Tag bordered={false}>P95 {Number(data?.p95_latency_ms || 0).toFixed(0)} ms</Tag></div>
-          <MetricSparkline values={series.map((item) => item.avg_latency_ms)} color="#7867a0" />
+          <MetricSparkline values={series.map((item) => item.avg_latency_ms)} color="#52758c" />
           <div className="trend-footer"><span><b>{Number(data?.avg_latency_ms || 0).toFixed(0)} ms</b>average</span><span><b>{data?.evidence_enough_count || 0}</b>evidence enough</span><span><b>{data?.failed_count || 0}</b>failed</span></div>
         </Card>
       </div>
@@ -155,7 +155,7 @@ export function ObservabilityPage() {
             {intentItems.map((item) => (
               <div key={item.intent}>
                 <span><b>{item.intent}</b><small>{item.request_count} requests · {item.failed_count} failed</small></span>
-                <Progress percent={(item.request_count / maxIntentRequests) * 100} showInfo={false} strokeColor="#0a8f86" />
+                <Progress percent={(item.request_count / maxIntentRequests) * 100} showInfo={false} strokeColor="#0f766e" />
                 <em>{Number(item.avg_latency_ms).toFixed(0)} ms</em>
               </div>
             ))}

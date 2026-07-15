@@ -168,9 +168,9 @@ export function EvaluationPage() {
         <Card className="feedback-distribution" bordered={false}>
           <div className="eval-card-heading"><div><Typography.Text className="panel-kicker">USER SIGNALS</Typography.Text><Typography.Title level={4}>反馈分布</Typography.Title></div><Tag bordered={false}>CLOSED LOOP</Tag></div>
           <div className="feedback-bars">
-            <div><span>正向</span><Progress percent={(stats?.positive_rate || 0) * 100} strokeColor="#188a68" showInfo={false} /><b>{stats?.positive_count || 0}</b></div>
-            <div><span>中性</span><Progress percent={stats?.total ? ((stats.neutral_count / stats.total) * 100) : 0} strokeColor="#8997a0" showInfo={false} /><b>{stats?.neutral_count || 0}</b></div>
-            <div><span>负向</span><Progress percent={(stats?.negative_rate || 0) * 100} strokeColor="#c15454" showInfo={false} /><b>{stats?.negative_count || 0}</b></div>
+            <div><span>正向</span><Progress percent={(stats?.positive_rate || 0) * 100} strokeColor="#1b7f5c" showInfo={false} /><b>{stats?.positive_count || 0}</b></div>
+            <div><span>中性</span><Progress percent={stats?.total ? ((stats.neutral_count / stats.total) * 100) : 0} strokeColor="#71818c" showInfo={false} /><b>{stats?.neutral_count || 0}</b></div>
+            <div><span>负向</span><Progress percent={(stats?.negative_rate || 0) * 100} strokeColor="#b64040" showInfo={false} /><b>{stats?.negative_count || 0}</b></div>
           </div>
           <div className="intent-signal-list">
             {Object.entries(stats?.by_intent || {}).map(([intent, count]) => <span key={intent}><b>{intent}</b><em>{count}</em></span>)}

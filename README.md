@@ -507,6 +507,151 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 - 保留 raw_docs 脚本流程，兼顾演示初始化和企业增量入库。
 - 提供完整 Docker Compose、演示脚本和面试讲解材料。
 
+## 项目学习与面试准备路线
+
+学习这个项目的目标不是记住每个文件，而是能够回答五个问题：
+
+1. 制造现场为什么需要这套系统，而不是普通聊天机器人？
+2. 一次问题如何在 API、LangGraph、检索、工具和生成器之间流转？
+3. 为什么选择当前方案，它解决了什么问题，又引入了什么代价？
+4. 如何用日志、评估指标和测试证明系统可用？
+5. 当前实现距离真实工厂生产部署还缺什么？
+
+### 1. 知识地图
+
+| 学习层次 | 需要掌握的知识 | 在本项目中的落点 | 面试应能回答 |
+|---|---|---|---|
+| 业务层 | 工业质量、故障诊断、规则、案例、结构化分析 | Rule / SQL / Case / Document 多路意图 | 为什么不能把所有问题都交给一个 LLM？ |
+| API 层 | FastAPI、Pydantic、依赖注入、中间件 | `app/main.py`、`app/api/`、`app/schemas/` | request_id、JWT 和异常如何进入请求链？ |
+| Agent 层 | LangGraph State、Node、Conditional Edge、Retry | `app/graph/state.py`、`workflow.py`、`nodes/` | 为什么使用图工作流而不是固定 Chain？ |
+| RAG 层 | Chunk、Embedding、Vector Search、Keyword Search、RRF | Qwen Embedding、Qdrant、OpenSearch、Online Hybrid Retriever | 向量召回与关键词召回如何互补？ |
+| 生成层 | Query Rewrite、Evidence Judge、Prompt 约束、Citation | `app/rag/generator.py`、Prompt Catalog | 如何减少无证据回答和 Prompt 漂移？ |
+| 数据层 | PostgreSQL、Qdrant Collection/Alias、OpenSearch Index | 会话、元数据、双索引和评估记录 | 数据库与两个检索索引如何保持一致？ |
+| 安全层 | JWT、RBAC、SQL 白名单、审计 | `app/core/security.py`、`deps.py`、SQL Tool | 为什么隐藏前端按钮不能替代后端授权？ |
+| 可观测性 | Log、Metric、Trace、Token、Cost、Latency | request_id、OpenTelemetry、Prometheus、Usage Analytics | 如何定位一次慢请求或降级检索？ |
+| 质量层 | Recall@K、MRR、nDCG、反馈闭环、回归集 | Retrieval Evaluation、Feedback、Evaluation Dashboard | 如何证明一次检索或 Prompt 修改真的变好？ |
+| 工程层 | Docker Compose、React、Playwright、CI、发布回滚 | `frontend/`、`.github/workflows/`、`scripts.release_check` | 如何保证修改没有破坏原有能力？ |
+
+### 2. 推荐代码阅读顺序
+
+不要从目录第一行开始逐文件阅读，建议沿着一条真实请求逆向学习：
+
+1. `app/main.py`：找到应用入口、中间件、健康检查和 Router 注册。
+2. `app/api/routes_chat.py`：理解 JWT 用户、session_id 和 request_id 如何进入 graph-chat。
+3. `app/rag/graph_chain.py`：查看 LangGraph 初始 state 和最终兼容响应。
+4. `app/graph/state.py`：列出一次请求携带的所有状态字段。
+5. `app/graph/workflow.py`：手绘节点、条件边、回退和结束路径。
+6. `app/graph/nodes/`：按 Router → Rewrite → Retrieve → Judge → Tool → Generate → Memory 顺序阅读。
+7. `app/rag/online_hybrid_retriever.py`：理解线上 Hybrid Search 主链。
+8. `app/rag/search_backends/qdrant_backend.py` 与 `opensearch_backend.py`：理解双路召回边界。
+9. `app/rag/embeddings/qwen_provider.py`：区分 document embedding 和 query embedding。
+10. `app/services/document_service.py`：理解上传、解析、切分、PostgreSQL、Qdrant、OpenSearch 和失败修复。
+11. `app/core/deps.py`、`security.py`、`app/tools/sql_tool.py`：理解认证、授权和 SQL 安全。
+12. `app/services/usage_service.py`、`feedback_service.py`、`retrieval_evaluation_service.py`：理解可观测性与质量闭环。
+13. `frontend/src/pages/`：最后阅读前端如何消费 API，而不是从 UI 反推后端。
+
+每读完一个模块，必须输出三句话：
+
+- 它解决什么问题。
+- 输入、输出和依赖是什么。
+- 如果它失败，系统如何降级、补偿或暴露错误。
+
+### 3. 四周学习计划
+
+#### 第 1 周：跑通系统并画出架构
+
+- 使用 Docker Compose 启动服务，完成登录、聊天、上传文档和查看健康状态。
+- 手绘容器图、请求时序图和数据存储关系。
+- 使用同一 session_id 完成“首问 + 指代追问”。
+- 分别触发 Rule、SQL、Case 和 Document RAG 路径。
+- 输出一份自己的 2 分钟项目介绍，不照读 README。
+
+验收标准：能够不看代码讲清一次 graph-chat 的完整生命周期。
+
+#### 第 2 周：吃透 Agentic RAG 与 Hybrid Search
+
+- 学习 Embedding、余弦相似度、BM25/关键词检索和 RRF 基本公式。
+- 对一个示例问题手工列出 vector rank、keyword rank 和融合排名。
+- 阅读 Intent Router、Query Rewriter、Evidence Judge 和 Retry。
+- 运行 Mock Embedding、Qdrant Backend、OpenSearch Backend 和 RRF 测试。
+- 理解 Qdrant 物理 Collection 与稳定 Alias 的迁移方式。
+
+验收标准：能够解释为什么工业编号适合关键词召回、自然语言改写适合向量召回，以及如何用 Recall/MRR 验证。
+
+#### 第 3 周：理解企业工程能力
+
+- 学习 JWT 结构、401/403 区别、RBAC 和最小权限原则。
+- 理解 DocumentService 为什么需要 PostgreSQL、Qdrant、OpenSearch 三方一致性。
+- 通过 request_id 串联 API、LangGraph Node、模型调用、反馈和审计。
+- 阅读 Prompt Catalog、Release Manifest 和回滚策略。
+- 理解 Docker 健康检查、环境变量、强密码和发布门禁。
+
+验收标准：能够回答“索引写一半失败怎么办”“viewer 为什么不能执行 SQL”“为什么审计失败不能阻塞主请求”。
+
+#### 第 4 周：评估、演示和模拟面试
+
+- 运行独立检索评估，理解 Precision、Recall、MRR、nDCG 和 P95 latency。
+- 准备一个成功案例、一个失败案例和一个降级案例。
+- 按 `docs/demo_script.md` 完整演示，不依赖临场发挥。
+- 分别练习 30 秒、2 分钟和 10 分钟三个版本的项目介绍。
+- 对照 `docs/interview_notes.md` 做至少三轮追问演练。
+- 主动说明项目边界和下一步，不把 Demo 包装成已经进入真实工厂生产。
+
+验收标准：能边演示边解释设计决策，并能用测试或指标支持关键结论。
+
+### 4. 每日学习闭环
+
+建议每天使用固定的 90 分钟节奏：
+
+1. 15 分钟：学习一个概念，例如 RRF、JWT、LangGraph State 或 MRR。
+2. 25 分钟：在项目中定位该概念的真实实现。
+3. 20 分钟：运行一个相关测试或构造一个失败场景。
+4. 15 分钟：画图或写出输入、处理、输出和异常路径。
+5. 15 分钟：脱离代码口述，并回答“为什么不用另一种方案”。
+
+不要只看代码。推荐使用“概念 → 项目实现 → 测试证据 → 口头表达”四步循环。
+
+### 5. 必须亲手完成的实验
+
+- 修改同义表达，观察 query rewrite 和召回结果变化。
+- 构造包含型号、工位号和规则编号的问题，对比 vector 与 keyword 排名。
+- 停止 OpenSearch，验证 vector-only 降级以及 `degraded_reason`。
+- 使用同一 session_id 连续追问，再换 session_id 验证会话隔离。
+- 使用 viewer 请求 SQL analysis，确认前端隐藏和后端拒绝同时存在。
+- 上传一个文档并执行 reindex，检查 PostgreSQL chunk 数、Qdrant payload 和 OpenSearch 文档。
+- 根据 request_id 找到节点耗时、模型用量、反馈和审计记录。
+- 修改一个 Prompt candidate，运行 Mock 回归后再解释如何切换 stable Release。
+
+所有破坏性实验只能在演示数据环境执行，不要对未知数据库运行 `scripts.init_sql_data`，也不要随意删除 Qdrant Collection。
+
+### 6. 面试表达模板
+
+项目介绍建议使用“业务问题 → 架构决策 → 工程闭环 → 量化验证 → 主动边界”结构：
+
+> 制造质量问题同时包含文档、规则、结构化数据和历史案例，单一向量问答无法提供稳定路由和权限边界。因此项目使用 LangGraph 编排多路 Agent，通过 Qdrant 与 OpenSearch 的在线 Hybrid Search 提升语义和工业编号召回，再用 Evidence Judge、Prompt 版本和 citations 约束生成。工程上补充了知识库生命周期、会话记忆、JWT/RBAC、审计、request_id 可观测性、反馈和检索评估，并用 Docker、Playwright 和 CI 建立可复现交付链路。项目当前是企业参考实现，真实工厂部署还需要多租户、异步任务、对象存储、数据库迁移和供应链安全。
+
+简历描述不要只写“使用 LangChain 实现 RAG”，可以拆成三条：
+
+- 设计 LangGraph 多意图工作流，将文档问答、质量规则、受限 SQL 和历史案例统一到可追踪 state，并支持 evidence retry 与 session memory。
+- 实现 Qwen Embedding + Qdrant + OpenSearch 在线混合检索、RRF 融合和 Recall/MRR/nDCG 评估，支持关键词服务故障时 vector-only 降级。
+- 建立文档双索引生命周期、JWT/RBAC、审计、OpenTelemetry、反馈评估、React 管理台和 CI/E2E 发布门禁，形成企业 RAG 质量闭环。
+
+只描述自己能够打开代码、现场演示并解释取舍的能力；没有真实数据支撑时，不要编造准确率、用户规模或业务收益。
+
+### 7. 面试前自检清单
+
+- [ ] 能在白板上画出系统架构和 LangGraph 工作流。
+- [ ] 能解释 document/query embedding 的区别。
+- [ ] 能手算一个简单的 RRF 排名示例。
+- [ ] 能解释 Recall@K、MRR 和 nDCG 各自衡量什么。
+- [ ] 能说明 Qdrant Alias 为什么比固定 Collection 名更适合迁移。
+- [ ] 能说明文档 upload/delete/reindex 的失败补偿。
+- [ ] 能区分 JWT 认证、RBAC 授权和审计记录。
+- [ ] 能通过 request_id 定位一次慢请求。
+- [ ] 能演示反馈闭环和检索评估看板。
+- [ ] 能主动说出至少三个当前不足和对应改进方案。
+- [ ] 能运行 `python -m scripts.release_check` 并解释质量门禁覆盖范围。
+
 ## 项目结构
 
 ~~~text
@@ -528,9 +673,11 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 │   ├── rules/
 │   └── eval/
 ├── docs/
+├── frontend/         # React 企业工作台与 Playwright E2E
 ├── prompts/          # Prompt Catalog 与 stable/candidate Release
 ├── scripts/
 ├── ui/
+├── .github/workflows/ # CI Quality Gate
 ├── docker-compose.yml
 └── Dockerfile
 ~~~
@@ -542,6 +689,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 - [API 示例](docs/api_examples.md)
 - [完整 Demo 脚本](docs/demo_script.md)
 - [面试讲解笔记](docs/interview_notes.md)
+- [发布与回滚指南](docs/release.md)
 
 ## Enterprise Observability and Usage Analytics
 
@@ -580,7 +728,8 @@ design, usage tables, APIs, privacy constraints, pricing configuration, and test
 - [x] Prompt Catalog、Release Manifest、版本 Hash、运行观测与回滚基础能力。
 - [ ] Prompt A/B 测试、审批流与独立运营管理界面。
 - [ ] 对象存储、病毒扫描、文件配额和生命周期管理。
-- [ ] CI/CD、依赖锁定、镜像签名和安全扫描。
+- [x] React typecheck/unit/build、Playwright E2E 与 GitHub Actions Quality Gate。
+- [ ] 依赖漏洞扫描、SBOM、镜像签名和制品可信发布。
 - [ ] 流式响应、任务进度和更完整的运营后台。
 
 ## License

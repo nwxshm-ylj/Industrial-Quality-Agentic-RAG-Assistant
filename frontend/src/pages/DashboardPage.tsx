@@ -127,7 +127,7 @@ export function DashboardPage() {
             </Tag>
             <div className="identity-card__progress">
               <span><strong>会话级认证</strong><small>Bearer Token / sessionStorage</small></span>
-              <Progress percent={100} showInfo={false} strokeColor="#24d1c0" trailColor="#e8eef3" />
+              <Progress percent={100} showInfo={false} strokeColor="#0f766e" trailColor="#e7ecef" />
             </div>
           </Card>
         </Col>
