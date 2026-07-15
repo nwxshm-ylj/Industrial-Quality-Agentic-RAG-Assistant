@@ -13,13 +13,19 @@ services:
     image: postgres:16
     container_name: industrial-rag-postgres
     environment:
-      POSTGRES_USER: rag_user
-      POSTGRES_PASSWORD: rag_password
-      POSTGRES_DB: industrial_rag
+      POSTGRES_USER: ${POSTGRES_USER:-rag_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_password}
+      POSTGRES_DB: ${POSTGRES_DB:-industrial_rag}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   opensearch:
     image: opensearchproject/opensearch:2.19.1
@@ -50,9 +56,9 @@ services:
       qdrant:
         condition: service_started
       postgres:
-        condition: service_started
+        condition: service_healthy
       opensearch:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
@@ -86,7 +92,7 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
 
-      DATABASE_URL: postgresql+psycopg2://rag_user:rag_password@postgres:5432/industrial_rag
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-rag_user}:${POSTGRES_PASSWORD:-rag_password}@postgres:5432/${POSTGRES_DB:-industrial_rag}
 
       RERANKER_MODEL: BAAI/bge-reranker-base
       USE_RERANKER: "false"
@@ -94,12 +100,19 @@ services:
       - ./data:/app/data
       - hf_cache:/root/.cache/huggingface
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
 
   streamlit:
     image: 2-industrial-rag-api:latest
     container_name: industrial-rag-streamlit
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
       - "30000:8501"
     environment:
@@ -112,11 +125,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: industrial-rag-react-web:0.5.0
+    image: industrial-rag-react-web:0.6.0
     container_name: industrial-rag-react-web
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "${REACT_WEB_PORT:-30080}:80"
     healthcheck:
@@ -132,9 +145,10 @@ services:
       dockerfile: Dockerfile
     container_name: industrial-rag-init-sql
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg2://rag_user:rag_password@postgres:5432/industrial_rag
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-rag_user}:${POSTGRES_PASSWORD:-rag_password}@postgres:5432/${POSTGRES_DB:-industrial_rag}
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: industrial_docs
       EMBEDDING_MODEL: BAAI/bge-small-zh-v1.5
@@ -159,7 +173,7 @@ services:
       QDRANT_URL: http://qdrant:6333
       LEGACY_QDRANT_COLLECTION: industrial_docs
       EMBEDDING_MODEL: BAAI/bge-small-zh-v1.5
-      DATABASE_URL: postgresql+psycopg2://rag_user:rag_password@postgres:5432/industrial_rag
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-rag_user}:${POSTGRES_PASSWORD:-rag_password}@postgres:5432/${POSTGRES_DB:-industrial_rag}
       LLM_MODEL: ${LLM_MODEL}
       LLM_API_KEY: ${LLM_API_KEY}
       LLM_BASE_URL: ${LLM_BASE_URL}
