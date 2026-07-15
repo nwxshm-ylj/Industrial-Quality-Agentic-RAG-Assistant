@@ -108,6 +108,24 @@ services:
       - ./data:/app/data
     command: streamlit run ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
 
+  react-web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: industrial-rag-react-web:0.5.0
+    container_name: industrial-rag-react-web
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "${REACT_WEB_PORT:-30080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   init-sql:
     build:
       context: .
