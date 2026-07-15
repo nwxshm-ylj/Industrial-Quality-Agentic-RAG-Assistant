@@ -60,8 +60,8 @@ function OverviewTab({ response }: { response: ChatResponse }) {
         <Progress
           percent={Math.max(0, Math.min(100, Number(evidenceScore || 0) * 100))}
           showInfo={false}
-          strokeColor="#0a8f86"
-          trailColor="#e8eef1"
+          strokeColor="#0f766e"
+          trailColor="#e7ecef"
         />
         <small>Evidence score {formatScore(evidenceScore)}</small>
       </div>

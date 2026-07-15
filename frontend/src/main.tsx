@@ -27,23 +27,35 @@ createRoot(document.getElementById("root")!).render(
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: "#0a8f86",
-          colorInfo: "#0a8f86",
-          colorSuccess: "#158765",
-          colorWarning: "#c77b19",
-          colorError: "#c64949",
-          colorText: "#132333",
-          colorTextSecondary: "#627184",
-          colorBgLayout: "#f3f6f8",
+          colorPrimary: "#0f766e",
+          colorPrimaryHover: "#0d8a80",
+          colorPrimaryActive: "#0b5f59",
+          colorInfo: "#356b8c",
+          colorSuccess: "#1b7f5c",
+          colorWarning: "#a86416",
+          colorError: "#b64040",
+          colorText: "#172b3a",
+          colorTextSecondary: "#5f7180",
+          colorBgLayout: "#eef2f4",
+          colorBgContainer: "#ffffff",
+          colorBgElevated: "#ffffff",
+          colorBorder: "#d7e0e5",
+          colorBorderSecondary: "#e7ecef",
           borderRadius: 10,
           borderRadiusLG: 16,
           fontFamily:
             "Inter, 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif",
         },
         components: {
-          Button: { controlHeightLG: 46, fontWeight: 600 },
+          Button: {
+            controlHeightLG: 46,
+            fontWeight: 600,
+            primaryShadow: "none",
+          },
+          Card: { headerBg: "#ffffff" },
           Input: { controlHeightLG: 48 },
           Menu: { itemBorderRadius: 8, itemHeight: 44 },
+          Table: { headerBg: "#f5f7f8", headerColor: "#526674" },
         },
       }}
     >

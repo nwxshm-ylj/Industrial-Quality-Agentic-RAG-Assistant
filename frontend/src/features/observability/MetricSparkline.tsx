@@ -3,7 +3,7 @@ interface MetricSparklineProps {
   color?: string;
 }
 
-export function MetricSparkline({ values, color = "#0a8f86" }: MetricSparklineProps) {
+export function MetricSparkline({ values, color = "#0f766e" }: MetricSparklineProps) {
   const width = 600;
   const height = 150;
   const safeValues = values.length ? values : [0];
@@ -24,7 +24,7 @@ export function MetricSparkline({ values, color = "#0a8f86" }: MetricSparklinePr
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <line x1="0" y1="138" x2="600" y2="138" stroke="#e2e9ec" strokeWidth="1" />
+      <line x1="0" y1="138" x2="600" y2="138" stroke="#e1e7eb" strokeWidth="1" />
       <polygon points={`0,150 ${points} 600,150`} fill={`url(#gradient-${color.replace("#", "")})`} />
       <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>

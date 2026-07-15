@@ -102,7 +102,7 @@ export function DocumentUploadPanel({
       {loading && (
         <div className="upload-progress">
           <span><b>上传与索引处理中</b><small>{progress < 100 ? "正在传输文件" : "正在解析并写入双索引"}</small></span>
-          <Progress percent={progress} showInfo={false} strokeColor="#0a8f86" />
+          <Progress percent={progress} showInfo={false} strokeColor="#0f766e" />
         </div>
       )}
 

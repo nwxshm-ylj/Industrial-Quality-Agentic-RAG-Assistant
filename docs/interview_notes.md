@@ -6,14 +6,14 @@
 
 > 这是一个面向制造质量场景的企业级 Agentic RAG 项目。现场问题并不都是文档问答：有些是故障诊断，有些要查确定性规则，有些要查历史案例，还有些要分析 PostgreSQL 中的检测和报警数据。因此我没有把所有问题都送进同一个向量检索链，而是使用 LangGraph 做显式意图路由。
 >
-> 文档路径采用 Qdrant 向量检索和 BM25 混合召回，可选 Reranker，并通过 Evidence Judge 判断证据是否充分，不足时进行一次查询改写和重试。规则、SQL、历史案例分别走 Rule Tool、受限 SQL Tool 和 Case Retriever。所有路径最终统一进入答案生成，并把最近对话按 session_id 保存到 PostgreSQL，支持连续追问。
+> 文档路径采用 Qdrant 向量检索和 OpenSearch 关键词检索，通过 RRF 融合候选，可选 Reranker，并由 Evidence Judge 判断证据是否充分，不足时进行一次查询改写和重试。规则、SQL、历史案例分别走 Rule Tool、受限 SQL Tool 和 Case Retriever。所有路径最终统一进入答案生成，并把最近对话按 session_id 保存到 PostgreSQL，支持连续追问。
 >
-> 在企业能力上，项目还实现了 md、txt、pdf、docx 文档上传、版本、增量索引、删除和重建；使用 JWT、admin/engineer/viewer RBAC 和操作审计保护高风险功能；通过 request_id、节点耗时和 JSON 日志提供可观测性；最后把用户反馈、离线评估、指标看板串成质量闭环。整个项目使用 Docker Compose 运行 FastAPI、Streamlit、PostgreSQL 和 Qdrant。
+> 在企业能力上，项目还实现了 md、txt、pdf、docx 文档上传、版本、增量索引、删除和重建；使用 JWT、admin/engineer/viewer RBAC 和操作审计保护高风险功能；通过 request_id、OpenTelemetry、Prometheus、节点耗时和 JSON 日志提供可观测性；最后把用户反馈、离线评估、指标看板串成质量闭环。整个项目使用 Docker Compose 运行 FastAPI、React/Streamlit、PostgreSQL、Qdrant 和 OpenSearch。
 
 如果时间只有 30 秒，保留四点：
 
 1. 多路 Agentic 工作流，不是单链 RAG。
-2. Vector + BM25 + Evidence Judge。
+2. Qdrant + OpenSearch + RRF + Evidence Judge。
 3. 知识库管理 + JWT/RBAC + 审计。
 4. request_id + 用户反馈 + 评估闭环。
 
@@ -33,7 +33,7 @@
 
 然后补充两个旁路：
 
-- DocumentService 管理 PostgreSQL、Qdrant 和 chunks.json 三份索引/元数据。
+- DocumentService 管理 PostgreSQL 元数据、Qdrant 向量索引和 OpenSearch 关键词索引；`chunks.json` 只保留给 Legacy Demo。
 - Auth/Audit 位于业务链路外层，不侵入每个节点，但 SQL Tool 保留第二道权限检查。
 
 ## 3. 为什么使用 LangGraph
@@ -63,7 +63,7 @@ LangGraph 的价值是显式状态机：
 - 工业文档中精确型号和参数通常比语义相似更重要。
 - 中文术语、英文缩写和数字混排可能造成向量召回偏差。
 
-只用 BM25 的问题：
+只用关键词检索的问题：
 
 - 用户表达与文档术语不一致时召回较差。
 - “识别异常怎么处理”和“视觉检测误判排查”可能词面不同但语义接近。
@@ -72,12 +72,12 @@ LangGraph 的价值是显式状态机：
 因此：
 
 - Qdrant 负责语义召回。
-- BM25 负责精确关键词、编号和术语。
-- 融合分数综合两者。
+- OpenSearch 负责精确关键词、编号、术语和可扩展在线倒排索引。
+- RRF 根据两路排名进行融合，避免直接比较不同检索器的原始分数。
 - 可选 Reranker 对候选进行更精细排序。
 - Evidence Judge 用评估阈值约束生成入口。
 
-权重 0.65/0.35 是当前默认值，生产中应由评估集和线上反馈驱动，而不是凭经验固定。
+融合参数和 Reranker 是否启用应由版本化评估集与线上反馈驱动，而不是凭经验固定。
 
 ## 5. 为什么需要 RBAC
 
@@ -150,16 +150,16 @@ LangGraph 的价值是显式状态机：
 
 - PostgreSQL 是元数据和 chunk 的事实记录，支持状态、版本、列表和审计。
 - Qdrant 是向量在线检索索引。
-- chunks.json 兼容现有 BM25 实现。
+- OpenSearch 是在线关键词检索索引。
 
-上传事务跨 PostgreSQL、Qdrant 和文件系统，当前 v1.0 采用状态字段和失败标记控制，而不是分布式事务。失败后可以通过 reindex 修复。
+上传事务跨文件系统、PostgreSQL、Qdrant 和 OpenSearch，当前版本采用状态字段、失败阶段和幂等 reindex 控制，而不是分布式事务。只有两路检索索引都成功后才能标记 indexed。
 
 改进方向：
 
 - outbox/event + 异步 worker。
 - 可重试、幂等任务状态机。
 - 对象存储替代本地文件。
-- 统一在线 Hybrid Search，消除 chunks.json 热更新问题。
+- outbox、任务状态和补偿扫描进一步降低跨存储不一致窗口。
 
 ## 9. 项目难点
 
@@ -192,10 +192,10 @@ request_id 从 FastAPI 中间件进入 graph state，再出现在节点日志、
 面试中应主动说明：
 
 - init_sql_data 会重建三张演示业务表，不是正式 migration。
-- BM25 文件更新后需要重启 API 才能刷新内存索引。
 - 文档入库和评估是同步操作，长任务会占用请求线程。
 - 没有多租户和文档级 ACL。
-- 没有 OpenTelemetry trace、Prometheus metrics 和集中日志部署。
+- OpenTelemetry、Prometheus、Loki、Tempo 和 Grafana 已提供参考部署，但生产告警路由、长期存储和容量规划仍需完善。
+- OpenSearch 当前 Compose 是单节点开发配置并关闭安全插件，不能直接视为生产集群方案。
 - 评估指标偏规则化，缺少人工标注和 LLM-as-a-Judge 交叉验证。
 - 上传文件缺少病毒扫描、对象存储、配额和内容安全策略。
 - SQL 校验是受限实现，不等同于完整 SQL 沙箱。
@@ -218,7 +218,7 @@ request_id 从 FastAPI 中间件进入 graph state，再出现在节点日志、
 
 1. Celery/RQ/Arq 或消息队列处理入库与评估。
 2. 多租户和数据范围权限。
-3. BM25/稀疏向量在线化。
+3. OpenSearch 集群化、索引模板治理和容量压测。
 4. 缓存、连接池和模型服务拆分。
 5. 评估任务状态与进度查询。
 
@@ -236,9 +236,9 @@ request_id 从 FastAPI 中间件进入 graph state，再出现在节点日志、
 
 制造场景要求可追溯和权限边界。规则、SQL 和案例是确定性或结构化数据，直接生成会降低可靠性。
 
-### 为什么不用 Elasticsearch？
+### 为什么同时使用 Qdrant 和 OpenSearch？
 
-当前体量下 Qdrant + 本地 BM25 更轻量，能清楚展示混合检索原理。规模扩大后可考虑 OpenSearch/Elasticsearch 或支持稀疏向量的统一引擎。
+Qdrant 专注向量检索、Collection/Alias 和向量 payload 过滤，OpenSearch 提供成熟的倒排索引与精确术语召回。两者通过统一 Backend 接口和 RRF 融合，代价是双索引一致性与运维复杂度；未来也可以评估支持稠密/稀疏统一检索的单引擎方案。
 
 ### 为什么会返回 contexts？
 
