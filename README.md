@@ -142,6 +142,7 @@ docker compose up -d --build api streamlit
 访问：
 
 - Streamlit：http://localhost:30000
+- React 企业工作台（Phase 3）：http://localhost:30080
 - FastAPI Swagger：http://localhost:8000/docs
 - Health Check：http://localhost:8000/health
 - Qdrant Dashboard：http://localhost:6333/dashboard
@@ -206,6 +207,84 @@ curl -X POST http://localhost:8000/api/v1/graph-chat \
 8. 点击退出登录清除前端 Token 与用户状态。
 
 界面按角色隐藏未授权操作；后端仍通过 RBAC 强制校验，前端隐藏不能替代服务端授权。
+
+## React 企业工作台
+
+`frontend/` 提供 React + TypeScript + Vite 企业工作台。Phase 1 已完成 JWT 登录、统一 API Client、sessionStorage 会话、401 自动退出、角色化导航、受保护路由、OpenAPI 类型生成入口以及 Nginx/Docker 部署。
+
+Phase 2 已接入 `/api/v1/graph-chat`，提供：
+
+- 使用后端 `session_id` 的多轮连续追问，并支持一键创建新会话。
+- Top K 检索深度控制和工业质量示例问题。
+- Markdown 回答展示以及请求执行中、失败、完成状态。
+- citations、contexts、Rule Tool、SQL Tool、Case Retriever 结果检查。
+- `request_id`、`metadata.total_latency_ms`、证据分、检索模式、降级状态、Token 用量、Prompt 版本和 Trace ID 展示。
+- `memory_messages` 历史加载结果与完整兼容响应 JSON 检查。
+- 登录用户之间的本地会话隔离，退出登录时清理浏览器会话数据。
+
+Phase 3 已接入 `/api/v1/documents` 文档生命周期接口，提供：
+
+- 文档资产列表、状态筛选、元数据搜索和详情抽屉。
+- md、txt、pdf、docx 上传、文档类型和版本管理。
+- indexed、uploaded、failed、deleted 状态以及 `failed_stage/error_message` 诊断。
+- PostgreSQL、Qdrant、OpenSearch 双索引一致性语义展示。
+- admin 可删除和重建指定 `doc_id`，engineer 可上传和查看，viewer 仅查看。
+- 删除与重建前明确确认操作范围；最终权限仍由 FastAPI RBAC 和审计日志执行。
+
+Phase 4 已接入反馈、RAG 评估与可观测性接口，提供：
+
+- 每条聊天回答下方提交 positive、neutral 或 negative 反馈，并携带 `request_id`、`session_id`、intent、citations 和 metadata。
+- admin/engineer 查看反馈统计、按评分筛选反馈记录，并运行或查看生成质量评估。
+- 独立检索评估展示 Recall@K、MRR@K、nDCG@K 和平均检索延迟；运行真实评估前必须在界面中二次确认。
+- 可观测性看板支持 1/7/30 天窗口，展示请求量、成功率、P95 延迟、Token、成本、降级请求、意图分布、模型用量和检索质量。
+- 支持按 `request_id` 查询请求、节点、模型调用与检索事件明细，便于定位端到端延迟和降级原因。
+- Evaluation 和 Observability 路由仅 admin/engineer 可见，并继续由 FastAPI Bearer Token 与 RBAC 做服务端强制校验。
+
+如果运行中的 API 镜像早于检索评估路由实现，请先执行 `docker compose up -d --build api`；前端收到 404 时会给出兼容提示，不会回退到 `chunks.json`。现有 Streamlit 功能继续并行运行，React 界面不会绕过 FastAPI RBAC。
+
+Phase 5 增加企业管理控制台与发布验收能力：
+
+- admin 可查看用户列表并创建 admin、engineer、viewer 用户，密码只通过 TLS/Bearer 认证链路提交，后端继续哈希存储。
+- admin 可查询操作审计日志，支持按时间窗口、用户、action、状态和 `request_id` 过滤，并查看成功、拒绝和失败统计。
+- admin/engineer 可查看系统健康页，统一展示 PostgreSQL、Qdrant、OpenSearch、模型配置与 Prompt Registry readiness。
+- 窄屏设备使用抽屉导航，页面级异常由全局 Error Boundary 提供安全恢复入口。
+- `/api/v1/audit-logs` 和 `/api/v1/audit-logs/stats` 只允许 admin 访问；无 Token 返回 401，权限不足返回 403。
+
+Phase 5 集成验收：
+
+~~~bash
+python -m scripts.test_admin_console
+cd frontend
+npm run typecheck
+npm test
+npm run build
+~~~
+
+本地开发：
+
+~~~bash
+cd frontend
+npm install
+npm run dev
+~~~
+
+Vite 默认访问 http://localhost:5173，并通过开发代理连接 http://localhost:8000。生成最新 FastAPI TypeScript 类型：
+
+~~~bash
+cd frontend
+npm run api:types
+npm run typecheck
+npm test
+npm run build
+~~~
+
+Docker Compose 中 React 与 Streamlit 并行运行：
+
+~~~bash
+docker compose up -d --build api react-web
+~~~
+
+React 默认入口为 http://localhost:30080，Streamlit 仍保留在 http://localhost:30000，完成后续功能对齐与验收前不会删除。如需调整 React 宿主端口，可在 `.env` 中设置 `REACT_WEB_PORT`，容器内部仍监听 80。
 
 ## 知识库管理
 
