@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import {
   App as AntdApp,
   Button,
@@ -45,16 +44,13 @@ const exampleQuestions = [
   },
 ];
 
-interface AskVariables {
-  turnId: string;
-  request: ChatRequest;
-}
-
 export function ChatPage() {
   const { message, modal } = AntdApp.useApp();
   const [draft, setDraft] = useState("");
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const username = useAuthStore((state) => state.user?.username);
   const {
     sessionId,
@@ -63,6 +59,9 @@ export function ChatPage() {
     ensureOwner,
     setTopK,
     addPendingTurn,
+    acceptStreamingTurn,
+    updateTurnProgress,
+    appendTurnToken,
     completeTurn,
     failTurn,
     startNewConversation,
@@ -78,40 +77,78 @@ export function ChatPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns]);
 
-  const askMutation = useMutation({
-    mutationFn: ({ request }: AskVariables) => chatApi.ask(request),
-    onSuccess: (response, variables) => {
-      completeTurn(variables.turnId, response);
-      setSelectedTurnId(variables.turnId);
-    },
-    onError: (error, variables) => {
-      failTurn(variables.turnId, getApiErrorMessage(error));
-      setSelectedTurnId(variables.turnId);
-    },
-  });
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
 
   const selectedResponse = useMemo(() => {
     const selectedTurn = turns.find((turn) => turn.id === selectedTurnId);
     return selectedTurn?.response || getLatestCompletedResponse(turns);
   }, [selectedTurnId, turns]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const question = draft.trim();
-    if (!question || askMutation.isPending) {
+    if (!question || isStreaming) {
       return;
     }
 
     const turnId = addPendingTurn(question);
     setSelectedTurnId(turnId);
     setDraft("");
-    askMutation.mutate({
-      turnId,
-      request: {
+    setIsStreaming(true);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    let tokenBuffer = "";
+    let tokenFlushTimer: ReturnType<typeof setTimeout> | null = null;
+    const flushTokenBuffer = () => {
+      if (tokenFlushTimer) {
+        clearTimeout(tokenFlushTimer);
+        tokenFlushTimer = null;
+      }
+      if (tokenBuffer) {
+        appendTurnToken(turnId, tokenBuffer);
+        tokenBuffer = "";
+      }
+    };
+
+    try {
+      const request: ChatRequest = {
         question,
         top_k: topK,
         session_id: sessionId,
-      },
-    });
+      };
+      const response = await chatApi.askStream(
+        request,
+        {
+          onAccepted: (event) => acceptStreamingTurn(turnId, event),
+          onProgress: (event) => updateTurnProgress(turnId, event),
+          onToken: (event) => {
+            tokenBuffer += event.delta;
+            if (!tokenFlushTimer) {
+              tokenFlushTimer = setTimeout(flushTokenBuffer, 40);
+            }
+          },
+        },
+        controller.signal,
+      );
+      flushTokenBuffer();
+      completeTurn(turnId, response);
+      setSelectedTurnId(turnId);
+    } catch (error) {
+      flushTokenBuffer();
+      const errorMessage = error instanceof DOMException && error.name === "AbortError"
+        ? "已停止接收本轮流式响应"
+        : getApiErrorMessage(error);
+      failTurn(turnId, errorMessage);
+      setSelectedTurnId(turnId);
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
+      setIsStreaming(false);
+    }
+  };
+
+  const handleStopStreaming = () => {
+    abortControllerRef.current?.abort();
   };
 
   const handleNewConversation = () => {
@@ -150,7 +187,7 @@ export function ChatPage() {
         <Button
           block
           type="primary"
-          disabled={askMutation.isPending}
+          disabled={isStreaming}
           onClick={handleNewConversation}
         >
           ＋ 新建会话
@@ -176,7 +213,7 @@ export function ChatPage() {
             min={1}
             max={10}
             value={topK}
-            disabled={askMutation.isPending}
+            disabled={isStreaming}
             onChange={setTopK}
           />
           <small>提高召回深度会增加证据覆盖，也可能提升响应延迟。</small>
@@ -190,7 +227,7 @@ export function ChatPage() {
             <button
               type="button"
               key={item.label}
-              disabled={askMutation.isPending}
+              disabled={isStreaming}
               onClick={() => setDraft(item.question)}
             >
               <span>{item.label}</span>
@@ -207,8 +244,13 @@ export function ChatPage() {
             <Typography.Title level={4}>工业质量智能问答</Typography.Title>
           </div>
           <div className="conversation-header__status">
-            <i className={askMutation.isPending ? "is-busy" : "is-online"} />
-            {askMutation.isPending ? "WORKFLOW RUNNING" : "READY"}
+            <i className={isStreaming ? "is-busy" : "is-online"} />
+            {isStreaming ? "STREAMING" : "READY"}
+            {isStreaming && (
+              <Button type="link" size="small" onClick={handleStopStreaming}>
+                停止接收
+              </Button>
+            )}
           </div>
         </div>
 
@@ -240,7 +282,7 @@ export function ChatPage() {
 
         <ChatComposer
           value={draft}
-          loading={askMutation.isPending}
+          loading={isStreaming}
           onChange={setDraft}
           onSubmit={handleSubmit}
         />

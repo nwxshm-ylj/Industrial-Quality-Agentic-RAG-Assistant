@@ -7,16 +7,21 @@ from app.schemas.evaluation import (
     RetrievalEvalRunListResponse,
     RetrievalEvalRunRequest,
     RetrievalEvalRunResponse,
+    RagasEvalRunListResponse,
+    RagasEvalRunRequest,
+    RagasEvalRunResponse,
 )
 from app.services.evaluation_service import EvaluationService
 from app.services.retrieval_evaluation_service import (
     RetrievalEvaluationService,
 )
+from app.services.ragas_evaluation_service import RagasEvaluationService
 
 
 router = APIRouter(prefix="/api/v1/evaluation", tags=["evaluation"])
 evaluation_service = EvaluationService()
 retrieval_evaluation_service = RetrievalEvaluationService()
+ragas_evaluation_service = RagasEvaluationService()
 
 
 @router.post("/run", response_model=EvalRunResponse)
@@ -152,4 +157,46 @@ def get_retrieval_evaluation_run(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if result is None:
         raise HTTPException(status_code=404, detail="Retrieval evaluation not found")
+    return result
+
+
+@router.post("/ragas/run", response_model=RagasEvalRunResponse)
+def run_ragas_evaluation(
+    payload: RagasEvalRunRequest,
+    request: Request,
+    current_user: dict = Depends(require_roles("admin", "engineer")),
+):
+    try:
+        return ragas_evaluation_service.run_evaluation(
+            username=current_user["username"],
+            role=current_user["role"],
+            request_id=get_request_id(request),
+            max_questions=payload.max_questions,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get("/ragas/runs", response_model=RagasEvalRunListResponse)
+def list_ragas_evaluation_runs(
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user: dict = Depends(require_roles("admin", "engineer")),
+):
+    del current_user
+    runs = ragas_evaluation_service.list_runs(limit=limit)
+    return {"runs": runs, "total": len(runs)}
+
+
+@router.get("/ragas/runs/{run_id}", response_model=RagasEvalRunResponse)
+def get_ragas_evaluation_run(
+    run_id: str,
+    current_user: dict = Depends(require_roles("admin", "engineer")),
+):
+    del current_user
+    try:
+        result = ragas_evaluation_service.get_run(run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if result is None:
+        raise HTTPException(status_code=404, detail="RAGAS evaluation not found")
     return result

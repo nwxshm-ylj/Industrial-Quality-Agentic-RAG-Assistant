@@ -70,6 +70,31 @@ def validate(values: dict[str, str], production: bool) -> tuple[list[str], list[
     if alias and alias == collection:
         errors.append("Qdrant Alias 与物理 Collection 名称不能相同")
 
+    if value("MULTIMODAL_ENABLED", "false").lower() == "true":
+        for name in (
+            "QWEN_MULTIMODAL_EMBEDDING_API_KEY",
+            "QWEN_MULTIMODAL_EMBEDDING_MODEL",
+            "QWEN_MULTIMODAL_EMBEDDING_DIMENSION",
+            "QDRANT_MULTIMODAL_COLLECTION",
+            "QDRANT_MULTIMODAL_COLLECTION_ALIAS",
+        ):
+            if is_placeholder(value(name)):
+                errors.append(f"{name} 未配置有效值")
+        multimodal_collection = value("QDRANT_MULTIMODAL_COLLECTION")
+        multimodal_alias = value("QDRANT_MULTIMODAL_COLLECTION_ALIAS")
+        if multimodal_collection and multimodal_collection == multimodal_alias:
+            errors.append("多模态 Qdrant Alias 与物理 Collection 不能同名")
+
+    if value("LAYERED_MEMORY_ENABLED", "false").lower() == "true":
+        if not value("REDIS_URL"):
+            errors.append("启用分层记忆时 REDIS_URL 不能为空")
+
+    if value("KNOWLEDGE_GRAPH_ENABLED", "false").lower() == "true":
+        if not value("NEO4J_URI"):
+            errors.append("启用知识图谱时 NEO4J_URI 不能为空")
+        if is_placeholder(value("NEO4J_PASSWORD")):
+            errors.append("启用知识图谱时 NEO4J_PASSWORD 必须使用非占位密码")
+
     prompt_release = Path(value("PROMPT_RELEASE_PATH", "prompts/releases/stable.yaml"))
     if not prompt_release.exists():
         errors.append(f"Prompt Release 不存在: {prompt_release}")

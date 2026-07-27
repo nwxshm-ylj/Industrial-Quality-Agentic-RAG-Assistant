@@ -33,6 +33,46 @@ export type RetrievalUsageItem = components["schemas"]["RetrievalUsageItem"];
 export type RetrievalUsageResponse = components["schemas"]["RetrievalUsageResponse"];
 export type RequestUsageDetailsResponse = components["schemas"]["RequestUsageDetailsResponse"];
 
+export type ChatProgressStatus = "running" | "completed" | "error";
+
+export interface ChatAcceptedEvent {
+  sequence: number;
+  request_id: string;
+  session_id: string;
+  status: "accepted";
+}
+
+export interface ChatProgressEvent {
+  sequence: number;
+  request_id: string;
+  session_id: string;
+  node_name: string;
+  label: string;
+  status: ChatProgressStatus;
+  progress: number;
+  intent?: string | null;
+  retry_count?: number;
+  latency_ms?: number;
+  error_message?: string;
+}
+
+export interface ChatTokenEvent {
+  sequence: number;
+  request_id: string;
+  session_id: string;
+  delta: string;
+}
+
+export interface ChatStreamErrorEvent {
+  sequence: number;
+  request_id: string;
+  session_id: string;
+  status_code: number;
+  error_code: string;
+  message: string;
+  retryable: boolean;
+}
+
 export interface RetrievalEvalRunRequest {
   top_k: number;
   k_values: number[];

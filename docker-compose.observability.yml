@@ -20,8 +20,6 @@ services:
     volumes:
       - ./monitoring/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
     ports:
-      - "4317:4317"
-      - "4318:4318"
       - "8888:8888"
     depends_on:
       tempo:

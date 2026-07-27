@@ -17,6 +17,10 @@ class IndustrialRAGState(TypedDict):
     session_id: str
     user: dict[str, Any] | None
     memory_messages: list[dict]
+    memory_metadata: dict[str, Any]
+    knowledge_graph_metadata: dict[str, Any]
+    retrieval_filters: dict[str, list[str]] | None
+    multimodal_query: dict[str, Any] | None
     intent: IntentType
     rewritten_query: str
     contexts: list[dict]

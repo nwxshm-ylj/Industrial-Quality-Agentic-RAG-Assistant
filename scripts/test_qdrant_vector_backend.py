@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from app.rag.embeddings.base import EmbeddingDimensionError
 from app.rag.embeddings.mock_provider import MockEmbeddingProvider
+from app.rag.retrieval_filters import RetrievalFilter
 from app.rag.search_backends.qdrant_backend import QdrantVectorSearchBackend
 
 
@@ -28,6 +29,10 @@ class _Models:
     @classmethod
     def MatchValue(cls, **kwargs):
         return cls._value("MatchValue", **kwargs)
+
+    @classmethod
+    def MatchAny(cls, **kwargs):
+        return cls._value("MatchAny", **kwargs)
 
     @classmethod
     def Filter(cls, **kwargs):
@@ -158,6 +163,25 @@ def main() -> None:
     results = backend.search("质量", top_k=3)
     assert client.queries[0]["collection_name"] == "industrial_docs_active"
     assert results[0]["chunk_id"] == "d1_0"
+    backend.search(
+        "quality",
+        top_k=3,
+        filters=RetrievalFilter(
+            doc_ids=("d1",),
+            doc_types=("TEST",),
+            versions=("v1",),
+            sources=("test.txt",),
+        ),
+    )
+    query_conditions = client.queries[1]["query_filter"].must
+    assert [condition.key for condition in query_conditions] == [
+        "index_status",
+        "doc_id",
+        "doc_type",
+        "version",
+        "source",
+    ]
+    assert query_conditions[1].match.any == ["d1"]
     assert backend.count_indexed() == 1
 
     backend.delete_by_doc_id("d1")

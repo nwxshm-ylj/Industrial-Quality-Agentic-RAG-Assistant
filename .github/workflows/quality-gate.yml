@@ -30,6 +30,9 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall app scripts
 
+      - name: Validate streaming event contract
+        run: python -m scripts.test_streaming
+
       - name: Validate Compose configuration
         run: docker compose config --quiet
 

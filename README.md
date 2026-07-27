@@ -29,7 +29,7 @@ flowchart LR
     API --> Feedback[Feedback Service]
     API --> Eval[Evaluation Service]
 
-    Graph --> Memory[Conversation Memory]
+    Graph --> Memory[Layered Conversation Memory]
     Graph --> Router[Intent Router]
     Router --> Rule[Rule Tool]
     Router --> SQL[Restricted SQL Tool]
@@ -38,6 +38,7 @@ flowchart LR
     Rewrite --> Hybrid[Hybrid Retriever]
     Hybrid --> Vector[Qdrant Vector Search]
     Hybrid --> Keyword[OpenSearch Keyword Search]
+    Hybrid --> MM[Multimodal Qdrant Search]
     Hybrid --> Judge[Evidence Judge + Retry]
     Judge --> Generator[Answer Generator]
     Router --> Prompt[Versioned Prompt Registry]
@@ -48,8 +49,12 @@ flowchart LR
 
     Auth --> PG[(PostgreSQL)]
     Memory --> PG
+    Memory --> Redis[(Redis)]
+    Memory --> Vector
+    Memory --> Keyword
     SQL --> PG
     Case --> PG
+    Case --> KG[(Neo4j Knowledge Graph)]
     KB --> PG
     KB --> Vector
     KB --> Keyword
@@ -71,16 +76,19 @@ flowchart LR
 | Agentic 路由 | doc_qa、fault_diagnosis、case_search、rule_query、sql_analysis、general | 按问题类型选择最合适的工具和数据源 |
 | Hybrid Search | 千问 Embedding + Qdrant Alias + OpenSearch + RRF + 可选 Reranker | 同时覆盖语义召回和工业关键词精确匹配，关键词故障时可降级为 vector-only |
 | Evidence Judge | 证据评分、不足时改写并重试 | 降低弱证据直接生成答案的风险 |
-| 多轮记忆 | PostgreSQL 按 session_id 保存最近消息 | 支持“那优先排查哪个”等连续追问 |
+| 分层记忆 | PostgreSQL 原始消息 + Redis 短期窗口/抽取式摘要 + Qdrant/OpenSearch 长期情景召回 | 支持连续追问和按用户隔离的跨会话相关历史；可配置启用 |
 | Rule Tool | YAML 工业规则匹配 | 处理 PR、配置映射和判定规则 |
 | SQL Tool | 白名单、只读 SQL 分析 | 查询质量记录、报警和趋势 |
 | Case Retriever | PostgreSQL 历史案例检索 | 复用历史根因和纠正措施 |
-| 知识库管理 | md/txt/pdf/docx 上传、版本、删除、重建 | 从脚本入库升级为可管理知识资产 |
+| 知识库管理 | md/txt/pdf/docx/pptx 上传、版本、删除、重建 | 从脚本入库升级为可管理知识资产 |
 | 安全体系 | JWT、PBKDF2 密码哈希、RBAC | 管理用户和高风险操作权限 |
 | 审计与可观测性 | request_id、节点 latency、JSON 日志、审计表 | 支持问题定位和操作追溯 |
 | Prompt 工程 | 文件化 Catalog、语义版本、Release Manifest、Hash 校验 | 支持 Prompt 评审、测试、观测、发布与回滚 |
 | 用户反馈 | positive/negative/neutral + comment | 建立真实用户质量信号 |
 | RAG 评估 | 意图、来源、关键词、记忆、延迟指标 | 量化版本质量并支持回归比较 |
+| RAGAS 语义评估 | Context Precision/Recall、Response Relevancy、Faithfulness | 使用独立 Judge 评估检索与生成质量；默认关闭付费调用 |
+| 多模态检索 | PDF 页面、PPTX 文本/图片、可选 dots.OCR、Qwen3-VL Embedding | 支持 text/image Any-to-Any 检索；与文本 Collection 物理隔离 |
+| 知识图谱 | Neo4j 质量案例关系图 + Case Retriever 增强 | 查询工位、缺陷、零件、车型、根因和措施之间的路径 |
 | 管理界面 | Streamlit 聊天、文档、反馈和评估看板 | 提供完整演示和运营入口 |
 
 ## 技术栈
@@ -90,8 +98,8 @@ flowchart LR
 | API | Python 3.11、FastAPI、Pydantic、Uvicorn |
 | Agent 编排 | LangGraph、LangChain |
 | LLM | OpenAI-compatible API，默认 qwen-plus 配置 |
-| 检索 | Qwen text-embedding-v4、Qdrant、OpenSearch、RRF、CrossEncoder |
-| 数据 | PostgreSQL、SQLAlchemy、Qdrant、OpenSearch |
+| 检索 | Qwen text-embedding-v4、Qwen3-VL Embedding、Qdrant、OpenSearch、RRF、CrossEncoder |
+| 数据 | PostgreSQL、Redis、Qdrant、OpenSearch、Neo4j |
 | 前端 | Streamlit、Pandas、Requests |
 | 安全 | JWT、PBKDF2-SHA256、FastAPI Depends、RBAC |
 | 部署 | Docker、Docker Compose |
@@ -131,7 +139,7 @@ JWT_SECRET_KEY=replace_with_a_long_random_secret
 ### 2. Docker Compose 启动
 
 ~~~bash
-docker compose up -d qdrant postgres opensearch
+docker compose up -d qdrant postgres opensearch redis neo4j
 docker compose --profile tools run --rm init-sql
 docker compose run --rm api python -m scripts.migrate_online_indexes
 # 先运行检索与评估测试，通过后再切换稳定 Alias
@@ -147,6 +155,7 @@ docker compose up -d --build api streamlit
 - Health Check：http://localhost:8000/health
 - Qdrant Dashboard：http://localhost:6333/dashboard
 - OpenSearch：http://localhost:9200
+- Neo4j Browser：http://localhost:7474
 
 查看日志：
 
@@ -193,6 +202,50 @@ curl -X POST http://localhost:8000/api/v1/graph-chat \
 
 关键响应字段包括 answer、citations、request_id、session_id、memory_messages、intent、evidence_score、retry_count 和 metadata.total_latency_ms。
 
+可选图片查询保持原接口兼容：
+
+~~~bash
+curl -X POST http://localhost:8000/api/v1/graph-chat \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "查找与这张设备异常图相似的文档页面",
+    "session_id": "multimodal-demo",
+    "multimodal_query": {
+      "images": ["https://example.com/industrial-fault.png"]
+    }
+  }'
+~~~
+
+多模态、分层记忆和知识图谱默认关闭。完成数据准备后再启用：
+
+~~~dotenv
+MULTIMODAL_ENABLED=true
+LAYERED_MEMORY_ENABLED=true
+KNOWLEDGE_GRAPH_ENABLED=true
+~~~
+
+多模态索引必须先写入并验证，再切换 Alias；空索引或维度错误不会切换：
+
+~~~bash
+docker compose exec api python -m scripts.activate_multimodal_index
+docker compose exec api python -m scripts.activate_multimodal_index --activate-alias
+~~~
+
+质量案例图谱通过幂等脚本同步：
+
+~~~bash
+docker compose exec api python -m scripts.sync_quality_case_graph
+~~~
+
+已有数据库升级请使用非破坏性迁移：
+
+~~~bash
+docker compose exec api python -m scripts.migrate_advanced_rag
+~~~
+
+不要在包含真实或需保留样例数据的环境中重复执行 `scripts.init_sql_data`；该脚本仍属于 Demo 初始化流程，会重建部分业务样例表。
+
 更多登录、上传、反馈和评估请求见 [API Examples](docs/api_examples.md)。
 
 ## Streamlit 使用说明
@@ -225,7 +278,7 @@ Phase 2 已接入 `/api/v1/graph-chat`，提供：
 Phase 3 已接入 `/api/v1/documents` 文档生命周期接口，提供：
 
 - 文档资产列表、状态筛选、元数据搜索和详情抽屉。
-- md、txt、pdf、docx 上传、文档类型和版本管理。
+- md、txt、pdf、docx、pptx 上传、文档类型和版本管理。
 - indexed、uploaded、failed、deleted 状态以及 `failed_stage/error_message` 诊断。
 - PostgreSQL、Qdrant、OpenSearch 双索引一致性语义展示。
 - admin 可删除和重建指定 `doc_id`，engineer 可上传和查看，viewer 仅查看。
@@ -660,7 +713,9 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 │   ├── api/          # Auth、Chat、Documents、Feedback、Evaluation
 │   ├── core/         # Config、Security、Dependencies、Logger
 │   ├── graph/        # LangGraph state、workflow、nodes
-│   ├── memory/       # PostgreSQL conversation memory
+│   ├── memory/       # PostgreSQL/Redis/长期 Hybrid memory
+│   ├── multimodal/   # Qwen3-VL Embedding、PDF/PPTX 资产与 OCR 适配
+│   ├── knowledge_graph/ # Neo4j 质量案例图谱
 │   ├── prompting/    # Prompt Registry、严格渲染与版本引用
 │   ├── rag/          # Loader、Splitter、Hybrid Retrieval、Generation
 │   ├── schemas/      # Pydantic API schemas
@@ -724,13 +779,14 @@ design, usage tables, APIs, privacy constraints, pricing configuration, and test
 - [ ] 多租户、部门级数据隔离和细粒度文档 ACL。
 - [x] OpenTelemetry tracing、Prometheus metrics、集中日志和用量分析。
 - [ ] 增加 indexing_jobs、后台入库进度和失败任务重试。
-- [ ] RAGAS/LLM-as-a-Judge、基准集版本和趋势对比。
+- [x] RAGAS 语义指标适配、版本化基准集和文件化运行报告。
 - [x] Prompt Catalog、Release Manifest、版本 Hash、运行观测与回滚基础能力。
 - [ ] Prompt A/B 测试、审批流与独立运营管理界面。
 - [ ] 对象存储、病毒扫描、文件配额和生命周期管理。
 - [x] React typecheck/unit/build、Playwright E2E 与 GitHub Actions Quality Gate。
 - [ ] 依赖漏洞扫描、SBOM、镜像签名和制品可信发布。
-- [ ] 流式响应、任务进度和更完整的运营后台。
+- [x] graph-chat 流式响应与 LangGraph 节点进度事件。
+- [ ] 多模态、分层记忆和知识图谱的真实模型/集成环境基准验收。
 
 ## License
 

@@ -33,7 +33,7 @@ export function DocumentUploadPanel({
   const [version, setVersion] = useState("v1");
 
   const uploadProps: UploadProps = {
-    accept: ".md,.txt,.pdf,.docx",
+    accept: ".md,.txt,.pdf,.docx,.pptx",
     maxCount: 1,
     multiple: false,
     fileList,

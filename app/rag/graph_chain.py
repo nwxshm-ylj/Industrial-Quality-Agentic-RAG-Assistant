@@ -28,6 +28,8 @@ class IndustrialGraphRAGChain:
         session_id: str = "default",
         request_id: str | None = None,
         user: dict | None = None,
+        retrieval_filters: dict[str, list[str]] | None = None,
+        multimodal_query: dict | None = None,
     ) -> dict:
         request_id = request_id or str(uuid4())
         session_id = session_id or "default"
@@ -50,6 +52,10 @@ class IndustrialGraphRAGChain:
             "session_id": session_id,
             "user": user,
             "memory_messages": [],
+            "memory_metadata": {},
+            "knowledge_graph_metadata": {},
+            "retrieval_filters": retrieval_filters,
+            "multimodal_query": multimodal_query,
             "intent": "doc_qa",
             "rewritten_query": "",
             "contexts": [],
@@ -125,6 +131,8 @@ class IndustrialGraphRAGChain:
             "total_latency_ms": total_latency_ms,
         }
         metadata.update(result.get("retrieval_metadata", {}))
+        metadata.update(result.get("memory_metadata", {}))
+        metadata.update(result.get("knowledge_graph_metadata", {}))
         if settings.prompt_expose_version_in_response:
             metadata["prompt_release"] = prompt_release_metadata["release_id"]
             metadata["prompt_versions"] = prompt_release_metadata["versions"]

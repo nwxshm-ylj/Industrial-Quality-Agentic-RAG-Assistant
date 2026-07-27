@@ -1,4 +1,5 @@
 from app.rag.search_backends.opensearch_backend import OpenSearchKeywordBackend
+from app.rag.retrieval_filters import RetrievalFilter
 
 
 class _Indices:
@@ -91,6 +92,23 @@ def main() -> None:
     assert backend.count_indexed() == 1
     assert client.searches[0]["body"]["query"]["bool"]["filter"] == [
         {"term": {"index_status": "indexed"}}
+    ]
+    backend.search(
+        "quality",
+        top_k=5,
+        filters=RetrievalFilter(
+            doc_ids=("d1",),
+            doc_types=("QUALITY",),
+            versions=("v1",),
+            sources=("quality.txt",),
+        ),
+    )
+    assert client.searches[1]["body"]["query"]["bool"]["filter"] == [
+        {"term": {"index_status": "indexed"}},
+        {"terms": {"doc_id": ["d1"]}},
+        {"terms": {"doc_type": ["QUALITY"]}},
+        {"terms": {"version": ["v1"]}},
+        {"terms": {"source.keyword": ["quality.txt"]}},
     ]
 
     backend.delete_by_doc_id("d1")

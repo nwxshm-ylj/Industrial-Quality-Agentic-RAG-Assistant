@@ -1,17 +1,27 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import type { ChatResponse, FeedbackRating } from "../api/types";
+import type {
+  ChatAcceptedEvent,
+  ChatProgressEvent,
+  ChatResponse,
+  FeedbackRating,
+} from "../api/types";
 
 const MAX_PERSISTED_TURNS = 30;
 
-export type ChatTurnStatus = "pending" | "completed" | "error";
+export type ChatTurnStatus = "pending" | "streaming" | "completed" | "error";
 
 export interface ChatTurn {
   id: string;
   question: string;
   createdAt: string;
   status: ChatTurnStatus;
+  requestId?: string;
+  streamedAnswer?: string;
+  progress?: number;
+  currentStage?: ChatProgressEvent;
+  progressEvents?: ChatProgressEvent[];
   response?: ChatResponse;
   errorMessage?: string;
 }
@@ -25,6 +35,9 @@ interface ChatState {
   ensureOwner: (username: string) => void;
   setTopK: (topK: number) => void;
   addPendingTurn: (question: string) => string;
+  acceptStreamingTurn: (turnId: string, event: ChatAcceptedEvent) => void;
+  updateTurnProgress: (turnId: string, event: ChatProgressEvent) => void;
+  appendTurnToken: (turnId: string, delta: string) => void;
   completeTurn: (turnId: string, response: ChatResponse) => void;
   failTurn: (turnId: string, errorMessage: string) => void;
   markFeedback: (requestKey: string, rating: FeedbackRating) => void;
@@ -70,18 +83,76 @@ export const useChatStore = create<ChatState>()(
           question,
           createdAt: new Date().toISOString(),
           status: "pending",
+          streamedAnswer: "",
+          progress: 0,
+          progressEvents: [],
         };
         set((state) => ({
           turns: [...state.turns, turn].slice(-MAX_PERSISTED_TURNS),
         }));
         return turnId;
       },
+      acceptStreamingTurn: (turnId, event) => {
+        set((state) => ({
+          sessionId: event.session_id || state.sessionId,
+          turns: state.turns.map((turn) => (
+            turn.id === turnId
+              ? {
+                  ...turn,
+                  status: "streaming",
+                  requestId: event.request_id,
+                  progress: Math.max(turn.progress || 0, 1),
+                }
+              : turn
+          )),
+        }));
+      },
+      updateTurnProgress: (turnId, event) => {
+        set((state) => ({
+          turns: state.turns.map((turn) => (
+            turn.id === turnId
+              ? {
+                  ...turn,
+                  status: event.status === "error" ? "error" : "streaming",
+                  requestId: event.request_id || turn.requestId,
+                  progress: Math.max(turn.progress || 0, event.progress),
+                  currentStage: event,
+                  progressEvents: [...(turn.progressEvents || []), event].slice(-30),
+                  errorMessage: event.status === "error"
+                    ? event.error_message || "工作流节点执行失败"
+                    : turn.errorMessage,
+                }
+              : turn
+          )),
+        }));
+      },
+      appendTurnToken: (turnId, delta) => {
+        set((state) => ({
+          turns: state.turns.map((turn) => (
+            turn.id === turnId
+              ? {
+                  ...turn,
+                  status: "streaming",
+                  streamedAnswer: `${turn.streamedAnswer || ""}${delta}`,
+                }
+              : turn
+          )),
+        }));
+      },
       completeTurn: (turnId, response) => {
         set((state) => ({
           sessionId: response.session_id || state.sessionId,
           turns: state.turns.map((turn) => (
             turn.id === turnId
-              ? { ...turn, status: "completed", response, errorMessage: undefined }
+              ? {
+                  ...turn,
+                  status: "completed",
+                  requestId: response.request_id || turn.requestId,
+                  streamedAnswer: response.answer,
+                  progress: 100,
+                  response,
+                  errorMessage: undefined,
+                }
               : turn
           )),
         }));

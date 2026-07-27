@@ -35,6 +35,10 @@ def main() -> None:
     args = parser.parse_args()
 
     run("Python compileall", [sys.executable, "-m", "compileall", "app", "scripts"])
+    run(
+        "Streaming event contract",
+        [sys.executable, "-m", "scripts.test_streaming"],
+    )
     run("Compose config", ["docker", "compose", "config", "--quiet"])
     run(
         "Git whitespace check",

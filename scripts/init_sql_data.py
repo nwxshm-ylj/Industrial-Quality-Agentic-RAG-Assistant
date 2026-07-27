@@ -92,6 +92,20 @@ def create_tables():
         created_at TIMESTAMP DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS document_assets (
+        id SERIAL PRIMARY KEY,
+        doc_id VARCHAR(100) NOT NULL,
+        asset_id VARCHAR(180) UNIQUE NOT NULL,
+        page_number INT,
+        modality VARCHAR(50) NOT NULL,
+        text TEXT,
+        asset_path TEXT,
+        mime_type VARCHAR(100),
+        source VARCHAR(255),
+        version VARCHAR(50),
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
     CREATE INDEX IF NOT EXISTS idx_documents_doc_id
         ON documents (doc_id);
     CREATE INDEX IF NOT EXISTS idx_documents_content_hash
@@ -100,6 +114,11 @@ def create_tables():
         ON document_chunks (doc_id);
     CREATE INDEX IF NOT EXISTS idx_document_chunks_chunk_id
         ON document_chunks (chunk_id);
+
+    CREATE INDEX IF NOT EXISTS idx_document_assets_doc_id
+        ON document_assets (doc_id);
+    CREATE INDEX IF NOT EXISTS idx_document_assets_asset_id
+        ON document_assets (asset_id);
 
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,

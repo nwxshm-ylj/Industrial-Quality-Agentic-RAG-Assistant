@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-SUPPORTED_DOCUMENT_EXTENSIONS = {".md", ".txt", ".pdf", ".docx"}
+SUPPORTED_DOCUMENT_EXTENSIONS = {".md", ".txt", ".pdf", ".docx", ".pptx"}
 
 
 def load_single_document(file_path: str) -> dict:
@@ -20,8 +20,10 @@ def load_single_document(file_path: str) -> dict:
         content = path.read_text(encoding="utf-8")
     elif file_ext == ".pdf":
         content = _load_pdf(path)
-    else:
+    elif file_ext == ".docx":
         content = _load_docx(path)
+    else:
+        content = _load_pptx(path)
 
     content = content.strip()
     if not content:
@@ -53,6 +55,18 @@ def _load_docx(path: Path) -> str:
         for paragraph in document.paragraphs
         if paragraph.text.strip()
     )
+
+
+def _load_pptx(path: Path) -> str:
+    from pptx import Presentation
+
+    presentation = Presentation(path)
+    values = []
+    for slide in presentation.slides:
+        for shape in slide.shapes:
+            if getattr(shape, "has_text_frame", False) and shape.text.strip():
+                values.append(shape.text.strip())
+    return "\n".join(values)
 
 
 def load_markdown_docs(folder: str):

@@ -83,6 +83,43 @@ export async function installMockApi(page: Page, loginRole: MockRole = "admin") 
         },
       });
     }
+    if (path === "/api/v1/graph-chat/stream" && request.method() === "POST") {
+      const payload = request.postDataJSON() as { question: string; session_id: string };
+      const response = {
+        question: payload.question,
+        answer: "建议优先检查相机曝光、轮毂型号配置和识别区域遮挡。",
+        intent: "fault_diagnosis",
+        rewritten_query: payload.question,
+        contexts: [],
+        citations: [],
+        evidence_score: 0.88,
+        evidence_enough: true,
+        retry_count: 0,
+        session_id: payload.session_id,
+        request_id: "request-e2e-001",
+        memory_messages: [],
+        metadata: {
+          intent: "fault_diagnosis",
+          total_latency_ms: 128,
+          degraded: false,
+          retrieval_mode: "hybrid",
+        },
+      };
+      const events = [
+        ["accepted", { request_id: "request-e2e-001", session_id: payload.session_id, sequence: 0, status: "accepted" }],
+        ["progress", { request_id: "request-e2e-001", session_id: payload.session_id, sequence: 1, node_name: "intent_router", label: "识别问题意图", status: "completed", progress: 18, latency_ms: 12 }],
+        ["progress", { request_id: "request-e2e-001", session_id: payload.session_id, sequence: 2, node_name: "generate", label: "生成可追溯回答", status: "running", progress: 72 }],
+        ["token", { request_id: "request-e2e-001", session_id: payload.session_id, sequence: 3, delta: response.answer }],
+        ["result", { request_id: "request-e2e-001", session_id: payload.session_id, sequence: 4, response }],
+        ["done", { request_id: "request-e2e-001", session_id: payload.session_id, sequence: 5 }],
+      ].map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join("");
+      return route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        headers: { "Cache-Control": "no-cache" },
+        body: events,
+      });
+    }
     if (path === "/api/v1/feedback" && request.method() === "POST") {
       return json(route, { id: 1, status: "success", message: "反馈已记录" });
     }

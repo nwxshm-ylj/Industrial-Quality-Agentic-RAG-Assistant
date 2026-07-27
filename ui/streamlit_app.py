@@ -735,7 +735,7 @@ def render_knowledge_base_management(
     if can_upload:
         uploaded_file = st.file_uploader(
             "上传文档",
-            type=["md", "txt", "pdf", "docx"],
+            type=["md", "txt", "pdf", "docx", "pptx"],
             key="kb_upload_file",
         )
         upload_col1, upload_col2 = st.columns(2)

@@ -11,7 +11,8 @@ from app.core.telemetry import traced_span
 from app.core.telemetry_context import add_retrieval_usage_event
 from app.observability.usage_models import RetrievalUsageEvent
 from app.rag.embeddings.factory import get_embedding_provider
-from app.rag.fusion import reciprocal_rank_fusion
+from app.rag.fusion import reciprocal_rank_fusion, weighted_score_fusion
+from app.rag.retrieval_filters import RetrievalFilter
 from app.rag.search_backends.base import (
     KeywordSearchBackend,
     KeywordSearchError,
@@ -29,8 +30,12 @@ class OnlineHybridRetriever:
         *,
         degraded_mode: str = "vector_only",
         rrf_k: int = 60,
+        fusion_strategy: str = "rrf",
+        vector_weight: float = 0.65,
+        keyword_weight: float = 0.35,
         use_reranker: bool = False,
         reranker: Any | None = None,
+        reranker_fail_open: bool = True,
     ) -> None:
         if degraded_mode != "vector_only":
             raise ValueError(
@@ -40,8 +45,16 @@ class OnlineHybridRetriever:
         self.keyword_backend = keyword_backend
         self.degraded_mode = degraded_mode
         self.rrf_k = rrf_k
+        self.fusion_strategy = fusion_strategy.strip().lower()
+        if self.fusion_strategy not in {"rrf", "weighted"}:
+            raise ValueError(
+                f"Unsupported RETRIEVAL_FUSION_STRATEGY: {fusion_strategy}"
+            )
+        self.vector_weight = vector_weight
+        self.keyword_weight = keyword_weight
         self.use_reranker = use_reranker
         self.reranker = reranker
+        self.reranker_fail_open = reranker_fail_open
 
         if self.use_reranker and self.reranker is None:
             try:
@@ -64,6 +77,7 @@ class OnlineHybridRetriever:
         vector_top_k: int = 20,
         keyword_top_k: int = 20,
         rerank_candidate_k: int = 20,
+        filters: RetrievalFilter | dict[str, Any] | None = None,
     ) -> dict:
         started_at = perf_counter()
         vector_results: list[dict] = []
@@ -71,10 +85,17 @@ class OnlineHybridRetriever:
         merged: list[dict] = []
         degraded = False
         degraded_reason = None
+        degraded_components: list[str] = []
+        reranker_degraded = False
         vector_latency_ms = 0.0
         keyword_latency_ms = 0.0
         fusion_latency_ms = 0.0
         reranker_latency_ms = 0.0
+        retrieval_filter = (
+            filters
+            if isinstance(filters, RetrievalFilter)
+            else RetrievalFilter.from_mapping(filters)
+        )
 
         try:
             vector_started_at = perf_counter()
@@ -85,6 +106,7 @@ class OnlineHybridRetriever:
                 vector_results = self.vector_backend.search(
                     question,
                     top_k=vector_top_k,
+                    filters=retrieval_filter,
                 )
             vector_latency_ms = (perf_counter() - vector_started_at) * 1000
 
@@ -97,12 +119,14 @@ class OnlineHybridRetriever:
                     keyword_results = self.keyword_backend.search(
                         question,
                         top_k=keyword_top_k,
+                        filters=retrieval_filter,
                     )
             except KeywordSearchError as exc:
                 if self.degraded_mode != "vector_only":
                     raise
                 degraded = True
                 degraded_reason = str(exc)
+                degraded_components.append("keyword")
                 log_business_event(
                     "hybrid_search_degraded",
                     status="degraded",
@@ -121,32 +145,63 @@ class OnlineHybridRetriever:
                 "retrieval.rrf_fusion",
                 attributes={"rag.rrf_k": self.rrf_k},
             ):
-                merged = reciprocal_rank_fusion(
-                    vector_results,
-                    keyword_results,
-                    rrf_k=self.rrf_k,
-                )
+                if self.fusion_strategy == "weighted":
+                    merged = weighted_score_fusion(
+                        vector_results,
+                        keyword_results,
+                        vector_weight=self.vector_weight,
+                        keyword_weight=self.keyword_weight,
+                    )
+                else:
+                    merged = reciprocal_rank_fusion(
+                        vector_results,
+                        keyword_results,
+                        rrf_k=self.rrf_k,
+                    )
             fusion_latency_ms = (perf_counter() - fusion_started_at) * 1000
             candidates = merged[:rerank_candidate_k]
 
             if self.use_reranker and self.reranker is not None and candidates:
                 reranker_started_at = perf_counter()
-                with traced_span(
-                    "retrieval.reranker",
-                    attributes={"rag.candidate_count": len(candidates)},
-                ):
-                    results = self.reranker.rerank(
-                        question=question,
-                        documents=candidates,
-                        top_k=top_k,
+                try:
+                    with traced_span(
+                        "retrieval.reranker",
+                        attributes={"rag.candidate_count": len(candidates)},
+                    ):
+                        results = self.reranker.rerank(
+                            question=question,
+                            documents=candidates,
+                            top_k=top_k,
+                        )
+                    for item in results:
+                        item["score"] = item.get("rerank_score")
+                        item["evidence_signal_score"] = item.get("rerank_score")
+                        item["final_score_type"] = "rerank_score"
+                except Exception as exc:
+                    if not self.reranker_fail_open:
+                        raise
+                    reranker_degraded = True
+                    degraded = True
+                    degraded_components.append("reranker")
+                    reason = f"Reranker unavailable: {exc}"
+                    degraded_reason = (
+                        f"{degraded_reason}; {reason}"
+                        if degraded_reason
+                        else reason
                     )
-                reranker_latency_ms = (
-                    perf_counter() - reranker_started_at
-                ) * 1000
-                for item in results:
-                    item["score"] = item.get("rerank_score")
-                    item["evidence_signal_score"] = item.get("rerank_score")
-                    item["final_score_type"] = "rerank_score"
+                    results = candidates[:top_k]
+                    log_business_event(
+                        "reranker_degraded",
+                        status="degraded",
+                        error_message=str(exc),
+                        degraded=True,
+                        degraded_reason=reason,
+                        retrieval_mode="hybrid_without_reranker",
+                    )
+                finally:
+                    reranker_latency_ms = (
+                        perf_counter() - reranker_started_at
+                    ) * 1000
             else:
                 results = candidates[:top_k]
 
@@ -185,6 +240,10 @@ class OnlineHybridRetriever:
                 ),
                 metadata={
                     "query_hash": sha256(question.encode("utf-8")).hexdigest(),
+                    "fusion_strategy": self.fusion_strategy,
+                    "filters": (
+                        retrieval_filter.as_dict() if retrieval_filter else {}
+                    ),
                 },
             )
             add_retrieval_usage_event(event)
@@ -201,6 +260,12 @@ class OnlineHybridRetriever:
                     "degraded": degraded,
                     "degraded_reason": degraded_reason,
                     "retrieval_mode": retrieval_mode,
+                    "fusion_strategy": self.fusion_strategy,
+                    "filters_applied": (
+                        retrieval_filter.as_dict() if retrieval_filter else {}
+                    ),
+                    "degraded_components": degraded_components,
+                    "reranker_degraded": reranker_degraded,
                     "vector_result_count": len(vector_results),
                     "keyword_result_count": len(keyword_results),
                     "qdrant_latency_ms": round(vector_latency_ms, 2),
@@ -236,6 +301,12 @@ class OnlineHybridRetriever:
                     error_type=type(exc).__name__,
                     metadata={
                         "query_hash": sha256(question.encode("utf-8")).hexdigest(),
+                        "fusion_strategy": self.fusion_strategy,
+                        "filters": (
+                            retrieval_filter.as_dict()
+                            if retrieval_filter
+                            else {}
+                        ),
                     },
                 )
             )
@@ -272,7 +343,12 @@ def build_online_hybrid_retriever() -> OnlineHybridRetriever:
         vector_backend,
         keyword_backend,
         degraded_mode=settings.hybrid_degraded_mode,
+        rrf_k=settings.retrieval_rrf_k,
+        fusion_strategy=settings.retrieval_fusion_strategy,
+        vector_weight=settings.retrieval_vector_weight,
+        keyword_weight=settings.retrieval_keyword_weight,
         use_reranker=settings.use_reranker,
+        reranker_fail_open=settings.reranker_fail_open,
     )
 
 

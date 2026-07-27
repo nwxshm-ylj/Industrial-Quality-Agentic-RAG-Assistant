@@ -13,6 +13,7 @@ from app.core.metrics import record_node_execution
 from app.core.sensitive_filter import sanitize_telemetry_value
 from app.core.telemetry import get_current_trace_ids, traced_span
 from app.core.telemetry_context import get_request_context
+from app.streaming.events import emit_node_progress
 
 
 SERVICE_NAME = os.getenv(
@@ -171,6 +172,11 @@ def observe_node(node_name: str) -> Callable[[NodeFunction], NodeFunction]:
         @wraps(func)
         def wrapper(state: dict[str, Any], *args: Any, **kwargs: Any) -> dict:
             started_at = perf_counter()
+            emit_node_progress(
+                node_name=node_name,
+                status="running",
+                state=state,
+            )
             span_attributes = {
                 "rag.node.name": node_name,
                 "rag.intent": state.get("intent"),
@@ -183,13 +189,21 @@ def observe_node(node_name: str) -> Callable[[NodeFunction], NodeFunction]:
                 try:
                     result = func(state, *args, **kwargs)
                 except Exception as exc:
+                    latency_ms = (perf_counter() - started_at) * 1000
                     log_node_event(
                         state=state,
                         node_name=node_name,
-                        latency_ms=(perf_counter() - started_at) * 1000,
+                        latency_ms=latency_ms,
                         status="error",
                         error=str(exc),
                         exc_info=True,
+                    )
+                    emit_node_progress(
+                        node_name=node_name,
+                        status="error",
+                        state=state,
+                        latency_ms=latency_ms,
+                        error_message=str(exc),
                     )
                     raise
 
@@ -224,12 +238,20 @@ def observe_node(node_name: str) -> Callable[[NodeFunction], NodeFunction]:
                             "rag.evidence_enough",
                             bool(result["evidence_enough"]),
                         )
+                latency_ms = (perf_counter() - started_at) * 1000
                 log_node_event(
                     state=state,
                     node_name=node_name,
-                    latency_ms=(perf_counter() - started_at) * 1000,
+                    latency_ms=latency_ms,
                     status="success",
                     intent=result_intent,
+                )
+                emit_node_progress(
+                    node_name=node_name,
+                    status="completed",
+                    state=state,
+                    latency_ms=latency_ms,
+                    intent=resolved_intent,
                 )
                 return result
 

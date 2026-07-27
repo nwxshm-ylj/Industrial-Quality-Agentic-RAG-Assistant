@@ -21,6 +21,9 @@ aivenv/
 .vscode/
 .idea/
 
+# Local-only learning and interview notes
+.local/
+
 # Cache
 .cache/
 .pytest_cache/

@@ -27,6 +27,35 @@ describe("chatStore", () => {
     expect(getLatestCompletedResponse(useChatStore.getState().turns)).toEqual(response);
   });
 
+  it("tracks accepted, node progress and streamed answer tokens", () => {
+    const turnId = useChatStore.getState().addPendingTurn("流式问题");
+    useChatStore.getState().acceptStreamingTurn(turnId, {
+      sequence: 0,
+      request_id: "request-stream",
+      session_id: "session-stream",
+      status: "accepted",
+    });
+    useChatStore.getState().updateTurnProgress(turnId, {
+      sequence: 1,
+      request_id: "request-stream",
+      session_id: "session-stream",
+      node_name: "retrieve",
+      label: "执行混合检索",
+      status: "running",
+      progress: 38,
+    });
+    useChatStore.getState().appendTurnToken(turnId, "优先");
+    useChatStore.getState().appendTurnToken(turnId, "检查相机");
+
+    expect(useChatStore.getState().turns[0]).toMatchObject({
+      status: "streaming",
+      requestId: "request-stream",
+      progress: 38,
+      streamedAnswer: "优先检查相机",
+      currentStage: { node_name: "retrieve" },
+    });
+  });
+
   it("isolates conversations when the authenticated user changes", () => {
     const previousSession = useChatStore.getState().sessionId;
     useChatStore.getState().addPendingTurn("不应跨用户保留");

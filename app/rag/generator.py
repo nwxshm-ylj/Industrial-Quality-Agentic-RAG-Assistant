@@ -1,8 +1,12 @@
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
-from app.observability.model_usage import invoke_observed_chat_model
+from app.observability.model_usage import (
+    invoke_observed_chat_model,
+    stream_observed_chat_model,
+)
 from app.prompting import get_prompt_registry
+from app.streaming.events import emit_answer_token, has_stream_event_sink
 
 
 class AnswerGenerator:
@@ -33,28 +37,45 @@ class AnswerGenerator:
             },
         )
 
-        response = invoke_observed_chat_model(
-            self.llm,
-            list(rendered_prompt.messages),
-            component="answer_generator",
-            provider=settings.llm_provider,
-            model_name=settings.llm_model,
-            prompt_reference=rendered_prompt.reference,
-        )
-
-        content = response.content
-
-
-        if isinstance(content, list):
-            content = "\n".join(
-                item.get("text", "") if isinstance(item, dict) else str(item)
-                for item in content
+        if has_stream_event_sink():
+            content_parts: list[str] = []
+            for response_chunk in stream_observed_chat_model(
+                self.llm,
+                list(rendered_prompt.messages),
+                component="answer_generator",
+                provider=settings.llm_provider,
+                model_name=settings.llm_model,
+                prompt_reference=rendered_prompt.reference,
+            ):
+                delta = self._content_to_text(response_chunk.content)
+                if delta:
+                    content_parts.append(delta)
+                    emit_answer_token(delta)
+            content = "".join(content_parts)
+        else:
+            response = invoke_observed_chat_model(
+                self.llm,
+                list(rendered_prompt.messages),
+                component="answer_generator",
+                provider=settings.llm_provider,
+                model_name=settings.llm_model,
+                prompt_reference=rendered_prompt.reference,
             )
+            content = self._content_to_text(response.content)
 
         if not content:
             return "模型已调用，但返回内容为空。请检查 generator.py 或模型返回结构。"
 
         return str(content)
+
+    @staticmethod
+    def _content_to_text(content: object) -> str:
+        if isinstance(content, list):
+            return "\n".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in content
+            )
+        return str(content or "")
 
     def _format_memory(
         self,

@@ -7,7 +7,8 @@ class _VectorBackend:
     def __init__(self, provider: MockEmbeddingProvider) -> None:
         self.provider = provider
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]:
+    def search(self, query: str, top_k: int = 5, *, filters=None) -> list[dict]:
+        self.filters = filters
         self.provider.embed_query(query)
         return [
             {
@@ -31,7 +32,8 @@ class _KeywordBackend:
     def __init__(self, fail: bool = False) -> None:
         self.fail = fail
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]:
+    def search(self, query: str, top_k: int = 5, *, filters=None) -> list[dict]:
+        self.filters = filters
         if self.fail:
             raise KeywordSearchError("OpenSearch unavailable")
         return [
@@ -71,6 +73,35 @@ def main() -> None:
     assert degraded["metadata"]["retrieval_mode"] == "vector_only"
     assert "OpenSearch unavailable" in degraded["metadata"]["degraded_reason"]
     assert degraded["contexts"]
+
+    filtered = OnlineHybridRetriever(
+        vector,
+        _KeywordBackend(),
+        use_reranker=False,
+    ).retrieve(
+        "quality",
+        top_k=2,
+        filters={"doc_types": ["FMEA"]},
+    )
+    assert filtered["metadata"]["filters_applied"] == {
+        "doc_types": ["FMEA"]
+    }
+
+    class _FailingReranker:
+        def rerank(self, **kwargs):
+            raise RuntimeError("reranker timeout")
+
+    reranker_degraded = OnlineHybridRetriever(
+        vector,
+        _KeywordBackend(),
+        use_reranker=True,
+        reranker=_FailingReranker(),
+        reranker_fail_open=True,
+    ).retrieve("quality", top_k=2)
+    assert reranker_degraded["metadata"]["degraded"] is True
+    assert reranker_degraded["metadata"]["reranker_degraded"] is True
+    assert "reranker" in reranker_degraded["metadata"]["degraded_components"]
+    assert reranker_degraded["contexts"]
     print("Online hybrid retrieval and vector-only degradation tests passed")
 
 
