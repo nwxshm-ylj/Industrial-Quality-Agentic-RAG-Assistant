@@ -82,3 +82,38 @@ class RetrievalEvalRunResponse(RetrievalEvalRunInfo):
 class RetrievalEvalRunListResponse(BaseModel):
     runs: list[RetrievalEvalRunInfo] = Field(default_factory=list)
     total: int
+
+
+class RagasEvalRunRequest(BaseModel):
+    max_questions: int | None = Field(default=None, ge=1, le=1000)
+
+
+class RagasEvalRunSummary(BaseModel):
+    total_questions: int
+    successful_questions: int
+    failed_questions: int
+
+
+class RagasEvalRunInfo(BaseModel):
+    run_id: str
+    status: str
+    dataset_name: str | None = None
+    framework: str
+    framework_version: str
+    judge_model: str
+    started_at: datetime
+    completed_at: datetime
+    username: str | None = None
+    summary: RagasEvalRunSummary
+    metrics: dict[str, float]
+    latency_ms: float
+    report_path: str | None = None
+
+
+class RagasEvalRunResponse(RagasEvalRunInfo):
+    items: list[dict] = Field(default_factory=list)
+
+
+class RagasEvalRunListResponse(BaseModel):
+    runs: list[RagasEvalRunInfo] = Field(default_factory=list)
+    total: int

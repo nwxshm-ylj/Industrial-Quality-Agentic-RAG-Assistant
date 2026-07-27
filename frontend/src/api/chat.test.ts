@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-import { chatApi } from "./chat";
+import { chatApi, consumeSseStream } from "./chat";
 import { apiClient } from "./client";
 
 describe("chatApi", () => {
@@ -30,5 +30,29 @@ describe("chatApi", () => {
       },
       { timeout: 180_000 },
     );
+  });
+
+  it("parses fragmented SSE progress, token and result events", async () => {
+    const encoder = new TextEncoder();
+    const chunks = [
+      "event: accepted\ndata: {\"request_id\":\"request-1\",",
+      "\"session_id\":\"session-1\",\"sequence\":0,\"status\":\"accepted\"}\n\n",
+      "event: progress\ndata: {\"node_name\":\"retrieve\",\"label\":\"执行混合检索\",\"status\":\"running\",\"progress\":38}\n\n",
+      "event: token\ndata: {\"delta\":\"优先检查\"}\n\n",
+    ];
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        chunks.forEach((chunk) => controller.enqueue(encoder.encode(chunk)));
+        controller.close();
+      },
+    });
+    const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+    await consumeSseStream(stream, (event) => events.push(event));
+
+    expect(events).toHaveLength(3);
+    expect(events[0]).toMatchObject({ event: "accepted", data: { request_id: "request-1" } });
+    expect(events[1]).toMatchObject({ event: "progress", data: { node_name: "retrieve", progress: 38 } });
+    expect(events[2]).toMatchObject({ event: "token", data: { delta: "优先检查" } });
   });
 });

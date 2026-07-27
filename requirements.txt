@@ -21,11 +21,15 @@ pyyaml
 pandas
 numpy
 requests
+redis==5.2.1
+neo4j==5.28.2
 streamlit
 openpyxl
+ragas==0.4.3
 
 pymupdf
 python-docx
+python-pptx
 python-multipart
 PyJWT
 httpx

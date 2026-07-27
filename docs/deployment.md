@@ -336,3 +336,43 @@ docker compose \
 ~~~
 
 A complete verification requires PostgreSQL, Qdrant, OpenSearch, a Qwen embedding credential, and a working LLM endpoint. Default unit tests remain fully offline through mocks.
+
+## 9. Optional retrieval, memory, and graph upgrades
+
+The base text RAG remains the default. Enable the following only after rebuilding the
+API image and completing their data initialization.
+
+~~~dotenv
+MULTIMODAL_ENABLED=true
+QWEN_MULTIMODAL_EMBEDDING_API_KEY=...
+LAYERED_MEMORY_ENABLED=true
+KNOWLEDGE_GRAPH_ENABLED=true
+NEO4J_PASSWORD=...
+~~~
+
+~~~bash
+docker compose up -d --build redis neo4j api
+docker compose exec api python -m scripts.migrate_advanced_rag
+docker compose exec api python -m scripts.sync_quality_case_graph
+
+# Upload/reindex at least one PDF or PPTX before activation.
+docker compose exec api python -m scripts.activate_multimodal_index
+docker compose exec api python -m scripts.activate_multimodal_index --activate-alias
+~~~
+
+The Alias activation command refuses an empty collection or a dimension mismatch.
+It never deletes an old collection. `DOTS_OCR_URL` is optional and must point to a
+private gateway that accepts `{"image": "data:image/..."}` and returns `{"text":
+"..."}`. Without that endpoint, native PDF/PPTX text and image embeddings still work,
+but scanned text is not added to the keyword index.
+
+Run the offline checks before real model calls:
+
+~~~bash
+python -m scripts.test_multimodal_embedding_provider
+python -m scripts.test_multimodal_qdrant_backend
+python -m scripts.test_multimodal_retrieval
+python -m scripts.test_layered_memory
+python -m scripts.test_knowledge_graph
+python -m scripts.test_ragas_evaluation
+~~~

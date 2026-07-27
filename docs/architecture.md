@@ -215,6 +215,9 @@ UI role checks improve usability. They are not security boundaries; API checks r
 | PostgreSQL | users, audit logs, conversations, documents, chunks, feedback, evaluation runs/items, quality records |
 | Qdrant | Qwen document vectors and versioned payload metadata; runtime queries use a stable alias |
 | OpenSearch | Online keyword documents used by Hybrid Search |
+| Redis | Short-term conversation window, TTL, and extractive summary cache |
+| Neo4j | Quality-case entity and relationship paths used as optional Case Retriever evidence |
+| Qdrant multimodal collection | Qwen3-VL text/image fused vectors; isolated from text vectors |
 | data/processed/chunks.json | Legacy Demo BM25 data only; not an online runtime dependency |
 | data/uploads | Uploaded source files |
 | data/rules | Rule Tool YAML |
@@ -266,6 +269,9 @@ pricing catalog contains the provider/model entry; missing prices remain unprice
 ## 10. Current boundaries
 
 - `scripts/ingest_docs.py` and `chunks.json` remain Legacy Demo assets and are isolated from the online Qwen/OpenSearch path.
+- Multimodal, layered memory, RAGAS judge calls, and Neo4j augmentation are feature-flagged and disabled by default.
+- `.pptx` is parsed natively; legacy binary `.ppt` requires an external conversion step and is not accepted directly.
+- Redis summaries are deterministic extractive summaries in the first version, not LLM-generated semantic summaries.
 - Full online migration is allowed only before the stable Qdrant alias targets the new collection; later repairs use per-document reindex.
 - Evaluation runs synchronously in v1.0.
 - PostgreSQL initialization is demo-oriented and recreates three sample business tables.

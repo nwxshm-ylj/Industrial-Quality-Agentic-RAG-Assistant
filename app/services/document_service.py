@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+import shutil
 from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
@@ -11,6 +12,12 @@ from app.core.config import settings
 from app.core.metrics import record_document_operation
 from app.core.logger import logger
 from app.db.session import engine
+from app.multimodal.document_parser import (
+    MULTIMODAL_DOCUMENT_EXTENSIONS,
+    parse_multimodal_document,
+)
+from app.multimodal.factory import get_multimodal_embedding_provider
+from app.multimodal.ocr import DocumentOcrProvider, get_document_ocr_provider
 from app.rag.embeddings.factory import get_embedding_provider
 from app.rag.loader import SUPPORTED_DOCUMENT_EXTENSIONS, load_single_document
 from app.rag.search_backends.base import (
@@ -18,6 +25,9 @@ from app.rag.search_backends.base import (
     VectorSearchBackend,
 )
 from app.rag.search_backends.opensearch_backend import OpenSearchKeywordBackend
+from app.rag.search_backends.multimodal_qdrant_backend import (
+    MultimodalQdrantSearchBackend,
+)
 from app.rag.search_backends.qdrant_backend import QdrantVectorSearchBackend
 from app.rag.splitter import infer_doc_type, split_docs
 
@@ -50,11 +60,16 @@ class DocumentService:
         vectorstore: VectorSearchBackend | None = None,
         vector_backend: VectorSearchBackend | None = None,
         keyword_backend: KeywordSearchBackend | None = None,
+        multimodal_backend: MultimodalQdrantSearchBackend | None = None,
+        ocr_provider: DocumentOcrProvider | None = None,
     ):
         self.uploads_dir = Path(uploads_dir)
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
         self._vector_backend = vector_backend or vectorstore
         self._keyword_backend = keyword_backend
+        self._multimodal_backend = multimodal_backend
+        self._ocr_provider = ocr_provider
+        self.assets_dir = self.uploads_dir / "assets"
 
     @property
     def vector_backend(self) -> VectorSearchBackend:
@@ -83,6 +98,22 @@ class DocumentService:
         """Backward-compatible alias used by existing integration scripts."""
 
         return self.vector_backend
+
+    @property
+    def multimodal_backend(self) -> MultimodalQdrantSearchBackend:
+        if self._multimodal_backend is None:
+            self._multimodal_backend = MultimodalQdrantSearchBackend(
+                get_multimodal_embedding_provider(),
+                collection_name=settings.qdrant_multimodal_collection,
+                collection_alias=settings.qdrant_multimodal_collection_alias,
+            )
+        return self._multimodal_backend
+
+    @property
+    def ocr_provider(self) -> DocumentOcrProvider | None:
+        if self._ocr_provider is None:
+            self._ocr_provider = get_document_ocr_provider()
+        return self._ocr_provider
 
     def upload_and_index_document(
         self,
@@ -162,7 +193,13 @@ class DocumentService:
             )
 
             failed_stage = "parse"
-            parsed_document = load_single_document(str(file_path))
+            parsed_document, assets = self._parse_document_for_indexing(
+                file_path=file_path,
+                doc_id=doc_id,
+                source=safe_filename,
+                doc_type=effective_doc_type,
+                version=normalized_version,
+            )
             self._log_event(
                 "document_parsed",
                 started_at,
@@ -194,6 +231,8 @@ class DocumentService:
 
             failed_stage = "postgres"
             self._replace_chunks_in_postgres(doc_id, chunks)
+            if assets:
+                self._replace_assets_in_postgres(doc_id, assets)
             self._log_event(
                 "postgres_written",
                 started_at,
@@ -241,6 +280,25 @@ class DocumentService:
                 chunk_count=len(chunks),
             )
 
+            if assets:
+                failed_stage = "multimodal_qdrant"
+                self.multimodal_backend.upsert_document_assets(
+                    doc_id,
+                    assets,
+                    index_status="staging",
+                    index_operation_id=operation_id,
+                )
+                self._log_event(
+                    "multimodal_qdrant_written",
+                    started_at,
+                    doc_id=doc_id,
+                    filename=safe_filename,
+                    doc_type=effective_doc_type,
+                    version=normalized_version,
+                    status="uploaded",
+                    chunk_count=len(assets),
+                )
+
             failed_stage = "index_promotion"
             self.vector_backend.set_document_index_status(
                 doc_id,
@@ -252,6 +310,12 @@ class DocumentService:
                 "indexed",
                 index_operation_id=operation_id,
             )
+            if assets:
+                self.multimodal_backend.set_document_index_status(
+                    doc_id,
+                    "indexed",
+                    index_operation_id=operation_id,
+                )
 
             failed_stage = "document_status"
             self._set_document_status(
@@ -283,6 +347,7 @@ class DocumentService:
                     "qdrant",
                     "opensearch",
                     "index_promotion",
+                    "multimodal_qdrant",
                     "document_status",
                 }:
                     self._delete_postgres_chunks(doc_id)
@@ -350,11 +415,18 @@ class DocumentService:
             self.vector_backend.delete_by_doc_id(doc_id)
             failed_stage = "opensearch_delete"
             self.keyword_backend.delete_by_doc_id(doc_id)
+            if self._document_has_assets(doc_id):
+                failed_stage = "multimodal_qdrant_delete"
+                self.multimodal_backend.delete_by_doc_id(doc_id)
 
             failed_stage = "postgres_delete"
             with engine.begin() as conn:
                 conn.execute(
                     text("DELETE FROM document_chunks WHERE doc_id = :doc_id"),
+                    {"doc_id": doc_id},
+                )
+                conn.execute(
+                    text("DELETE FROM document_assets WHERE doc_id = :doc_id"),
                     {"doc_id": doc_id},
                 )
                 conn.execute(
@@ -371,6 +443,7 @@ class DocumentService:
             file_path = Path(document["file_path"]) if document.get("file_path") else None
             if file_path and file_path.exists():
                 file_path.unlink()
+            self._remove_document_asset_files(doc_id)
 
             self._log_event(
                 "document_deleted",
@@ -413,6 +486,7 @@ class DocumentService:
         operation_id = uuid4().hex
         failed_stage = "parse"
         promoted = False
+        assets: list[dict] = []
         document = self._get_document_record(doc_id)
         if document is None:
             raise DocumentNotFoundError(f"文档不存在: {doc_id}")
@@ -426,7 +500,14 @@ class DocumentService:
             raise FileNotFoundError(f"原文档不存在，无法重建索引: {file_path}")
 
         try:
-            parsed_document = load_single_document(str(file_path))
+            parsed_document, assets = self._parse_document_for_indexing(
+                file_path=file_path,
+                doc_id=doc_id,
+                source=document["filename"],
+                doc_type=document["doc_type"],
+                version=document["version"],
+                asset_id_namespace=operation_id,
+            )
             self._log_event(
                 "document_parsed",
                 started_at,
@@ -493,6 +574,25 @@ class DocumentService:
                 chunk_count=len(chunks),
             )
 
+            if assets:
+                failed_stage = "multimodal_qdrant"
+                self.multimodal_backend.upsert_document_assets(
+                    doc_id,
+                    assets,
+                    index_status="staging",
+                    index_operation_id=operation_id,
+                )
+                self._log_event(
+                    "multimodal_qdrant_written",
+                    started_at,
+                    doc_id=doc_id,
+                    filename=document["filename"],
+                    doc_type=document["doc_type"],
+                    version=document["version"],
+                    status=document["status"],
+                    chunk_count=len(assets),
+                )
+
             failed_stage = "index_promotion"
             self.vector_backend.set_document_index_status(
                 doc_id,
@@ -504,6 +604,12 @@ class DocumentService:
                 "indexed",
                 index_operation_id=operation_id,
             )
+            if assets:
+                self.multimodal_backend.set_document_index_status(
+                    doc_id,
+                    "indexed",
+                    index_operation_id=operation_id,
+                )
             promoted = True
 
             failed_stage = "old_index_cleanup"
@@ -515,9 +621,17 @@ class DocumentService:
                 doc_id,
                 exclude_operation_id=operation_id,
             )
+            if assets:
+                self.multimodal_backend.delete_by_doc_id(
+                    doc_id,
+                    exclude_operation_id=operation_id,
+                )
+            elif self._document_has_assets(doc_id):
+                self.multimodal_backend.delete_by_doc_id(doc_id)
 
             failed_stage = "postgres"
             self._replace_chunks_in_postgres(doc_id, chunks)
+            self._replace_assets_in_postgres(doc_id, assets)
             self._log_event(
                 "postgres_written",
                 started_at,
@@ -551,6 +665,11 @@ class DocumentService:
         except Exception as exc:
             if not promoted:
                 self._cleanup_operation_indexes(doc_id, operation_id)
+                for asset in assets:
+                    asset_path = asset.get("metadata", {}).get("asset_path")
+                    if asset_path and Path(asset_path).exists():
+                        Path(asset_path).unlink()
+                self._cleanup_empty_asset_dirs(doc_id)
             self._mark_document_failed(
                 doc_id,
                 failed_stage=failed_stage,
@@ -569,6 +688,128 @@ class DocumentService:
                 exc_info=True,
             )
             raise
+
+    def _parse_document_for_indexing(
+        self,
+        *,
+        file_path: Path,
+        doc_id: str,
+        source: str,
+        doc_type: str,
+        version: str,
+        asset_id_namespace: str | None = None,
+    ) -> tuple[dict, list[dict]]:
+        multimodal_requested = (
+            settings.multimodal_enabled or self._multimodal_backend is not None
+        )
+        if (
+            multimodal_requested
+            and file_path.suffix.lower() in MULTIMODAL_DOCUMENT_EXTENSIONS
+        ):
+            parsed = parse_multimodal_document(
+                file_path,
+                doc_id=doc_id,
+                source=source,
+                doc_type=doc_type,
+                version=version,
+                assets_root=self.assets_dir,
+                ocr_provider=self.ocr_provider,
+                asset_id_namespace=asset_id_namespace,
+            )
+            return parsed, parsed["assets"]
+        return load_single_document(str(file_path)), []
+
+    def _replace_assets_in_postgres(
+        self,
+        doc_id: str,
+        assets: list[dict],
+    ) -> None:
+        previous_paths = self._get_document_asset_paths(doc_id)
+        rows = []
+        for asset in assets:
+            metadata = asset["metadata"]
+            rows.append(
+                {
+                    "doc_id": doc_id,
+                    "asset_id": metadata["asset_id"],
+                    "page_number": metadata.get("page_number"),
+                    "modality": metadata.get("modality", "unknown"),
+                    "text": asset.get("text", ""),
+                    "asset_path": metadata.get("asset_path"),
+                    "mime_type": metadata.get("mime_type"),
+                    "source": metadata.get("source"),
+                    "version": metadata.get("version"),
+                }
+            )
+        with engine.begin() as conn:
+            conn.execute(
+                text("DELETE FROM document_assets WHERE doc_id = :doc_id"),
+                {"doc_id": doc_id},
+            )
+            if rows:
+                conn.execute(
+                    text("""
+                        INSERT INTO document_assets (
+                            doc_id, asset_id, page_number, modality, text,
+                            asset_path, mime_type, source, version
+                        ) VALUES (
+                            :doc_id, :asset_id, :page_number, :modality, :text,
+                            :asset_path, :mime_type, :source, :version
+                        )
+                    """),
+                    rows,
+                )
+        retained_paths = {
+            Path(row["asset_path"]).resolve()
+            for row in rows
+            if row.get("asset_path")
+        }
+        for previous_path in previous_paths:
+            path = Path(previous_path)
+            if path.resolve() not in retained_paths and path.exists():
+                path.unlink()
+        self._cleanup_empty_asset_dirs(doc_id)
+
+    def _document_has_assets(self, doc_id: str) -> bool:
+        with engine.connect() as conn:
+            count = conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM document_assets WHERE doc_id = :doc_id"
+                ),
+                {"doc_id": doc_id},
+            ).scalar_one()
+        return int(count) > 0
+
+    def _get_document_asset_paths(self, doc_id: str) -> list[str]:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT asset_path FROM document_assets "
+                    "WHERE doc_id = :doc_id AND asset_path IS NOT NULL"
+                ),
+                {"doc_id": doc_id},
+            ).all()
+        return [str(row[0]) for row in rows]
+
+    def _remove_document_asset_files(self, doc_id: str) -> None:
+        asset_dir = self.assets_dir / doc_id
+        if asset_dir.exists():
+            shutil.rmtree(asset_dir)
+
+    def _cleanup_empty_asset_dirs(self, doc_id: str) -> None:
+        asset_dir = self.assets_dir / doc_id
+        if not asset_dir.exists():
+            return
+        for child in asset_dir.iterdir():
+            if child.is_dir():
+                try:
+                    child.rmdir()
+                except OSError:
+                    pass
+        try:
+            asset_dir.rmdir()
+        except OSError:
+            pass
 
     def _sanitize_filename(self, original_filename: str) -> tuple[str, str]:
         if not original_filename or not original_filename.strip():
@@ -839,6 +1080,12 @@ class DocumentService:
         for backend_name, backend_getter in (
             ("qdrant", lambda: self.vector_backend),
             ("opensearch", lambda: self.keyword_backend),
+            *(
+                (("multimodal_qdrant", lambda: self.multimodal_backend),)
+                if settings.multimodal_enabled
+                or self._multimodal_backend is not None
+                else ()
+            ),
         ):
             try:
                 backend = backend_getter()
@@ -870,6 +1117,10 @@ class DocumentService:
                     {"doc_id": doc_id},
                 )
                 conn.execute(
+                    text("DELETE FROM document_assets WHERE doc_id = :doc_id"),
+                    {"doc_id": doc_id},
+                )
+                conn.execute(
                     text("""
                         UPDATE documents
                         SET chunk_count = 0, updated_at = NOW()
@@ -877,6 +1128,7 @@ class DocumentService:
                     """),
                     {"doc_id": doc_id},
                 )
+            self._remove_document_asset_files(doc_id)
         except Exception as cleanup_error:
             logger.error(
                 "document_postgres_compensation_failed",

@@ -9,6 +9,7 @@ from app.rag.embeddings.base import (
     EmbeddingProvider,
 )
 from app.rag.qdrant_client import get_qdrant_client
+from app.rag.retrieval_filters import RetrievalFilter
 from app.rag.search_backends.base import VectorSearchError
 
 
@@ -201,21 +202,20 @@ class QdrantVectorSearchBackend:
                 f"Unable to update Qdrant status for document {doc_id}: {exc}"
             ) from exc
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        filters: RetrievalFilter | None = None,
+    ) -> list[dict]:
         try:
             vector = self.embedding_provider.embed_query(query)
             self._validate_vectors([vector], expected_count=1)
             response = self.client.query_points(
                 collection_name=self.collection_alias,
                 query=vector,
-                query_filter=self.models.Filter(
-                    must=[
-                        self.models.FieldCondition(
-                            key="index_status",
-                            match=self.models.MatchValue(value="indexed"),
-                        )
-                    ]
-                ),
+                query_filter=self._build_search_filter(filters),
                 limit=top_k,
                 with_payload=True,
             )
@@ -224,6 +224,34 @@ class QdrantVectorSearchBackend:
             raise
         except Exception as exc:
             raise VectorSearchError(f"Qdrant search failed: {exc}") from exc
+
+    def _build_search_filter(
+        self,
+        filters: RetrievalFilter | None,
+    ) -> Any:
+        conditions = [
+            self.models.FieldCondition(
+                key="index_status",
+                match=self.models.MatchValue(value="indexed"),
+            )
+        ]
+        if filters is None:
+            return self.models.Filter(must=conditions)
+
+        for key, values in (
+            ("doc_id", filters.doc_ids),
+            ("doc_type", filters.doc_types),
+            ("version", filters.versions),
+            ("source", filters.sources),
+        ):
+            if values:
+                conditions.append(
+                    self.models.FieldCondition(
+                        key=key,
+                        match=self.models.MatchAny(any=list(values)),
+                    )
+                )
+        return self.models.Filter(must=conditions)
 
     def count_indexed(self) -> int:
         try:

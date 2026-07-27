@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from app.rag.retrieval_filters import RetrievalFilter
+
 
 class SearchBackendError(RuntimeError):
     """Base error that prevents SDK-specific exceptions leaking upward."""
@@ -51,7 +53,13 @@ class VectorSearchBackend(Protocol):
         index_operation_id: str,
     ) -> None: ...
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]: ...
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        filters: RetrievalFilter | None = None,
+    ) -> list[dict]: ...
 
 
 @runtime_checkable
@@ -90,4 +98,10 @@ class KeywordSearchBackend(Protocol):
         index_operation_id: str,
     ) -> None: ...
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]: ...
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        filters: RetrievalFilter | None = None,
+    ) -> list[dict]: ...

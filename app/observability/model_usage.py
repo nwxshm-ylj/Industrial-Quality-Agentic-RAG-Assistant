@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from time import perf_counter
 from typing import Any
 
@@ -90,6 +91,103 @@ def invoke_observed_chat_model(
         latency_ms=latency_ms,
     )
     return response
+
+
+def stream_observed_chat_model(
+    model: Any,
+    messages: list[Any],
+    *,
+    component: str,
+    provider: str,
+    model_name: str,
+    prompt_reference: PromptReference | None = None,
+) -> Iterator[Any]:
+    operation = "chat_completion"
+    started_at = perf_counter()
+    attributes = {
+        "ai.provider": provider,
+        "ai.model": model_name,
+        "ai.operation": operation,
+        "ai.streaming": True,
+        "rag.component": component,
+    }
+    prompt_metadata = (
+        prompt_reference.to_metadata()
+        if prompt_reference is not None
+        else {}
+    )
+    if prompt_reference is not None:
+        attributes.update(
+            {
+                "ai.prompt.id": prompt_reference.prompt_id,
+                "ai.prompt.version": prompt_reference.version,
+                "ai.prompt.component": prompt_reference.component,
+                "ai.prompt.release": prompt_reference.release_id,
+                "ai.prompt.hash": prompt_reference.content_hash,
+            }
+        )
+
+    aggregated_response: Any | None = None
+    last_response: Any | None = None
+    try:
+        with traced_span(f"ai.{component}", attributes=attributes):
+            for response_chunk in model.stream(messages):
+                last_response = response_chunk
+                if aggregated_response is None:
+                    aggregated_response = response_chunk
+                else:
+                    try:
+                        aggregated_response = aggregated_response + response_chunk
+                    except (TypeError, ValueError):
+                        aggregated_response = response_chunk
+                yield response_chunk
+    except Exception as exc:
+        latency_ms = (perf_counter() - started_at) * 1000
+        _record_ai_event(
+            component=component,
+            operation=operation,
+            provider=provider,
+            model_name=model_name,
+            latency_ms=latency_ms,
+            status="failed",
+            error_type=type(exc).__name__,
+            metadata={**prompt_metadata, "streaming": True},
+        )
+        _log_prompt_invocation(
+            prompt_reference=prompt_reference,
+            component=component,
+            status="failed",
+            latency_ms=latency_ms,
+            error_type=type(exc).__name__,
+        )
+        raise
+
+    latency_ms = (perf_counter() - started_at) * 1000
+    usage_response = (
+        aggregated_response
+        if aggregated_response is not None
+        else last_response
+    )
+    usage = extract_chat_usage(usage_response)
+    _record_ai_event(
+        component=component,
+        operation=operation,
+        provider=provider,
+        model_name=model_name,
+        latency_ms=latency_ms,
+        status="success",
+        input_tokens=usage["input_tokens"],
+        output_tokens=usage["output_tokens"],
+        total_tokens=usage["total_tokens"],
+        measurement_source=usage["measurement_source"],
+        metadata={**prompt_metadata, "streaming": True},
+    )
+    _log_prompt_invocation(
+        prompt_reference=prompt_reference,
+        component=component,
+        status="success",
+        latency_ms=latency_ms,
+    )
 
 
 def record_embedding_call(

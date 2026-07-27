@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from app.rag.opensearch_client import get_opensearch_client
+from app.rag.retrieval_filters import RetrievalFilter
 from app.rag.search_backends.base import KeywordSearchError
 
 
@@ -166,8 +167,26 @@ class OpenSearchKeywordBackend:
                 f"Unable to update OpenSearch status for document {doc_id}: {exc}"
             ) from exc
 
-    def search(self, query: str, top_k: int = 5) -> list[dict]:
+    def search(
+        self,
+        query: str,
+        top_k: int = 5,
+        *,
+        filters: RetrievalFilter | None = None,
+    ) -> list[dict]:
         try:
+            search_filters: list[dict[str, Any]] = [
+                {"term": {"index_status": "indexed"}}
+            ]
+            if filters is not None:
+                for key, values in (
+                    ("doc_id", filters.doc_ids),
+                    ("doc_type", filters.doc_types),
+                    ("version", filters.versions),
+                    ("source.keyword", filters.sources),
+                ):
+                    if values:
+                        search_filters.append({"terms": {key: list(values)}})
             response = self.client.search(
                 index=self.index_name,
                 body={
@@ -188,9 +207,7 @@ class OpenSearchKeywordBackend:
                                     }
                                 }
                             ],
-                            "filter": [
-                                {"term": {"index_status": "indexed"}}
-                            ],
+                            "filter": search_filters,
                         }
                     },
                 },

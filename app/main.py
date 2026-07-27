@@ -178,20 +178,23 @@ async def request_context_middleware(request: Request, call_next):
 
 @app.on_event("shutdown")
 async def drain_usage_persistence_tasks() -> None:
-    if not _usage_persistence_tasks:
-        return
-    try:
-        await asyncio.wait_for(
-            asyncio.gather(*tuple(_usage_persistence_tasks)),
-            timeout=5.0,
-        )
-    except asyncio.TimeoutError:
-        log_business_event(
-            "usage_persist_shutdown_timeout",
-            status="failed",
-            error_message="usage persistence tasks exceeded shutdown timeout",
-            pending_task_count=len(_usage_persistence_tasks),
-        )
+    if _usage_persistence_tasks:
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*tuple(_usage_persistence_tasks)),
+                timeout=5.0,
+            )
+        except asyncio.TimeoutError:
+            log_business_event(
+                "usage_persist_shutdown_timeout",
+                status="failed",
+                error_message="usage persistence tasks exceeded shutdown timeout",
+                pending_task_count=len(_usage_persistence_tasks),
+            )
+    if settings.layered_memory_enabled:
+        from app.memory.layered_memory import shutdown_memory_executor
+
+        await asyncio.to_thread(shutdown_memory_executor, True)
 
 
 @app.get("/health")
@@ -266,6 +269,36 @@ def readiness_check():
             "error_type": type(exc).__name__,
         }
 
+    if settings.layered_memory_enabled:
+        try:
+            from app.memory.short_term import get_redis_client
+
+            redis_ready = bool(get_redis_client().ping())
+            checks["redis_memory"] = {
+                "status": "ready" if redis_ready else "unavailable"
+            }
+        except Exception as exc:
+            checks["redis_memory"] = {
+                "status": "unavailable",
+                "error_type": type(exc).__name__,
+            }
+    else:
+        checks["redis_memory"] = {"status": "disabled"}
+
+    if settings.knowledge_graph_enabled:
+        try:
+            from app.knowledge_graph.neo4j_backend import get_neo4j_backend
+
+            get_neo4j_backend().driver.verify_connectivity()
+            checks["neo4j"] = {"status": "ready"}
+        except Exception as exc:
+            checks["neo4j"] = {
+                "status": "unavailable",
+                "error_type": type(exc).__name__,
+            }
+    else:
+        checks["neo4j"] = {"status": "disabled"}
+
     critical_ready = all(
         checks[name]["status"] == "ready"
         for name in (
@@ -276,9 +309,13 @@ def readiness_check():
         )
     )
     opensearch_ready = checks["opensearch"]["status"] == "ready"
+    optional_ready = all(
+        checks[name]["status"] in {"ready", "disabled"}
+        for name in ("redis_memory", "neo4j")
+    )
     status = (
         "ready"
-        if critical_ready and opensearch_ready
+        if critical_ready and opensearch_ready and optional_ready
         else "degraded"
         if critical_ready
         else "not_ready"

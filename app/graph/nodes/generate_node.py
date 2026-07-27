@@ -1,6 +1,7 @@
 from app.core.logger import observe_node
 from app.graph.state import IndustrialRAGState
 from app.rag.generator import AnswerGenerator
+from app.streaming.events import emit_answer_token
 
 
 generator = AnswerGenerator()
@@ -19,6 +20,7 @@ def generate_node(state: IndustrialRAGState) -> dict:
             "当前系统主要面向工业质量知识库、设备异常诊断、规则查询和质量数据分析。"
             "请提出与工业文档、质量异常、设备报警、AI视觉、OCR或扭矩监控相关的问题。"
         )
+        emit_answer_token(answer)
     else:
         answer = generator.generate(
             question=question,

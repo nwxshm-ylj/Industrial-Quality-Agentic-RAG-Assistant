@@ -1,4 +1,4 @@
-import { Alert, Button, Skeleton, Tag, Typography } from "antd";
+import { Alert, Button, Progress, Skeleton, Tag, Typography } from "antd";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -16,6 +16,11 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
   const response = turn.response;
   const intent = response ? getIntent(response) : "unknown";
   const latency = response?.metadata?.total_latency_ms;
+  const active = turn.status === "pending" || turn.status === "streaming";
+  const currentStage = turn.currentStage;
+  const visibleEvents = (turn.progressEvents || [])
+    .filter((event) => event.status !== "running" || event === currentStage)
+    .slice(-8);
 
   return (
     <article className={`conversation-turn${selected ? " conversation-turn--selected" : ""}`}>
@@ -29,14 +34,49 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
       <div className="message-row message-row--assistant">
         <div className="message-avatar message-avatar--agent">AI</div>
         <div className="message-bubble message-bubble--assistant">
-          {turn.status === "pending" && (
-            <div className="agent-thinking">
-              <span className="agent-thinking__pulse" />
-              <div>
-                <strong>Agentic workflow 正在执行</strong>
-                <small>正在路由意图、检索证据并生成回答…</small>
+          {active && (
+            <div className="workflow-progress">
+              <div className="workflow-progress__heading">
+                <span className="agent-thinking__pulse" />
+                <div>
+                  <strong>{currentStage?.label || "正在启动 Agentic workflow"}</strong>
+                  <small>
+                    {currentStage
+                      ? `${currentStage.node_name} · ${currentStage.status === "completed" ? "已完成" : "执行中"}`
+                      : "正在建立流式连接并分配 request_id"}
+                  </small>
+                </div>
+                <b>{turn.progress || 0}%</b>
               </div>
-              <Skeleton active paragraph={{ rows: 3 }} title={false} />
+              <Progress
+                percent={turn.progress || 0}
+                showInfo={false}
+                strokeColor="#0f766e"
+                railColor="#e7ecef"
+              />
+              {visibleEvents.length > 0 && (
+                <div className="workflow-progress__events">
+                  {visibleEvents.map((event) => (
+                    <span
+                      key={`${event.sequence}-${event.node_name}-${event.status}`}
+                      className={`is-${event.status}`}
+                    >
+                      <i />{event.label}
+                      {event.status === "completed" && event.latency_ms != null
+                        ? ` · ${event.latency_ms.toFixed(0)} ms`
+                        : ""}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {turn.streamedAnswer ? (
+                <div className="answer-markdown answer-markdown--streaming">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{turn.streamedAnswer}</ReactMarkdown>
+                  <span className="streaming-cursor" aria-hidden="true" />
+                </div>
+              ) : (
+                <Skeleton active paragraph={{ rows: 3 }} title={false} />
+              )}
             </div>
           )}
 

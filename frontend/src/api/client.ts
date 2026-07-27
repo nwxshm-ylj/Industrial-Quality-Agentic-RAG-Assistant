@@ -3,7 +3,7 @@ import axios, { AxiosError } from "axios";
 import { useAuthStore } from "../stores/authStore";
 import type { ApiErrorPayload } from "./types";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
