@@ -725,6 +725,11 @@ class DocumentService:
                 parser_fallback=settings.document_parser_fallback,
                 deepdoc_enabled=settings.deepdoc_enabled,
                 deepdoc_runtime_factory=settings.deepdoc_runtime_factory,
+                deepdoc_runtime_url=settings.deepdoc_runtime_url,
+                deepdoc_connect_timeout_seconds=(
+                    settings.deepdoc_connect_timeout_seconds
+                ),
+                deepdoc_read_timeout_seconds=settings.deepdoc_read_timeout_seconds,
                 deepdoc_model_dir=settings.deepdoc_model_dir,
                 deepdoc_require_model_files=settings.deepdoc_require_model_files,
                 deepdoc_zoomin=settings.deepdoc_zoomin,

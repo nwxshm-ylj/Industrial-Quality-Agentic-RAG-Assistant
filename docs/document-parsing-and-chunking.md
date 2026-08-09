@@ -20,16 +20,17 @@
 4. 使用标题、页码和版面顺序作为 Chunk 边界；
 5. 解析结果先形成统一结构，再交给切分和索引层。
 
-项目没有把参考仓库的 DeepDOC 源码、模型文件和自动下载逻辑直接复制进 API 镜像，而是增加了可选的 `DeepDocParserAdapter`：
+项目没有把参考仓库的 DeepDOC 源码、模型文件和自动下载逻辑直接打进 API 镜像，而是增加了可选的 `DeepDocParserAdapter` 和独立 `deepdoc-runtime` 服务：
 
-- 通过 `DEEPDOC_RUNTIME_FACTORY=module:attribute` 延迟加载独立 DeepDOC runtime；
-- runtime 在进程内复用，不会在每次文档解析时重新初始化模型；
+- API 通过 `DEEPDOC_RUNTIME_URL` 调用版本化 HTTP 协议，不暴露 DeepDOC SDK 类型；
+- DeepDOC 模型只在 sidecar 进程内初始化一次，并在请求之间复用；参考解析器具有可变状态，因此解析调用使用进程内锁保护；
+- 源码和模型以只读卷挂载，运行时强制 Hugging Face 离线模式，不在请求期间下载模型；
 - 启动解析前校验本地模型目录与必需模型文件，缺失时快速失败；
 - DeepDOC 输出统一转换为 `ParsedDocument/DocumentElement`，再进入现有切分与双索引链路；
 - `auto` 模式下仅 PDF 优先使用 DeepDOC，失败时可回退 `structured-v1`；
 - 不在默认测试中加载 DeepDOC 模型或访问 Hugging Face。
 
-因此，当前仓库已实现 DeepDOC 的接入边界、路由、归一化、回退和 mock 测试；真实 DeepDOC 推理仍要求部署方提供兼容 runtime 及离线模型文件。原有 PyMuPDF、python-docx、python-pptx、Dots.OCR 和多模态资产链路继续保留。
+原有 `DEEPDOC_RUNTIME_FACTORY=module:attribute` 本地工厂方式仍作为兼容入口保留，但 Docker 部署优先使用隔离的 HTTP sidecar。原有 PyMuPDF、python-docx、python-pptx、Dots.OCR 和多模态资产链路继续保留。
 
 启用时的配置入口如下：
 
@@ -37,14 +38,15 @@
 DOCUMENT_PARSER_BACKEND=auto
 DOCUMENT_PARSER_FALLBACK=native
 DEEPDOC_ENABLED=true
-DEEPDOC_RUNTIME_FACTORY=your_runtime_module:create_runtime
-DEEPDOC_MODEL_DIR=/app/data/models/deepdoc
-DEEPDOC_REQUIRE_MODEL_FILES=true
+DEEPDOC_RUNTIME_URL=http://deepdoc-runtime:8010
+DEEPDOC_CONNECT_TIMEOUT_SECONDS=5
+DEEPDOC_READ_TIMEOUT_SECONDS=300
+DEEPDOC_HEALTH_TIMEOUT_SECONDS=2
 DEEPDOC_ZOOMIN=3
 DEEPDOC_MAX_PAGES=2000
 ```
 
-`create_runtime()` 必须是零参数工厂，返回实现 `parse_pdf(path, zoomin, max_pages)` 的对象，或返回与参考 `Pdf` 类相同的可调用对象。模型目录至少需要 `det.onnx`、`rec.onnx`、`ocr.res`、`layout.onnx`、`tsr.onnx` 和 `updown_concat_xgb.model`。仓库不会在 API 请求期间自动下载这些资源。
+sidecar 模型目录至少需要 `det.onnx`、`rec.onnx`、`ocr.res`、`layout.onnx`、`tsr.onnx` 和 `updown_concat_xgb.model`。仓库不会提交这些大文件，也不会在 API 请求期间自动下载资源。
 
 ### 结构化解析与多模态合并
 
@@ -162,7 +164,9 @@ python -m scripts.test_document_parser_contract
 python -m scripts.test_deepdoc_parser_adapter
 python -m scripts.test_parser_multimodal_merge
 python -m scripts.test_layout_chunker
-python -m compileall app scripts
+python -m scripts.test_deepdoc_http_runtime
+python -m scripts.test_deepdoc_runtime_api
+python -m compileall app scripts deepdoc_runtime
 ```
 
 依赖 PostgreSQL、Qdrant、OpenSearch 的生命周期验证：
@@ -172,3 +176,31 @@ python -m scripts.test_document_management
 ```
 
 修改 Chunk 策略后，历史已入库文档不会自动变化，需要对指定文档执行 reindex，或在测试环境执行批量重建后再比较 Recall@K、MRR 和 nDCG。
+
+## 8. DeepDOC Sidecar 部署
+
+首次部署前，从已获得合法授权的 DeepDOC/FinInsRAG 源码目录准备运行资源。该命令只复制最小源码集合及本地模型，不下载网络资源；生成目录已被 Git 和 Docker 构建上下文忽略：
+
+```bash
+python -m scripts.prepare_deepdoc_runtime --source-root /path/to/service/core
+```
+
+构建并启动可选 profile：
+
+```bash
+docker compose --profile deepdoc build deepdoc-runtime
+docker compose --profile deepdoc up -d deepdoc-runtime
+curl http://localhost:18010/health/ready
+python -m scripts.test_deepdoc_runtime_live --base-url http://localhost:18010
+```
+
+Docker 网络内 API 使用 `http://deepdoc-runtime:8010`，宿主机验收端口默认为 `18010`，可通过 `DEEPDOC_RUNTIME_PORT` 调整。若希望知识库上传优先走 DeepDOC，需要同时配置：
+
+```text
+DEEPDOC_ENABLED=true
+DOCUMENT_PARSER_BACKEND=auto
+DOCUMENT_PARSER_FALLBACK=native
+DEEPDOC_RUNTIME_URL=http://deepdoc-runtime:8010
+```
+
+`/health/ready` 仅检查 sidecar 引擎就绪状态，不执行文档推理。DeepDOC 不可用且 `DOCUMENT_PARSER_FALLBACK=native` 时，API readiness 标记为 degraded 并允许 PDF 回退到原生解析；若禁用回退，则解析失败会直接暴露为明确错误。
