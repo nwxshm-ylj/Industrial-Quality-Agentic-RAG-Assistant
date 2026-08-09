@@ -130,7 +130,7 @@ services:
       neo4j:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "${API_PORT:-18000}:8000"
     environment:
       QDRANT_URL: http://qdrant:6333
       QDRANT_COLLECTION: industrial_docs_qwen_1024_v1
