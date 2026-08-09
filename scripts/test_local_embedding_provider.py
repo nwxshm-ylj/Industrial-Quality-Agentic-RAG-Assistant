@@ -20,6 +20,9 @@ class _FakeModel:
     def get_sentence_embedding_dimension(self) -> int:
         return self.dimension
 
+    def get_embedding_dimension(self) -> int:
+        return self.dimension
+
     def encode(self, sentences: list[str], **kwargs):
         self.calls.append({"sentences": list(sentences), **kwargs})
         return [

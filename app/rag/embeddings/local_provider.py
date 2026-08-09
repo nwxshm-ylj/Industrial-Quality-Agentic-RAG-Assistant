@@ -128,7 +128,14 @@ class LocalSentenceTransformerEmbeddingProvider:
 
     def _validate_model_dimension(self) -> None:
         try:
-            actual = int(self._model.get_sentence_embedding_dimension())
+            dimension_reader = getattr(
+                self._model,
+                "get_embedding_dimension",
+                None,
+            )
+            if not callable(dimension_reader):
+                dimension_reader = self._model.get_sentence_embedding_dimension
+            actual = int(dimension_reader())
         except Exception as exc:
             raise EmbeddingProviderError(
                 f"Unable to read local embedding dimension: {exc}"
@@ -206,6 +213,8 @@ class LocalSentenceTransformerEmbeddingProvider:
 
 
 class _SentenceTransformerModel(Protocol):
+    def get_embedding_dimension(self) -> int: ...
+
     def get_sentence_embedding_dimension(self) -> int: ...
 
     def encode(self, sentences: list[str], **kwargs: Any) -> Any: ...
