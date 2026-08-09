@@ -23,11 +23,20 @@ class Settings(BaseSettings):
     usage_background_max_pending: int = 1000
 
     qdrant_url: str = "http://localhost:6333"
-    qdrant_collection: str = "industrial_docs_qwen_1024_v1"
+    qdrant_collection: str = "industrial_docs_bge_m3_1024_v1"
     qdrant_collection_alias: str = "industrial_docs_active"
     legacy_qdrant_collection: str = "industrial_docs"
     embedding_model: str = "BAAI/bge-small-zh-v1.5"
-    embedding_provider: str = "qwen"
+    embedding_provider: str = "local"
+    local_embedding_model_name: str = "BAAI/bge-m3"
+    local_embedding_model_path: str = "data/models/bge-m3"
+    local_embedding_model_revision: str = (
+        "5617a9f61b028005a4858fdac845db406aefb181"
+    )
+    local_embedding_dimension: int = 1024
+    local_embedding_batch_size: int = 8
+    local_embedding_device: str = "cpu"
+    local_embedding_normalize_embeddings: bool = True
     qwen_embedding_model: str = "text-embedding-v4"
     qwen_embedding_dimension: int = 1024
     qwen_embedding_api_key: str | None = None
@@ -36,7 +45,7 @@ class Settings(BaseSettings):
         "text-embedding/text-embedding"
     )
     qwen_embedding_batch_size: int = 10
-    embedding_index_version: str = "qwen-1024-v1"
+    embedding_index_version: str = "bge-m3-1024-v1"
 
     multimodal_enabled: bool = False
     multimodal_embedding_provider: str = "qwen"
@@ -124,8 +133,8 @@ class Settings(BaseSettings):
     memory_long_term_limit: int = 4
     memory_semantic_score_threshold: float = 0.45
     memory_keyword_min_score: float = 0.0
-    memory_qdrant_collection: str = "industrial_memory_qwen_1024_v1"
-    memory_index_version: str = "v1"
+    memory_qdrant_collection: str = "industrial_memory_bge_m3_1024_v1"
+    memory_index_version: str = "bge-m3-v1"
     memory_background_workers: int = 2
     memory_background_max_pending: int = 100
 

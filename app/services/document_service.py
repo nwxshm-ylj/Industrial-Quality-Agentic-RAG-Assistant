@@ -1221,6 +1221,13 @@ class DocumentService:
         exc_info: bool = False,
     ) -> None:
         latency_ms = (perf_counter() - started_at) * 1000
+        provider_name = settings.embedding_provider.strip().lower()
+        if provider_name in {"local", "bge_m3", "huggingface"}:
+            embedding_model = settings.local_embedding_model_name
+            embedding_dimension = settings.local_embedding_dimension
+        else:
+            embedding_model = settings.qwen_embedding_model
+            embedding_dimension = settings.qwen_embedding_dimension
         record_document_operation(
             operation=event,
             status=status,
@@ -1240,9 +1247,9 @@ class DocumentService:
                     "chunk_count": chunk_count,
                     "latency_ms": round(latency_ms, 2),
                     "error_message": error_message,
-                    "embedding_provider": settings.embedding_provider,
-                    "embedding_model": settings.qwen_embedding_model,
-                    "embedding_dimension": settings.qwen_embedding_dimension,
+                    "embedding_provider": provider_name,
+                    "embedding_model": embedding_model,
+                    "embedding_dimension": embedding_dimension,
                     "embedding_index_version": settings.embedding_index_version,
                 }
             },

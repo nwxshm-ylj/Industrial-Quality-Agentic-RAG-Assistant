@@ -6,8 +6,8 @@ Recommended local environment:
 
 - Docker Desktop or Docker Engine with Compose v2
 - 8 GB RAM minimum; more if Reranker is enabled
-- Internet access for the configured LLM and first embedding-model download
-- Available application ports 8000, 30000, 5432, 6333, 6334, and 9200
+- Internet access for the configured LLM and the one-time BGE-M3 download
+- Available application ports 18000, 18010, 30000, 5432, 6333, 6334, and 9200
 - Optional observability ports 3000, 3100, 3200, 4317, 4318, and 9090
 
 The repository mounts the local data directory into API, Streamlit, and tool containers. Ensure it is writable.
@@ -32,12 +32,13 @@ Copy-Item .env.example .env
 | LLM_API_KEY | required | Model provider credential |
 | LLM_BASE_URL | DashScope-compatible endpoint | Model API base URL |
 | QDRANT_URL | http://localhost:6333 | Host-side Qdrant URL |
-| QDRANT_COLLECTION | industrial_docs_qwen_1024_v1 | Versioned online vector collection |
+| QDRANT_COLLECTION | industrial_docs_bge_m3_1024_v1 | Versioned online vector collection |
 | QDRANT_COLLECTION_ALIAS | industrial_docs_active | Stable runtime query alias |
 | LEGACY_QDRANT_COLLECTION | industrial_docs | Legacy BGE demo collection |
-| QWEN_EMBEDDING_API_KEY | required for online indexing/search | DashScope embedding credential |
-| QWEN_EMBEDDING_MODEL | text-embedding-v4 | Online embedding model |
-| QWEN_EMBEDDING_DIMENSION | 1024 | Online vector dimension |
+| EMBEDDING_PROVIDER | local | Online text embedding backend |
+| LOCAL_EMBEDDING_MODEL_PATH | /app/data/models/bge-m3 | Read-only local model directory |
+| LOCAL_EMBEDDING_MODEL_REVISION | 5617a9f... | Pinned Hugging Face revision |
+| LOCAL_EMBEDDING_DIMENSION | 1024 | Online text vector dimension |
 | OPENSEARCH_URL | http://localhost:9200 | OpenSearch endpoint |
 | OPENSEARCH_INDEX_PREFIX | industrial_docs | Keyword index prefix |
 | HYBRID_DEGRADED_MODE | vector_only | Keyword backend failure behavior |
@@ -70,6 +71,14 @@ Do not commit a real .env file. Production secrets should come from a secrets ma
 docker compose up -d qdrant postgres opensearch
 docker compose ps
 ~~~
+
+Download the pinned BGE-M3 snapshot once into the ignored, bind-mounted model directory:
+
+~~~bash
+docker compose run --rm api python -m scripts.download_local_embedding_model --destination /app/data/models/bge-m3
+~~~
+
+The API never downloads this model during startup or a request. The model directory must exist before readiness can become ready.
 
 Wait until PostgreSQL accepts connections. If the initialization command runs too early, retry it after several seconds.
 
@@ -121,8 +130,8 @@ docker compose up -d --build api streamlit
 
 Endpoints:
 
-- API: http://localhost:8000
-- Swagger: http://localhost:8000/docs
+- API: http://localhost:18000
+- Swagger: http://localhost:18000/docs
 - Streamlit: http://localhost:30000
 - Qdrant: http://localhost:6333/dashboard
 - OpenSearch: http://localhost:9200
@@ -252,13 +261,13 @@ docker compose logs qdrant
 
 Inside Compose the API uses http://qdrant:6333, not localhost.
 
-### Qwen embedding request fails
+### Local BGE-M3 embedding fails
 
-- Verify QWEN_EMBEDDING_API_KEY, model name, endpoint, and quota.
-- Confirm the API container can reach the configured DashScope endpoint.
-- The first successful response must contain exactly 1024 dimensions.
-- Default unit tests use MockEmbeddingProvider and do not call the paid API.
-- Hugging Face cache is needed only by Legacy ingest or the optional local Reranker.
+- Verify `/app/data/models/bge-m3` exists inside the API container.
+- Run `python -m scripts.test_local_embedding_provider` for the offline adapter contract.
+- The provider validates the model output dimension is exactly 1024 before indexing.
+- Do not write BGE-M3 vectors into the old Qwen collection even though both are 1024-dimensional.
+- Rebuild `industrial_docs_bge_m3_1024_v1`, validate retrieval, and only then switch `industrial_docs_active`.
 
 ### LLM authentication or connection error
 
@@ -335,7 +344,7 @@ docker compose \
   config --quiet
 ~~~
 
-A complete verification requires PostgreSQL, Qdrant, OpenSearch, a Qwen embedding credential, and a working LLM endpoint. Default unit tests remain fully offline through mocks.
+A complete verification requires PostgreSQL, Qdrant, OpenSearch, the local BGE-M3 snapshot, and a working LLM endpoint. Default unit tests remain fully offline through mocks.
 
 ## 9. Optional retrieval, memory, and graph upgrades
 
