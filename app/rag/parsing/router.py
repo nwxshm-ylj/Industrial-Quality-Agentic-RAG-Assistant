@@ -15,6 +15,7 @@ from app.rag.parsing.exceptions import (
     ParserUnavailableError,
     UnsupportedDocumentFormatError,
 )
+from app.rag.parsing.deepdoc_http_runtime import get_deepdoc_http_runtime
 from app.rag.parsing.native_adapter import NativeStructuredParser
 
 
@@ -95,6 +96,9 @@ def get_document_parser_router(
     *,
     deepdoc_enabled: bool = False,
     deepdoc_runtime_factory: str | None = None,
+    deepdoc_runtime_url: str | None = None,
+    deepdoc_connect_timeout_seconds: float = 5.0,
+    deepdoc_read_timeout_seconds: float = 300.0,
     deepdoc_model_dir: str | None = None,
     deepdoc_require_model_files: bool = True,
     deepdoc_zoomin: int = 3,
@@ -104,16 +108,26 @@ def get_document_parser_router(
 
     router = DocumentParserRouter((NativeStructuredParser(),))
     if deepdoc_enabled:
-        runtime_loader = (
-            build_runtime_loader(deepdoc_runtime_factory)
-            if deepdoc_runtime_factory
-            else _missing_deepdoc_runtime_loader
-        )
+        if deepdoc_runtime_url:
+            runtime = get_deepdoc_http_runtime(
+                deepdoc_runtime_url,
+                deepdoc_connect_timeout_seconds,
+                deepdoc_read_timeout_seconds,
+            )
+            runtime_loader = lambda: runtime
+        else:
+            runtime_loader = (
+                build_runtime_loader(deepdoc_runtime_factory)
+                if deepdoc_runtime_factory
+                else _missing_deepdoc_runtime_loader
+            )
         router.register(
             DeepDocParserAdapter(
                 runtime_loader,
                 model_dir=deepdoc_model_dir,
-                require_model_files=deepdoc_require_model_files,
+                require_model_files=(
+                    deepdoc_require_model_files and not deepdoc_runtime_url
+                ),
                 zoomin=deepdoc_zoomin,
                 max_pages=deepdoc_max_pages,
             )

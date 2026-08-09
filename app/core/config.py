@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     document_parser_fallback: str = "native"
     deepdoc_enabled: bool = False
     deepdoc_runtime_factory: str | None = None
+    deepdoc_runtime_url: str | None = None
+    deepdoc_connect_timeout_seconds: float = 5.0
+    deepdoc_read_timeout_seconds: float = 300.0
+    deepdoc_health_timeout_seconds: float = 2.0
     deepdoc_model_dir: str = "data/models/deepdoc"
     deepdoc_require_model_files: bool = True
     deepdoc_zoomin: int = 3

@@ -299,6 +299,47 @@ def readiness_check():
     else:
         checks["neo4j"] = {"status": "disabled"}
 
+    if settings.deepdoc_enabled:
+        if settings.deepdoc_runtime_url:
+            try:
+                from app.rag.parsing.deepdoc_http_runtime import (
+                    get_deepdoc_http_runtime,
+                )
+
+                runtime_status = get_deepdoc_http_runtime(
+                    settings.deepdoc_runtime_url,
+                    settings.deepdoc_connect_timeout_seconds,
+                    settings.deepdoc_read_timeout_seconds,
+                ).readiness(
+                    timeout_seconds=settings.deepdoc_health_timeout_seconds
+                )
+                checks["deepdoc_runtime"] = {
+                    "status": "ready",
+                    "engine": runtime_status.get("engine"),
+                }
+            except Exception as exc:
+                fallback_available = settings.document_parser_fallback == "native"
+                checks["deepdoc_runtime"] = {
+                    "status": "degraded" if fallback_available else "unavailable",
+                    "error_type": type(exc).__name__,
+                    "fallback": (
+                        "native" if fallback_available else None
+                    ),
+                }
+        elif settings.deepdoc_runtime_factory:
+            checks["deepdoc_runtime"] = {
+                "status": "ready",
+                "mode": "local_factory",
+            }
+        else:
+            checks["deepdoc_runtime"] = {
+                "status": "degraded",
+                "error_type": "ConfigurationError",
+                "fallback": settings.document_parser_fallback or None,
+            }
+    else:
+        checks["deepdoc_runtime"] = {"status": "disabled"}
+
     critical_ready = all(
         checks[name]["status"] == "ready"
         for name in (
@@ -309,10 +350,16 @@ def readiness_check():
         )
     )
     opensearch_ready = checks["opensearch"]["status"] == "ready"
-    optional_ready = all(
+    existing_optional_ready = all(
         checks[name]["status"] in {"ready", "disabled"}
         for name in ("redis_memory", "neo4j")
     )
+    deepdoc_ready = checks["deepdoc_runtime"]["status"] in {
+        "ready",
+        "disabled",
+        "degraded",
+    }
+    optional_ready = existing_optional_ready and deepdoc_ready
     status = (
         "ready"
         if critical_ready and opensearch_ready and optional_ready
