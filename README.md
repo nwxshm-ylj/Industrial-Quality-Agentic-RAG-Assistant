@@ -74,7 +74,7 @@ flowchart LR
 | 能力 | 实现 | 企业价值 |
 |---|---|---|
 | Agentic 路由 | doc_qa、fault_diagnosis、case_search、rule_query、sql_analysis、general | 按问题类型选择最合适的工具和数据源 |
-| Hybrid Search | 千问 Embedding + Qdrant Alias + OpenSearch + RRF + 可选 Reranker | 同时覆盖语义召回和工业关键词精确匹配，关键词故障时可降级为 vector-only |
+| Hybrid Search | 本地 BGE-M3 Embedding + Qdrant Alias + OpenSearch + RRF + 可选 Reranker | 同时覆盖语义召回和工业关键词精确匹配，关键词故障时可降级为 vector-only |
 | Evidence Judge | 证据评分、不足时改写并重试 | 降低弱证据直接生成答案的风险 |
 | 分层记忆 | PostgreSQL 原始消息 + Redis 短期窗口/抽取式摘要 + Qdrant/OpenSearch 长期情景召回 | 支持连续追问和按用户隔离的跨会话相关历史；可配置启用 |
 | Rule Tool | YAML 工业规则匹配 | 处理 PR、配置映射和判定规则 |
@@ -98,7 +98,7 @@ flowchart LR
 | API | Python 3.11、FastAPI、Pydantic、Uvicorn |
 | Agent 编排 | LangGraph、LangChain |
 | LLM | OpenAI-compatible API，默认 qwen-plus 配置 |
-| 检索 | Qwen text-embedding-v4、Qwen3-VL Embedding、Qdrant、OpenSearch、RRF、CrossEncoder |
+| 检索 | 本地 BAAI/bge-m3 文本 Embedding、Qwen3-VL 多模态 Embedding、Qdrant、OpenSearch、RRF、CrossEncoder |
 | 数据 | PostgreSQL、Redis、Qdrant、OpenSearch、Neo4j |
 | 前端 | Streamlit、Pandas、Requests |
 | 安全 | JWT、PBKDF2-SHA256、FastAPI Depends、RBAC |
@@ -111,7 +111,7 @@ flowchart LR
 
 - Docker Desktop 或 Docker Engine + Compose v2
 - 可访问的 OpenAI-compatible LLM
-- 千问 Embedding API Key；仅 Legacy ingest 或启用本地 Reranker 时需要 Hugging Face 模型
+- 首次部署需要下载固定版本的 BAAI/bge-m3；文本检索运行时不需要 Embedding API Key
 - 建议至少 8 GB 内存
 
 ### 1. 配置环境变量
@@ -132,7 +132,8 @@ Copy-Item .env.example .env
 LLM_MODEL=qwen-plus
 LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN_EMBEDDING_API_KEY=your_dashscope_api_key
+EMBEDDING_PROVIDER=local
+LOCAL_EMBEDDING_MODEL_PATH=/app/data/models/bge-m3
 JWT_SECRET_KEY=replace_with_a_long_random_secret
 ~~~
 
@@ -141,6 +142,7 @@ JWT_SECRET_KEY=replace_with_a_long_random_secret
 ~~~bash
 docker compose up -d qdrant postgres opensearch redis neo4j
 docker compose --profile tools run --rm init-sql
+docker compose run --rm api python -m scripts.download_local_embedding_model --destination /app/data/models/bge-m3
 docker compose run --rm api python -m scripts.migrate_online_indexes
 # 先运行检索与评估测试，通过后再切换稳定 Alias
 docker compose run --rm api python -m scripts.migrate_online_indexes --activate-alias
@@ -151,8 +153,8 @@ docker compose up -d --build api streamlit
 
 - Streamlit：http://localhost:30000
 - React 企业工作台（Phase 3）：http://localhost:30080
-- FastAPI Swagger：http://localhost:8000/docs
-- Health Check：http://localhost:8000/health
+- FastAPI Swagger：http://localhost:18000/docs
+- Health Check：http://localhost:18000/health
 - Qdrant Dashboard：http://localhost:6333/dashboard
 - OpenSearch：http://localhost:9200
 - Neo4j Browser：http://localhost:7474
@@ -577,7 +579,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 | 业务层 | 工业质量、故障诊断、规则、案例、结构化分析 | Rule / SQL / Case / Document 多路意图 | 为什么不能把所有问题都交给一个 LLM？ |
 | API 层 | FastAPI、Pydantic、依赖注入、中间件 | `app/main.py`、`app/api/`、`app/schemas/` | request_id、JWT 和异常如何进入请求链？ |
 | Agent 层 | LangGraph State、Node、Conditional Edge、Retry | `app/graph/state.py`、`workflow.py`、`nodes/` | 为什么使用图工作流而不是固定 Chain？ |
-| RAG 层 | Chunk、Embedding、Vector Search、Keyword Search、RRF | Qwen Embedding、Qdrant、OpenSearch、Online Hybrid Retriever | 向量召回与关键词召回如何互补？ |
+| RAG 层 | Chunk、Embedding、Vector Search、Keyword Search、RRF | 本地 BGE-M3、Qdrant、OpenSearch、Online Hybrid Retriever | 向量召回与关键词召回如何互补？ |
 | 生成层 | Query Rewrite、Evidence Judge、Prompt 约束、Citation | `app/rag/generator.py`、Prompt Catalog | 如何减少无证据回答和 Prompt 漂移？ |
 | 数据层 | PostgreSQL、Qdrant Collection/Alias、OpenSearch Index | 会话、元数据、双索引和评估记录 | 数据库与两个检索索引如何保持一致？ |
 | 安全层 | JWT、RBAC、SQL 白名单、审计 | `app/core/security.py`、`deps.py`、SQL Tool | 为什么隐藏前端按钮不能替代后端授权？ |
@@ -597,7 +599,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 6. `app/graph/nodes/`：按 Router → Rewrite → Retrieve → Judge → Tool → Generate → Memory 顺序阅读。
 7. `app/rag/online_hybrid_retriever.py`：理解线上 Hybrid Search 主链。
 8. `app/rag/search_backends/qdrant_backend.py` 与 `opensearch_backend.py`：理解双路召回边界。
-9. `app/rag/embeddings/qwen_provider.py`：区分 document embedding 和 query embedding。
+9. `app/rag/embeddings/local_provider.py`：理解本地模型复用、维度校验，以及 document/query embedding 接口边界。
 10. `app/services/document_service.py`：理解上传、解析、切分、PostgreSQL、Qdrant、OpenSearch 和失败修复。
 11. `app/core/deps.py`、`security.py`、`app/tools/sql_tool.py`：理解认证、授权和 SQL 安全。
 12. `app/services/usage_service.py`、`feedback_service.py`、`retrieval_evaluation_service.py`：理解可观测性与质量闭环。
@@ -686,7 +688,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 简历描述不要只写“使用 LangChain 实现 RAG”，可以拆成三条：
 
 - 设计 LangGraph 多意图工作流，将文档问答、质量规则、受限 SQL 和历史案例统一到可追踪 state，并支持 evidence retry 与 session memory。
-- 实现 Qwen Embedding + Qdrant + OpenSearch 在线混合检索、RRF 融合和 Recall/MRR/nDCG 评估，支持关键词服务故障时 vector-only 降级。
+- 实现本地 BGE-M3 + Qdrant + OpenSearch 在线混合检索、RRF 融合和 Recall/MRR/nDCG 评估，支持关键词服务故障时 vector-only 降级。
 - 建立文档双索引生命周期、JWT/RBAC、审计、OpenTelemetry、反馈评估、React 管理台和 CI/E2E 发布门禁，形成企业 RAG 质量闭环。
 
 只描述自己能够打开代码、现场演示并解释取舍的能力；没有真实数据支撑时，不要编造准确率、用户规模或业务收益。

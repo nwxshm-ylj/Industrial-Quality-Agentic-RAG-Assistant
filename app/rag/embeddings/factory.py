@@ -30,6 +30,22 @@ def get_embedding_provider() -> EmbeddingProvider:
             index_version=settings.embedding_index_version,
         )
 
+    if provider_name in {"local", "bge_m3", "huggingface"}:
+        from app.rag.embeddings.local_provider import (
+            LocalSentenceTransformerEmbeddingProvider,
+        )
+
+        return LocalSentenceTransformerEmbeddingProvider(
+            model_path=settings.local_embedding_model_path,
+            model_name=settings.local_embedding_model_name,
+            model_revision=settings.local_embedding_model_revision,
+            dimension=settings.local_embedding_dimension,
+            batch_size=settings.local_embedding_batch_size,
+            device=settings.local_embedding_device,
+            normalize_embeddings=settings.local_embedding_normalize_embeddings,
+            index_version=settings.embedding_index_version,
+        )
+
     raise RuntimeError(f"Unsupported embedding provider: {provider_name}")
 
 

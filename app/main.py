@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from uuid import uuid4
 from time import perf_counter
 
@@ -234,15 +235,32 @@ def readiness_check():
             "error_type": type(exc).__name__,
         }
 
-    config_ready = bool(
-        settings.llm_api_key
-        and (
-            settings.embedding_provider != "qwen"
-            or settings.qwen_embedding_api_key
+    embedding_provider_name = settings.embedding_provider.strip().lower()
+    if embedding_provider_name == "qwen":
+        embedding_config_ready = bool(settings.qwen_embedding_api_key)
+        embedding_error_type = (
+            None if embedding_config_ready else "MissingEmbeddingApiKey"
         )
-    )
+    elif embedding_provider_name in {"local", "bge_m3", "huggingface"}:
+        embedding_config_ready = Path(
+            settings.local_embedding_model_path
+        ).is_dir()
+        embedding_error_type = (
+            None if embedding_config_ready else "LocalEmbeddingModelMissing"
+        )
+    else:
+        embedding_config_ready = False
+        embedding_error_type = "UnsupportedEmbeddingProvider"
+    config_ready = bool(settings.llm_api_key and embedding_config_ready)
     checks["model_configuration"] = {
-        "status": "ready" if config_ready else "unavailable"
+        "status": "ready" if config_ready else "unavailable",
+        "embedding_provider": embedding_provider_name,
+        "embedding_model": (
+            settings.local_embedding_model_name
+            if embedding_provider_name in {"local", "bge_m3", "huggingface"}
+            else settings.qwen_embedding_model
+        ),
+        "error_type": embedding_error_type,
     }
 
     try:

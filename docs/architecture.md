@@ -160,7 +160,7 @@ Hybrid retrieval combines complementary signals:
 - Optional CrossEncoder reranking improves final ordering at a higher latency and memory cost.
 - Evidence Judge prevents weak retrieval from being treated as strong evidence and can trigger one rewrite/retry.
 
-The online path uses Qwen document/query embeddings, a versioned Qdrant collection queried through a stable alias, an OpenSearch keyword index, and RRF with a default k of 60. If OpenSearch is unavailable, retrieval may degrade to vector-only and reports that state in response metadata.
+The online text path uses one process-reused local BAAI/bge-m3 provider, a versioned Qdrant collection queried through a stable alias, an OpenSearch keyword index, and RRF with a default k of 60. Document and query embedding remain separate interface calls even though BGE-M3 uses the same dense encoder. If OpenSearch is unavailable, retrieval may degrade to vector-only and reports that state in response metadata.
 
 ## 6. Knowledge ingestion flow
 
@@ -213,7 +213,7 @@ UI role checks improve usability. They are not security boundaries; API checks r
 | Store | Main data |
 |---|---|
 | PostgreSQL | users, audit logs, conversations, documents, chunks, feedback, evaluation runs/items, quality records |
-| Qdrant | Qwen document vectors and versioned payload metadata; runtime queries use a stable alias |
+| Qdrant | Local BGE-M3 text vectors and versioned payload metadata; runtime queries use a stable alias |
 | OpenSearch | Online keyword documents used by Hybrid Search |
 | Redis | Short-term conversation window, TTL, and extractive summary cache |
 | Neo4j | Quality-case entity and relationship paths used as optional Case Retriever evidence |
@@ -268,7 +268,7 @@ pricing catalog contains the provider/model entry; missing prices remain unprice
 
 ## 10. Current boundaries
 
-- `scripts/ingest_docs.py` and `chunks.json` remain Legacy Demo assets and are isolated from the online Qwen/OpenSearch path.
+- `scripts/ingest_docs.py` and `chunks.json` remain Legacy Demo assets and are isolated from the online BGE-M3/OpenSearch path.
 - Multimodal, layered memory, RAGAS judge calls, and Neo4j augmentation are feature-flagged and disabled by default.
 - `.pptx` is parsed natively; legacy binary `.ppt` requires an external conversion step and is not accepted directly.
 - Redis summaries are deterministic extractive summaries in the first version, not LLM-generated semantic summaries.
