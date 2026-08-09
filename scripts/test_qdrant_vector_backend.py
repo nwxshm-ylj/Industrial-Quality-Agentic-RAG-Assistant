@@ -100,6 +100,9 @@ class _FakeQdrantClient:
                 "text": "工业质量",
                 "source": "test.txt",
                 "doc_type": "TEST",
+                "page_number": 3,
+                "parser_version": "deepdoc-layout-v1",
+                "chunk_strategy": "layout-token-v2",
             },
             score=0.9,
         )
@@ -148,6 +151,13 @@ def main() -> None:
                 "source": "test.txt",
                 "doc_type": "TEST",
                 "version": "v1",
+                "section_type": "table",
+                "heading_path": "故障诊断 > 轮毂识别异常",
+                "page_number": 3,
+                "page_start": 3,
+                "page_end": 4,
+                "parser_version": "deepdoc-layout-v1",
+                "chunk_strategy": "layout-token-v2",
             },
         }
     ]
@@ -158,11 +168,16 @@ def main() -> None:
     assert point.payload["embedding_provider"] == "mock"
     assert point.payload["embedding_dimension"] == 4
     assert point.payload["embedding_index_version"] == "qwen-1024-v1"
+    assert point.payload["page_number"] == 3
+    assert point.payload["parser_version"] == "deepdoc-layout-v1"
+    assert point.payload["chunk_strategy"] == "layout-token-v2"
 
     backend.activate_alias()
     results = backend.search("质量", top_k=3)
     assert client.queries[0]["collection_name"] == "industrial_docs_active"
     assert results[0]["chunk_id"] == "d1_0"
+    assert results[0]["page_number"] == 3
+    assert results[0]["parser_version"] == "deepdoc-layout-v1"
     backend.search(
         "quality",
         top_k=3,

@@ -106,6 +106,7 @@ class QdrantVectorSearchBackend:
                             "embedding_index_version": (
                                 self.embedding_provider.index_version
                             ),
+                            **_chunk_metadata_payload(metadata),
                         },
                     )
                 )
@@ -399,6 +400,44 @@ class QdrantVectorSearchBackend:
             "doc_id": payload.get("doc_id", ""),
             "chunk_id": payload.get("chunk_id", ""),
             "version": payload.get("version", ""),
+            "section_type": payload.get("section_type"),
+            "heading_path": payload.get("heading_path"),
+            "page_number": payload.get("page_number"),
+            "page_start": payload.get("page_start"),
+            "page_end": payload.get("page_end"),
+            "table_index": payload.get("table_index"),
+            "asset_ids": payload.get("asset_ids", []),
+            "parser_version": payload.get("parser_version"),
+            "chunk_strategy": payload.get("chunk_strategy"),
             "score": float(point.score),
             "retrieval_source": "vector",
         }
+
+
+_CHUNK_METADATA_FIELDS = (
+    "file_ext",
+    "parser",
+    "parser_name",
+    "parser_version",
+    "chunk_strategy",
+    "token_counter",
+    "token_count",
+    "content_hash",
+    "section_type",
+    "heading_path",
+    "page_number",
+    "page_start",
+    "page_end",
+    "table_index",
+    "element_ids",
+    "asset_ids",
+    "bboxes",
+)
+
+
+def _chunk_metadata_payload(metadata: dict) -> dict:
+    return {
+        field: metadata[field]
+        for field in _CHUNK_METADATA_FIELDS
+        if field in metadata and metadata[field] is not None
+    }

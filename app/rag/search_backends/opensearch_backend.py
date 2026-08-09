@@ -22,6 +22,7 @@ class OpenSearchKeywordBackend:
         self.index_name = index_name
         self.client = client or get_opensearch_client()
         self._bulk_executor = bulk_executor
+        self._index_ready = False
 
     @property
     def bulk_executor(self) -> Callable[..., Any]:
@@ -32,13 +33,21 @@ class OpenSearchKeywordBackend:
         return self._bulk_executor
 
     def ensure_index(self) -> None:
+        if self._index_ready:
+            return
         try:
             if self.client.indices.exists(index=self.index_name):
+                self.client.indices.put_mapping(
+                    index=self.index_name,
+                    body={"properties": self.chunk_metadata_properties()},
+                )
+                self._index_ready = True
                 return
             self.client.indices.create(
                 index=self.index_name,
                 body=self.index_definition(),
             )
+            self._index_ready = True
         except Exception as exc:
             raise KeywordSearchError(
                 f"Unable to ensure OpenSearch index {self.index_name}: {exc}"
@@ -76,6 +85,7 @@ class OpenSearchKeywordBackend:
                             "version": metadata.get("version"),
                             "index_status": index_status,
                             "index_operation_id": index_operation_id,
+                            **_chunk_metadata_source(metadata),
                         },
                     }
                 )
@@ -200,6 +210,7 @@ class OpenSearchKeywordBackend:
                                         "fields": [
                                             "text^3",
                                             "text.exact^2",
+                                            "heading_path^2.5",
                                             "source",
                                             "doc_type",
                                         ],
@@ -324,6 +335,7 @@ class OpenSearchKeywordBackend:
                     "index_operation_id": {"type": "keyword"},
                     "created_at": {"type": "date"},
                     "updated_at": {"type": "date"},
+                    **OpenSearchKeywordBackend.chunk_metadata_properties(),
                 },
             },
         }
@@ -338,6 +350,55 @@ class OpenSearchKeywordBackend:
             "doc_id": source.get("doc_id", ""),
             "chunk_id": source.get("chunk_id", ""),
             "version": source.get("version", ""),
+            "section_type": source.get("section_type"),
+            "heading_path": source.get("heading_path"),
+            "page_number": source.get("page_number"),
+            "page_start": source.get("page_start"),
+            "page_end": source.get("page_end"),
+            "table_index": source.get("table_index"),
+            "asset_ids": source.get("asset_ids", []),
+            "parser_version": source.get("parser_version"),
+            "chunk_strategy": source.get("chunk_strategy"),
             "score": float(hit.get("_score") or 0.0),
             "retrieval_source": "keyword",
         }
+
+    @staticmethod
+    def chunk_metadata_properties() -> dict:
+        return {
+            "file_ext": {"type": "keyword"},
+            "parser": {"type": "keyword"},
+            "parser_name": {"type": "keyword"},
+            "parser_version": {"type": "keyword"},
+            "chunk_strategy": {"type": "keyword"},
+            "token_counter": {"type": "keyword"},
+            "token_count": {"type": "integer"},
+            "content_hash": {"type": "keyword"},
+            "section_type": {"type": "keyword"},
+            "heading_path": {
+                "type": "text",
+                "analyzer": "industrial_ngram",
+                "search_analyzer": "standard",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 512}},
+            },
+            "page_number": {"type": "integer"},
+            "page_start": {"type": "integer"},
+            "page_end": {"type": "integer"},
+            "table_index": {"type": "integer"},
+            "element_ids": {"type": "keyword"},
+            "asset_ids": {"type": "keyword"},
+            "bboxes": {"type": "object", "enabled": False},
+        }
+
+
+_CHUNK_METADATA_FIELDS = tuple(
+    OpenSearchKeywordBackend.chunk_metadata_properties().keys()
+)
+
+
+def _chunk_metadata_source(metadata: dict) -> dict:
+    return {
+        field: metadata[field]
+        for field in _CHUNK_METADATA_FIELDS
+        if field in metadata and metadata[field] is not None
+    }

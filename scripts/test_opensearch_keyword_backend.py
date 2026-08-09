@@ -5,12 +5,16 @@ from app.rag.retrieval_filters import RetrievalFilter
 class _Indices:
     def __init__(self) -> None:
         self.created = {}
+        self.mapping_updates = []
 
     def exists(self, *, index):
         return index in self.created
 
     def create(self, *, index, body):
         self.created[index] = body
+
+    def put_mapping(self, *, index, body):
+        self.mapping_updates.append((index, body))
 
 
 class _FakeOpenSearchClient:
@@ -37,6 +41,9 @@ class _FakeOpenSearchClient:
                             "text": "轮毂识别异常",
                             "source": "quality.txt",
                             "doc_type": "QUALITY",
+                            "page_number": 3,
+                            "parser_version": "deepdoc-layout-v1",
+                            "chunk_strategy": "layout-token-v2",
                         },
                     }
                 ]
@@ -75,6 +82,13 @@ def main() -> None:
                 "source": "quality.txt",
                 "doc_type": "QUALITY",
                 "version": "v1",
+                "section_type": "table",
+                "heading_path": "故障诊断 > 轮毂识别异常",
+                "page_number": 3,
+                "page_start": 3,
+                "page_end": 4,
+                "parser_version": "deepdoc-layout-v1",
+                "chunk_strategy": "layout-token-v2",
             },
         }
     ]
@@ -83,12 +97,18 @@ def main() -> None:
     assert "industrial_docs_keyword_v1" in client.indices.created
     mapping = client.indices.created[backend.index_name]
     assert mapping["mappings"]["properties"]["doc_id"]["type"] == "keyword"
+    assert mapping["mappings"]["properties"]["page_number"]["type"] == "integer"
     assert mapping["settings"]["index"]["max_ngram_diff"] == 2
     assert bulk_calls[0][1][0]["_id"] == "d1_0"
+    indexed_source = bulk_calls[0][1][0]["_source"]
+    assert indexed_source["page_number"] == 3
+    assert indexed_source["parser_version"] == "deepdoc-layout-v1"
     assert bulk_calls[0][2]["refresh"] == "wait_for"
 
     results = backend.search("轮毂", top_k=5)
     assert results[0]["retrieval_source"] == "keyword"
+    assert results[0]["page_number"] == 3
+    assert results[0]["parser_version"] == "deepdoc-layout-v1"
     assert backend.count_indexed() == 1
     assert client.searches[0]["body"]["query"]["bool"]["filter"] == [
         {"term": {"index_status": "indexed"}}
@@ -129,6 +149,18 @@ def main() -> None:
     )
     assert client.updated[0]["body"]["script"]["params"]["status"] == "indexed"
     assert backend.is_available() is True
+
+    existing_backend = OpenSearchKeywordBackend(
+        index_name="industrial_docs_keyword_v1",
+        client=client,
+        bulk_executor=fake_bulk,
+    )
+    existing_backend.ensure_index()
+    assert client.indices.mapping_updates[0][0] == "industrial_docs_keyword_v1"
+    assert (
+        client.indices.mapping_updates[0][1]["properties"]["chunk_strategy"]["type"]
+        == "keyword"
+    )
     print("OpenSearch keyword backend tests passed without OpenSearch SDK/network")
 
 

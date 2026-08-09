@@ -1,72 +1,62 @@
+from __future__ import annotations
+
 from pathlib import Path
 
+from app.rag.parsing.router import get_document_parser_router
 
-SUPPORTED_DOCUMENT_EXTENSIONS = {".md", ".txt", ".pdf", ".docx", ".pptx"}
+
+SUPPORTED_DOCUMENT_EXTENSIONS = set(
+    get_document_parser_router().supported_extensions
+)
 
 
-def load_single_document(file_path: str) -> dict:
+def load_single_document(
+    file_path: str,
+    *,
+    parser_backend: str | None = None,
+    parser_fallback: str = "native",
+    deepdoc_enabled: bool = False,
+    deepdoc_runtime_factory: str | None = None,
+    deepdoc_model_dir: str | None = None,
+    deepdoc_require_model_files: bool = True,
+    deepdoc_zoomin: int = 3,
+    deepdoc_max_pages: int = 2000,
+) -> dict:
     path = Path(file_path)
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"文档不存在: {path}")
 
-    file_ext = path.suffix.lower()
-    if file_ext not in SUPPORTED_DOCUMENT_EXTENSIONS:
-        supported = ", ".join(sorted(SUPPORTED_DOCUMENT_EXTENSIONS))
-        raise ValueError(
-            f"不支持的文档格式: {file_ext or '无扩展名'}。支持格式: {supported}"
-        )
+    backend = (parser_backend or "native").strip().lower()
+    fallback = (parser_fallback or "").strip().lower()
+    if backend not in {"auto", "native", "deepdoc"}:
+        raise ValueError(f"不支持的解析后端: {parser_backend}")
+    if fallback not in {"", "native"}:
+        raise ValueError(f"不支持的解析回退后端: {parser_fallback}")
 
-    if file_ext in {".md", ".txt"}:
-        content = path.read_text(encoding="utf-8")
-    elif file_ext == ".pdf":
-        content = _load_pdf(path)
-    elif file_ext == ".docx":
-        content = _load_docx(path)
-    else:
-        content = _load_pptx(path)
-
-    content = content.strip()
-    if not content:
-        raise ValueError(f"文档内容为空: {path.name}")
-
-    return {
-        "source": path.name,
-        "content": content,
-        "file_ext": file_ext,
-    }
-
-
-def _load_pdf(path: Path) -> str:
-    try:
-        import pymupdf
-    except ImportError:
-        import fitz as pymupdf
-
-    with pymupdf.open(path) as document:
-        return "\n".join(page.get_text() for page in document)
-
-
-def _load_docx(path: Path) -> str:
-    from docx import Document
-
-    document = Document(path)
-    return "\n".join(
-        paragraph.text
-        for paragraph in document.paragraphs
-        if paragraph.text.strip()
+    router = get_document_parser_router(
+        deepdoc_enabled=deepdoc_enabled,
+        deepdoc_runtime_factory=deepdoc_runtime_factory,
+        deepdoc_model_dir=deepdoc_model_dir,
+        deepdoc_require_model_files=deepdoc_require_model_files,
+        deepdoc_zoomin=deepdoc_zoomin,
+        deepdoc_max_pages=deepdoc_max_pages,
     )
+    preferred_parser = None
+    fallback_parser = None
+    if backend == "native":
+        preferred_parser = "structured-v1"
+    elif backend == "deepdoc":
+        preferred_parser = "deepdoc"
+        fallback_parser = "structured-v1" if fallback == "native" else None
+    elif deepdoc_enabled and path.suffix.lower() == ".pdf":
+        preferred_parser = "deepdoc"
+        fallback_parser = "structured-v1" if fallback == "native" else None
 
-
-def _load_pptx(path: Path) -> str:
-    from pptx import Presentation
-
-    presentation = Presentation(path)
-    values = []
-    for slide in presentation.slides:
-        for shape in slide.shapes:
-            if getattr(shape, "has_text_frame", False) and shape.text.strip():
-                values.append(shape.text.strip())
-    return "\n".join(values)
+    return router.parse(
+        path,
+        parser_name=preferred_parser,
+        fallback_parser_name=fallback_parser,
+    ).to_dict()
 
 
 def load_markdown_docs(folder: str):
