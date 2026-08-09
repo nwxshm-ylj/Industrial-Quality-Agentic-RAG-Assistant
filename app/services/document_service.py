@@ -20,6 +20,8 @@ from app.multimodal.factory import get_multimodal_embedding_provider
 from app.multimodal.ocr import DocumentOcrProvider, get_document_ocr_provider
 from app.rag.embeddings.factory import get_embedding_provider
 from app.rag.loader import SUPPORTED_DOCUMENT_EXTENSIONS, load_single_document
+from app.rag.chunking.layout_chunker import scope_chunk_id
+from app.rag.parsing.merge import merge_structured_and_multimodal
 from app.rag.search_backends.base import (
     KeywordSearchBackend,
     VectorSearchBackend,
@@ -208,6 +210,12 @@ class DocumentService:
                 doc_type=effective_doc_type,
                 version=normalized_version,
                 status="uploaded",
+                parser_name=parsed_document.get("parser_name"),
+                parser_version=parsed_document.get("parser_version"),
+                multimodal_asset_count=len(assets),
+                ocr_element_count=parsed_document.get("metadata", {}).get(
+                    "ocr_element_count", 0
+                ),
             )
 
             failed_stage = "chunk"
@@ -516,6 +524,12 @@ class DocumentService:
                 doc_type=document["doc_type"],
                 version=document["version"],
                 status=document["status"],
+                parser_name=parsed_document.get("parser_name"),
+                parser_version=parsed_document.get("parser_version"),
+                multimodal_asset_count=len(assets),
+                ocr_element_count=parsed_document.get("metadata", {}).get(
+                    "ocr_element_count", 0
+                ),
             )
 
             failed_stage = "chunk"
@@ -702,6 +716,23 @@ class DocumentService:
         multimodal_requested = (
             settings.multimodal_enabled or self._multimodal_backend is not None
         )
+        structured_document: dict | None = None
+        structured_error: Exception | None = None
+        try:
+            structured_document = load_single_document(
+                str(file_path),
+                parser_backend=settings.document_parser_backend,
+                parser_fallback=settings.document_parser_fallback,
+                deepdoc_enabled=settings.deepdoc_enabled,
+                deepdoc_runtime_factory=settings.deepdoc_runtime_factory,
+                deepdoc_model_dir=settings.deepdoc_model_dir,
+                deepdoc_require_model_files=settings.deepdoc_require_model_files,
+                deepdoc_zoomin=settings.deepdoc_zoomin,
+                deepdoc_max_pages=settings.deepdoc_max_pages,
+            )
+        except ValueError as exc:
+            structured_error = exc
+
         if (
             multimodal_requested
             and file_path.suffix.lower() in MULTIMODAL_DOCUMENT_EXTENSIONS
@@ -716,8 +747,13 @@ class DocumentService:
                 ocr_provider=self.ocr_provider,
                 asset_id_namespace=asset_id_namespace,
             )
-            return parsed, parsed["assets"]
-        return load_single_document(str(file_path)), []
+            merged = merge_structured_and_multimodal(structured_document, parsed)
+            return merged, parsed["assets"]
+        if structured_document is not None:
+            return structured_document, []
+        if structured_error is not None:
+            raise structured_error
+        raise ValueError(f"文档解析失败: {source}")
 
     def _replace_assets_in_postgres(
         self,
@@ -910,20 +946,34 @@ class DocumentService:
         version: str,
         chunk_id_namespace: str | None = None,
     ) -> list[dict]:
-        chunks = split_docs([
-            {
-                "source": source,
-                "content": parsed_document["content"],
-            }
-        ])
+        chunks = split_docs(
+            [
+                {
+                    "source": source,
+                    "content": parsed_document["content"],
+                    "file_ext": parsed_document.get("file_ext"),
+                    "sections": parsed_document.get("sections"),
+                    "elements": parsed_document.get("elements"),
+                    "parser": parsed_document.get("parser"),
+                    "parser_name": parsed_document.get("parser_name"),
+                    "parser_version": parsed_document.get("parser_version"),
+                    "metadata": parsed_document.get("metadata", {}),
+                }
+            ],
+            chunk_strategy=settings.document_chunk_strategy,
+            target_tokens=settings.document_chunk_target_tokens,
+            max_tokens=settings.document_chunk_max_tokens,
+            overlap_tokens=settings.document_chunk_overlap_tokens,
+        )
         if not chunks:
             raise ValueError(f"文档切分后没有有效内容: {source}")
 
         for index, chunk in enumerate(chunks):
-            chunk_id = (
-                f"{doc_id}_{chunk_id_namespace}_{index}"
-                if chunk_id_namespace
-                else f"{doc_id}_{index}"
+            base_chunk_id = chunk["metadata"].get("chunk_id") or f"chunk_{index}"
+            chunk_id = scope_chunk_id(
+                doc_id,
+                base_chunk_id,
+                operation_id=chunk_id_namespace,
             )
             chunk["metadata"].update({
                 "doc_id": doc_id,

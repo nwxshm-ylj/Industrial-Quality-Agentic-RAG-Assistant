@@ -68,6 +68,19 @@ def parse_multimodal_document(
         "source": source,
         "content": content,
         "file_ext": extension,
+        "sections": [
+            {
+                "text": asset["text"],
+                "section_type": "paragraph",
+                "heading_path": [],
+                "heading_level": None,
+                "page_number": asset["metadata"].get("page_number"),
+                "table_index": None,
+            }
+            for asset in assets
+            if asset["text"].strip()
+        ],
+        "parser": "multimodal-v1",
         "assets": assets,
         "asset_dir": str(asset_dir),
     }

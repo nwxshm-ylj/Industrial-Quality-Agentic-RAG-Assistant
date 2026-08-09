@@ -56,6 +56,21 @@ class Settings(BaseSettings):
     dots_ocr_url: str | None = None
     dots_ocr_timeout_seconds: float = 120.0
 
+    document_chunk_size: int = 700
+    document_chunk_overlap: int = 100
+    document_chunk_strategy: str = "layout_token_v2"
+    document_chunk_target_tokens: int = 384
+    document_chunk_max_tokens: int = 512
+    document_chunk_overlap_tokens: int = 48
+    document_parser_backend: str = "auto"
+    document_parser_fallback: str = "native"
+    deepdoc_enabled: bool = False
+    deepdoc_runtime_factory: str | None = None
+    deepdoc_model_dir: str = "data/models/deepdoc"
+    deepdoc_require_model_files: bool = True
+    deepdoc_zoomin: int = 3
+    deepdoc_max_pages: int = 2000
+
     opensearch_url: str = "http://localhost:9200"
     opensearch_index_prefix: str = "industrial_docs"
     opensearch_username: str | None = None
