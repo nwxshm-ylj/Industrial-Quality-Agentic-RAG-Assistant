@@ -1,142 +1,122 @@
-# Enterprise Observability and Usage Analytics
+# 企业可观测性与用量分析
 
-## Signal model
+## 1. 信号模型
 
-The project keeps four signal types separate while correlating them with
-`request_id` and `trace_id`:
+系统通过 request_id 和 trace_id 关联四类信号：
 
-| Signal | Backend | Purpose |
+| 信号 | 存储/后端 | 作用 |
 |---|---|---|
-| Traces | OpenTelemetry Collector and Tempo | Request and dependency call tree |
-| Metrics | Prometheus | Rates, errors, latency, degradation, and model usage |
-| Logs | JSON stdout, Alloy, and Loki | Detailed searchable events and errors |
-| Usage facts | PostgreSQL | Tokens, calculated cost, intent, retrieval, and quality analysis |
+| Trace | OpenTelemetry Collector、Tempo | 查看一次请求和依赖调用树 |
+| Metric | Prometheus | 请求率、错误率、延迟、降级率、模型用量 |
+| Log | JSON stdout、Alloy、Loki | 搜索具体节点、错误和业务事件 |
+| Usage Fact | PostgreSQL | Token、成本、意图、检索和质量分析 |
 
-Telemetry backend failure does not fail graph-chat. PostgreSQL usage persistence is
-best effort in a separate transaction and emits `usage_persist_failed` plus a
-Prometheus counter if it cannot write. HTTP persistence runs in a bounded background
-task pool. When `USAGE_BACKGROUND_MAX_PENDING` is reached, new usage facts are
-dropped with `usage_persist_queue_full` instead of exhausting application memory.
+Telemetry 后端故障不能让 graph-chat 失败。用量事实使用独立事务和有界后台任务池；队列满时记录 `usage_persist_queue_full`，不允许无限占用内存。
 
-## Correlation identifiers
+## 2. 关联标识
 
-- `request_id`: existing API and business identifier.
-- `trace_id`: OpenTelemetry trace identifier.
-- `span_id`: individual graph node or dependency operation.
-- `session_id`: conversation memory identifier.
+- `request_id`：API 与业务请求主标识；
+- `trace_id`：OpenTelemetry Trace 标识；
+- `span_id`：单个 Graph 节点或依赖调用；
+- `session_id`：会话记忆标识；
+- `username/role`：审计主体。
 
-Do not use request, session, or user identifiers as Prometheus labels. They are
-available in traces, logs, audit records, and PostgreSQL where high-cardinality
-queries are appropriate.
+request_id、session_id、username 属于高基数字段，不应作为 Prometheus Label；它们保存在 Trace、Log、审计表和 PostgreSQL 明细中。
 
-## Usage tables
+## 3. 节点耗时
+
+`app/core/logger.py::observe_node` 包装主要节点：
+
+- load_memory；
+- intent_router；
+- query_rewriter；
+- retrieve；
+- evidence_judge；
+- rule_tool；
+- sql_tool；
+- case_retriever；
+- generate；
+- save_memory；
+- graph_chat。
+
+结构化日志至少包含 request_id、session_id、node_name、intent、latency_ms 和 status。
+
+## 4. 用量数据
 
 ### rag_request_runs
 
-One row per graph-chat request and per API request that consumes a model or embedding.
-It contains route, latency, intent, evidence, retrieval mode, degradation state,
-aggregate tokens, calculated cost, and request status. This includes document upload
-and reindex embedding consumption.
+每次 graph-chat 或模型相关 API 一条汇总，保存路由、状态、总延迟、意图、证据、检索模式、降级状态、Token 和估算成本。
 
 ### ai_usage_events
 
-One row per LLM or embedding call. Document and query embeddings are recorded as
-separate operations. Provider-reported token counts are marked with
-`measurement_source=provider`; missing usage is kept as unavailable rather than
-silently estimated.
+每次 LLM 或 Embedding 调用一条事件。document embedding 和 query embedding 使用不同 operation。缺少 Provider Usage 时保持 unavailable，不伪造 Token。
 
 ### retrieval_events
 
-One row per document retrieval. It contains vector/keyword/fused counts, Qdrant and
-OpenSearch latency, RRF latency, reranker latency, and degraded mode.
+每次文档检索保存 vector/keyword/fused 数量、Qdrant/OpenSearch/RRF/Reranker 延迟、Collection、索引版本和降级原因。
 
-## Cost catalog
+## 5. 成本目录
 
-`data/config/model_pricing.yaml` intentionally starts without prices. Add reviewed
-provider prices and a version before using cost totals for budgeting. Each event
-stores the pricing version and amount calculated at event time so later catalog
-changes do not rewrite history.
+`data/config/model_pricing.yaml` 保存经过人工审核的价格版本。项目默认不填真实价格，避免过期价格造成错误成本结论。
 
-Example structure (replace the example rates with reviewed current prices):
+示例：
 
-~~~yaml
+```yaml
 version: reviewed-2026-01
 currency: CNY
 models:
   qwen:qwen-plus:
     input_price_per_1k_tokens: 0.0
     output_price_per_1k_tokens: 0.0
-  qwen:text-embedding-v4:
-    embedding_price_per_1k_tokens: 0.0
-~~~
+```
 
-Never commit provider credentials to the pricing file or telemetry configuration.
+本地 BGE-M3 没有按调用计费，但仍记录调用次数、文本数量、字符数、延迟和模型版本。
 
-## APIs
+## 6. 查询 API
 
-The following endpoints use the existing admin/engineer RBAC dependency:
+admin/engineer 可访问：
 
-- `GET /api/v1/observability/requests/{request_id}`
-- `GET /api/v1/observability/analytics/overview`
-- `GET /api/v1/observability/analytics/timeseries`
-- `GET /api/v1/observability/analytics/models`
-- `GET /api/v1/observability/analytics/intents`
-- `GET /api/v1/observability/analytics/retrieval`
+- `GET /api/v1/observability/requests/{request_id}`；
+- `GET /api/v1/observability/analytics/overview`；
+- `GET /api/v1/observability/analytics/timeseries`；
+- `GET /api/v1/observability/analytics/models`；
+- `GET /api/v1/observability/analytics/intents`；
+- `GET /api/v1/observability/analytics/retrieval`。
 
-Analytics endpoints accept optional ISO-8601 `start_at` and `end_at` parameters and
-default to the most recent seven days. Timeseries additionally accepts
-`granularity=hour|day`.
+## 7. 部署
 
-Retrieval-only evaluation publishes low-cardinality latest-run metrics:
+```powershell
+docker compose `
+  -f docker-compose.yml `
+  -f docker-compose.observability.yml `
+  up -d
+```
 
-- `industrial_rag_retrieval_evaluation_runs_total`
-- `industrial_rag_retrieval_evaluation_score{metric,k}`
-- `industrial_rag_retrieval_evaluation_latency_ms{quantile}`
+检查：
 
-The Grafana `Industrial RAG - Retrieval and Quality` dashboard displays the latest
-Recall/MRR/HitRate/nDCG and P50/P95/P99 values. Versioned historical reports remain
-in `data/eval/retrieval_eval_report_<run_id>.json`.
-
-## Privacy rules
-
-The telemetry filter redacts secrets based on field names and masks Bearer tokens,
-URL passwords, and common query-string secrets. Prompt, question, answer, document
-content, passwords, JWTs, and API keys must not be added as metric labels or span
-attributes.
-
-The existing feedback table intentionally stores question and answer content for the
-quality workflow. Access and retention for that business dataset should be governed
-separately from operational telemetry.
-
-## Retention
-
-`USAGE_RETENTION_DAYS` defaults to 90. Run the cleanup command from a controlled
-scheduler or maintenance job:
-
-~~~bash
-python -m scripts.cleanup_observability_data --days 90
-~~~
-
-The cleanup is scoped only to `rag_request_runs`, `ai_usage_events`, and
-`retrieval_events`; it does not delete audit, feedback, evaluation, conversation, or
-knowledge-base data.
-
-## Development validation
-
-Offline checks:
-
-~~~bash
-python -m scripts.test_telemetry_context
-python -m scripts.test_model_usage_mock
-python -m scripts.test_metrics
+```powershell
+docker compose exec api python -m scripts.test_observability
 python -m scripts.test_observability_stack
-~~~
-
-PostgreSQL integration check:
-
-~~~bash
+python -m scripts.test_metrics
 python -m scripts.test_usage_analytics
-~~~
+```
 
-Do not run `scripts.init_sql_data` against an unknown or production database; it also
-recreates the three demo business tables.
+## 8. 告警建议
+
+- graph-chat 5xx 错误率；
+- P95/P99 总延迟和节点延迟；
+- OpenSearch vector-only 降级率；
+- Reranker 降级率；
+- memory_degraded 比例；
+- Embedding 维度错误或模型加载失败；
+- Usage 写入失败/队列丢弃；
+- Qdrant/OpenSearch 索引数量不一致；
+- 文档 failed 状态积压。
+
+## 9. 数据清理
+
+```powershell
+python -m scripts.cleanup_observability_data
+```
+
+清理前必须确认保留天数和数据库环境。指标、日志、Trace 和 PostgreSQL 明细应分别配置生命周期。

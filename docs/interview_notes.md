@@ -1,257 +1,174 @@
-# Interview Notes
+# 项目代码走读与技术讲解指南
 
-这份材料用于面试、项目答辩和代码走查。建议先讲业务问题，再讲架构决策，最后主动说明边界和下一步，而不是逐个罗列技术名词。
+> 文件名为兼容既有 README 链接而保留。本文只用于项目技术理解和代码走读，不包含简历包装或虚构业务指标。
 
-## 1. 两分钟项目介绍
+## 1. 一句话说明
 
-> 这是一个面向制造质量场景的企业级 Agentic RAG 项目。现场问题并不都是文档问答：有些是故障诊断，有些要查确定性规则，有些要查历史案例，还有些要分析 PostgreSQL 中的检测和报警数据。因此我没有把所有问题都送进同一个向量检索链，而是使用 LangGraph 做显式意图路由。
->
-> 文档路径采用 Qdrant 向量检索和 OpenSearch 关键词检索，通过 RRF 融合候选，可选 Reranker，并由 Evidence Judge 判断证据是否充分，不足时进行一次查询改写和重试。规则、SQL、历史案例分别走 Rule Tool、受限 SQL Tool 和 Case Retriever。所有路径最终统一进入答案生成，并把最近对话按 session_id 保存到 PostgreSQL，支持连续追问。
->
-> 在企业能力上，项目还实现了 md、txt、pdf、docx 文档上传、版本、增量索引、删除和重建；使用 JWT、admin/engineer/viewer RBAC 和操作审计保护高风险功能；通过 request_id、OpenTelemetry、Prometheus、节点耗时和 JSON 日志提供可观测性；最后把用户反馈、离线评估、指标看板串成质量闭环。整个项目使用 Docker Compose 运行 FastAPI、React/Streamlit、PostgreSQL、Qdrant 和 OpenSearch。
+这是一个把工业文档问答、确定性规则、受限 SQL、历史案例、知识图谱和多轮记忆统一到 LangGraph 状态机中的工业质量 Agentic RAG 系统。
 
-如果时间只有 30 秒，保留四点：
+## 2. 建议理解顺序
 
-1. 多路 Agentic 工作流，不是单链 RAG。
-2. Qdrant + OpenSearch + RRF + Evidence Judge。
-3. 知识库管理 + JWT/RBAC + 审计。
-4. request_id + 用户反馈 + 评估闭环。
+### 第一层：请求入口
 
-## 2. 架构讲解顺序
+先阅读：
 
-建议按一次请求的生命周期讲：
+1. `app/main.py`：应用启动、中间件、readiness 和 Router 注册。
+2. `app/api/routes_chat.py`：Bearer Token、同步 graph-chat、SSE 流式响应和审计。
+3. `app/schemas/chat.py`：请求过滤、多模态输入、引用和响应兼容字段。
 
-1. 用户在 Streamlit 登录，API 签发 JWT。
-2. graph-chat 中间件生成 request_id。
-3. LangGraph 先按 session_id 加载历史消息。
-4. Intent Router 选择 Rule、SQL、Case、Document 或 General 路径。
-5. 文档路径经过 Query Rewriter、Hybrid Retriever 和 Evidence Judge。
-6. 所有路径统一生成答案并保存会话。
-7. 响应返回 citations、memory_messages、证据指标和 total latency。
-8. 日志与审计记录请求，用户可基于同一个 request_id 提交反馈。
-9. EvaluationService 运行版本化问题集并落库指标。
+需要理解：request_id 在哪里生成，user/role 如何进入 Graph State，401/403/500 如何区分。
 
-然后补充两个旁路：
+### 第二层：Agent 工作流
 
-- DocumentService 管理 PostgreSQL 元数据、Qdrant 向量索引和 OpenSearch 关键词索引；`chunks.json` 只保留给 Legacy Demo。
-- Auth/Audit 位于业务链路外层，不侵入每个节点，但 SQL Tool 保留第二道权限检查。
+阅读：
 
-## 3. 为什么使用 LangGraph
+1. `app/rag/graph_chain.py`
+2. `app/graph/state.py`
+3. `app/graph/workflow.py`
+4. `app/graph/nodes/`
 
-传统顺序链适合固定的 retrieve → generate，但这里存在：
+核心问题：
 
-- 多个意图和不同数据源。
-- Rule Tool 未命中后回退到文档 RAG。
-- Evidence 不足时回到 Query Rewriter 重试。
-- 所有路径最终统一生成并保存 memory。
-- state 需要携带工具结果、证据、重试次数、用户和 request_id。
+- 为什么先加载记忆再判断意图？
+- 为什么 Rule 未命中回退 RAG？
+- 为什么 Evidence Judge 只允许一次重写？
+- 为什么所有路径都必须经过 generate 和 save_memory？
 
-LangGraph 的价值是显式状态机：
+### 第三层：离线知识加工
 
-- 节点职责清晰，可独立测试。
-- 条件边可读，避免大量嵌套 if/else。
-- 状态字段让引用、工具结果和观测信息可追踪。
-- 后续容易增加审批节点、人工确认、超时和持久化 checkpoint。
+阅读：
 
-要主动说明：LangGraph 不是因为“Agent 流行”才使用，而是因为业务确实包含分支、回退和状态。
+1. `app/services/document_service.py`
+2. `app/rag/loader.py`
+3. `app/rag/parsing/contracts.py`
+4. `app/rag/parsing/router.py`
+5. `app/rag/chunking/layout_chunker.py`
+6. `app/rag/splitter.py`
 
-## 4. 为什么使用 Hybrid Search
+重点追踪一个文件从上传到 indexed 的全过程，并识别 staging、promotion、failed_stage 和补偿清理。
 
-只用向量检索的问题：
+### 第四层：在线检索
 
-- PR001、TQ001、VIN、工位名等短代码的语义表示不稳定。
-- 工业文档中精确型号和参数通常比语义相似更重要。
-- 中文术语、英文缩写和数字混排可能造成向量召回偏差。
+阅读：
 
-只用关键词检索的问题：
+1. `app/rag/retriever.py`
+2. `app/rag/online_hybrid_retriever.py`
+3. `app/rag/embeddings/local_provider.py`
+4. `app/rag/search_backends/qdrant_backend.py`
+5. `app/rag/search_backends/opensearch_backend.py`
+6. `app/rag/fusion.py`
+7. `app/rag/reranker.py`
 
-- 用户表达与文档术语不一致时召回较差。
-- “识别异常怎么处理”和“视觉检测误判排查”可能词面不同但语义接近。
-- 多轮补全后的自然语言查询更适合语义检索。
+重点理解 BGE-M3 Provider 为什么进程级复用、Qdrant 为什么查询 Alias、RRF 为什么只依赖排名、OpenSearch 故障如何降级。
 
-因此：
+### 第五层：记忆与生成
 
-- Qdrant 负责语义召回。
-- OpenSearch 负责精确关键词、编号、术语和可扩展在线倒排索引。
-- RRF 根据两路排名进行融合，避免直接比较不同检索器的原始分数。
-- 可选 Reranker 对候选进行更精细排序。
-- Evidence Judge 用评估阈值约束生成入口。
+阅读：
 
-融合参数和 Reranker 是否启用应由版本化评估集与线上反馈驱动，而不是凭经验固定。
+1. `app/memory/conversation_memory.py`
+2. `app/memory/short_term.py`
+3. `app/memory/long_term.py`
+4. `app/memory/layered_memory.py`
+5. `app/rag/generator.py`
+6. `app/prompting/registry.py`
 
-## 5. 为什么需要 RBAC
+重点区分：PostgreSQL 原始会话、Redis 短期窗口、抽取式摘要、Qdrant/OpenSearch 情景记忆，以及它们的降级关系。
 
-这个系统不仅“读文档”：
+## 3. 五条核心技术链路
 
-- SQL analysis 会访问结构化生产数据。
-- 文档删除和重建会改变检索结果。
-- 用户管理涉及身份和权限。
-- 反馈列表可能包含问题、回答和业务上下文。
-- 评估运行消耗模型资源。
+### 文档问答
 
-角色设计：
+```text
+load_memory → intent_router → query_rewriter → retrieve
+→ evidence_judge → generate → save_memory
+```
 
-- admin：治理和破坏性操作。
-- engineer：业务使用、SQL、上传、反馈分析和评估。
-- viewer：普通问答、文档查看和反馈提交。
+### 规则查询
 
-实现上不能只隐藏前端按钮：
+```text
+intent_router → rule_tool
+  ├─ 命中 → generate
+  └─ 未命中 → query_rewriter → RAG
+```
 
-- FastAPI Depends 校验 Bearer Token 和 active user。
-- require_roles 在路由层做授权。
-- SQL Tool 在节点执行前再次检查 role。
-- 401 与 403 语义分离。
-- permission_denied 写入日志和审计表。
+### SQL 分析
 
-生产扩展方向是多租户、部门/产线范围、文档 ACL 和策略引擎。
+```text
+intent_router → RBAC 检查 → 模板 SQL/LLM SQL
+→ SELECT/表白名单/LIMIT 校验 → PostgreSQL → generate
+```
 
-## 6. 为什么需要反馈闭环
+### 文档上传
 
-离线评估不能覆盖所有真实表达和现场长尾问题。没有反馈时只能看“模型是否返回”，无法知道“答案是否有用”。
+```text
+save → parse → merge → chunk → PostgreSQL
+→ Qdrant staging + OpenSearch staging
+→ promotion → indexed
+```
 
-反馈记录：
+### 分层记忆
 
-- request_id：定位精确运行。
-- session_id：关联对话上下文。
-- question / answer：保留评审对象。
-- rating / comment：用户质量信号。
-- intent / citations / metadata：分析路由、来源、证据和延迟。
+```text
+PostgreSQL 原始消息
++ Redis 最近窗口/摘要
++ Qdrant 语义记忆/OpenSearch 全文记忆
+→ 统一 memory_messages
+```
 
-闭环过程：
+## 4. 关键设计取舍
 
-~~~text
-线上问题与回答
-  -> 用户反馈
-  -> 按意图/评分分析
-  -> 补文档、改 Prompt、调检索或修规则
-  -> 离线评估回归
-  -> 发布新版本
-  -> 继续收集反馈
-~~~
+### 为什么使用 LangGraph
 
-要说明局限：用户反馈有偏差，不能直接作为唯一训练标签；需要去重、抽样复核、权限控制和隐私治理。
+系统具有多意图、工具分支、规则回退、证据重试和统一收尾，不是固定 retrieve → generate。显式图比嵌套 if/else 更易观测和测试。
 
-## 7. 可观测性如何设计
+### 为什么使用 Qdrant + OpenSearch
 
-三个关联键：
+向量检索擅长语义改写，OpenSearch 擅长 PR 编码、VIN、故障码、设备编号和精确术语。两路分数尺度不同，默认 RRF 使用排名融合，避免直接相加。
 
-- request_id：一次 API/Graph 执行。
-- session_id：多轮会话。
-- username/role：操作主体。
+### 为什么本地使用 BGE-M3
 
-两类记录：
+运行时不产生 Embedding API 费用，也不受网络和配额影响；固定模型 Revision、维度和版本化 Collection 后更容易复现与回滚。代价是 API 容器需要模型内存，CPU 冷启动延迟较高。
 
-- JSON 运行日志：节点、状态、latency、error。
-- PostgreSQL 审计：谁在何时对什么资源执行了什么动作。
+### 为什么 Chunk 保留章节、页码和表头
 
-响应 metadata 让前端和测试可以直接验证 intent、evidence、retry 和 total latency。审计写入失败不阻断主流程，是为了避免“监控系统故障导致业务不可用”，但必须输出 error log 并设置告警。
+切得过小会丢失语义，切得过大会引入噪声。layout-token-v2 以标题和表格为边界，控制最大 token，并让每个 Chunk 单独进入 Prompt 时仍然可理解和可引用。
 
-## 8. 知识库管理为什么同时写三处
+### 为什么 PostgreSQL 仍是记忆最终存储
 
-- PostgreSQL 是元数据和 chunk 的事实记录，支持状态、版本、列表和审计。
-- Qdrant 是向量在线检索索引。
-- OpenSearch 是在线关键词检索索引。
+Redis 有 TTL，向量/全文索引可能暂时不可用。原始消息先落 PostgreSQL，短期和长期检索层可以重建或降级，不会因为缓存故障丢失会话事实。
 
-上传事务跨文件系统、PostgreSQL、Qdrant 和 OpenSearch，当前版本采用状态字段、失败阶段和幂等 reindex 控制，而不是分布式事务。只有两路检索索引都成功后才能标记 indexed。
+## 5. 必须准确说明的能力边界
 
-改进方向：
+- 当前证据判断是规则阈值，不是独立训练的奖励模型。
+- 短期摘要是抽取式拼接截断，不是 LLM 语义总结。
+- 长期记忆是问答情景检索，不是完整的用户画像或事实记忆系统。
+- 知识图谱只增强历史案例路径，不参与所有文档问题。
+- 多模态和 DeepDOC 是否可用取决于配置与本地模型资源，不能只根据代码存在就宣称已启用。
+- 内置检索集只有少量样例，指标适合做回归，不代表真实工厂效果。
+- `chunks.json` 和旧 BM25 Retriever 是 Legacy 兼容资产，不是当前在线 Hybrid Search 数据源。
 
-- outbox/event + 异步 worker。
-- 可重试、幂等任务状态机。
-- 对象存储替代本地文件。
-- outbox、任务状态和补偿扫描进一步降低跨存储不一致窗口。
+## 6. 推荐动手验证
 
-## 9. 项目难点
+```powershell
+python -m compileall app scripts
+python -m scripts.test_local_embedding_provider
+python -m scripts.test_document_parsing
+python -m scripts.test_layout_chunker
+python -m scripts.test_online_hybrid_retriever
+python -m scripts.test_retrieval_evaluation
+docker compose config --quiet
+git diff --check
+```
 
-### 9.1 多路径输出统一
+集成环境：
 
-Rule、SQL、Case 和 Document 的数据格式不同。解决方式是统一映射为 contexts、citations 和 tool_result，再由 Generator 输出。
+```powershell
+docker compose exec api python -m scripts.test_auth_rbac
+docker compose exec api python -m scripts.test_document_management
+docker compose exec api python -m scripts.test_memory
+docker compose exec api python -m scripts.test_observability
+docker compose exec api python -m scripts.test_feedback_evaluation
+docker compose exec api python -m scripts.evaluate_retrieval
+```
 
-### 9.2 多轮指代不能污染事实依据
-
-Memory 只用于理解指代和改写查询，答案仍要求以当前检索 evidence 为主要依据。
-
-### 9.3 增量文档不能覆盖旧数据
-
-Qdrant point ID 必须稳定唯一，删除必须按 payload.doc_id 过滤，不能重建整个 collection。legacy ingest 流程继续保留但与增量 API 明确区分。
-
-### 9.4 SQL 安全
-
-SQL Tool 只允许 SELECT、白名单表和 LIMIT，并通过 RBAC 限制角色。生产仍需数据库只读账号、独立 schema、statement timeout 和更严格 SQL parser。
-
-### 9.5 可观测信息跨层传递
-
-request_id 从 FastAPI 中间件进入 graph state，再出现在节点日志、响应、反馈和审计中，使问题可关联而不是只看孤立日志。
-
-### 9.6 测试依赖外部服务
-
-集成测试依赖 PostgreSQL、Qdrant、Embedding 和 LLM。项目通过 Docker Compose 和明确的测试脚本降低环境差异，但后续还需要 mock/unit test 和 CI 中的可控模型桩。
-
-## 10. 项目不足
-
-面试中应主动说明：
-
-- init_sql_data 会重建三张演示业务表，不是正式 migration。
-- 文档入库和评估是同步操作，长任务会占用请求线程。
-- 没有多租户和文档级 ACL。
-- OpenTelemetry、Prometheus、Loki、Tempo 和 Grafana 已提供参考部署，但生产告警路由、长期存储和容量规划仍需完善。
-- OpenSearch 当前 Compose 是单节点开发配置并关闭安全插件，不能直接视为生产集群方案。
-- 评估指标偏规则化，缺少人工标注和 LLM-as-a-Judge 交叉验证。
-- 上传文件缺少病毒扫描、对象存储、配额和内容安全策略。
-- SQL 校验是受限实现，不等同于完整 SQL 沙箱。
-- 模型、Prompt、索引和数据集尚未统一版本化。
-- Docker 镜像和 Python 依赖还需要严格锁定和供应链扫描。
-
-主动说明边界比宣称“生产可直接使用”更可信。
-
-## 11. 后续优化优先级
-
-### P0：安全与可靠性
-
-1. Alembic migration。
-2. 只读 SQL 账号、超时、资源限制。
-3. 密钥管理、默认密码强制变更。
-4. 文件扫描、上传配额、对象存储。
-5. 依赖锁定、镜像固定、CI 安全扫描。
-
-### P1：规模化
-
-1. Celery/RQ/Arq 或消息队列处理入库与评估。
-2. 多租户和数据范围权限。
-3. OpenSearch 集群化、索引模板治理和容量压测。
-4. 缓存、连接池和模型服务拆分。
-5. 评估任务状态与进度查询。
-
-### P2：质量运营
-
-1. RAGAS 与 LLM-as-a-Judge。
-2. Prompt/模型/索引版本。
-3. 线上指标趋势和版本对比。
-4. 负反馈自动聚类和待办。
-5. A/B 测试与灰度发布。
-
-## 12. 常见追问
-
-### 为什么不用一个大模型直接回答？
-
-制造场景要求可追溯和权限边界。规则、SQL 和案例是确定性或结构化数据，直接生成会降低可靠性。
-
-### 为什么同时使用 Qdrant 和 OpenSearch？
-
-Qdrant 专注向量检索、Collection/Alias 和向量 payload 过滤，OpenSearch 提供成熟的倒排索引与精确术语召回。两者通过统一 Backend 接口和 RRF 融合，代价是双索引一致性与运维复杂度；未来也可以评估支持稠密/稀疏统一检索的单引擎方案。
-
-### 为什么会返回 contexts？
-
-便于演示、调试和评估。生产环境应按权限裁剪，避免泄露敏感原文。
-
-### 如何证明效果变好？
-
-固定版本的评估集 + 指标趋势 + 真实用户反馈 + 人工抽检。不能只展示一次成功回答。
-
-### 如何避免提示注入？
-
-当前主要依赖参考资料约束。生产需要文档信任分级、Prompt injection 检测、工具参数校验、输出策略和敏感操作人工确认。
-
-### 系统最值得展示的点是什么？
-
-不是某个模型调用，而是从数据治理、Agent 编排、安全、可观测性到反馈评估的完整工程闭环。
+真实 LLM、RAGAS、多模态 Embedding 和 DeepDOC 模型测试不应放入默认单元测试，应在显式配置好外部资源后单独验收。

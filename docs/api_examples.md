@@ -1,29 +1,26 @@
-# API Examples
+# API 调用示例
 
-Base URL:
+## 1. 基础地址与鉴权
 
-~~~bash
-export API_BASE=http://localhost:8000
-~~~
+本地 Docker 默认 API 地址：
 
-PowerShell equivalents can use $env:API_BASE and $env:TOKEN.
+```powershell
+$env:API_BASE = "http://localhost:18000"
+```
 
-All enterprise APIs except login and health require a Bearer token. The legacy /api/v1/chat route is retained for compatibility; use authenticated /api/v1/graph-chat for demonstrations.
+除登录和健康检查外，企业接口均需要 Bearer Token。以下示例使用 PowerShell 的 `curl.exe`，避免与 `Invoke-WebRequest` 别名混淆。
 
-## 1. Login
+## 2. 登录
 
-~~~bash
-curl -X POST "$API_BASE/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "admin",
-    "password": "admin123"
-  }'
-~~~
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/auth/login" `
+  -H "Content-Type: application/json" `
+  -d '{"username":"admin","password":"admin123"}'
+```
 
-Response:
+典型响应：
 
-~~~json
+```json
 {
   "access_token": "eyJ...",
   "token_type": "bearer",
@@ -33,289 +30,193 @@ Response:
     "is_active": true
   }
 }
-~~~
+```
 
-Copy access_token:
+把返回的 Token 保存到环境变量：
 
-~~~bash
-export TOKEN="eyJ..."
-~~~
+```powershell
+$env:TOKEN = "eyJ..."
+```
 
-## 2. Agentic graph-chat
+## 3. Agentic graph-chat
 
-First turn:
+第一轮：
 
-~~~bash
-curl -X POST "$API_BASE/api/v1/graph-chat" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "轮毂识别异常可能是什么原因？",
-    "top_k": 3,
-    "session_id": "demo-session-001"
-  }'
-~~~
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/graph-chat" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"轮毂识别异常可能是什么原因？","top_k":5,"session_id":"demo-session-001"}'
+```
 
-Follow-up using the same session_id:
+使用相同 session_id 连续追问：
 
-~~~bash
-curl -X POST "$API_BASE/api/v1/graph-chat" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "那优先排查哪个？",
-    "top_k": 3,
-    "session_id": "demo-session-001"
-  }'
-~~~
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/graph-chat" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"那优先排查哪个？","top_k":5,"session_id":"demo-session-001"}'
+```
 
-Representative response:
+带元数据过滤：
 
-~~~json
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/graph-chat" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"视觉识别异常如何排查？","top_k":5,"session_id":"filter-demo","retrieval_filters":{"doc_types":["FMEA","SOP"],"versions":["v1"]}}'
+```
+
+响应兼容字段：
+
+```json
 {
-  "question": "那优先排查哪个？",
+  "question": "轮毂识别异常可能是什么原因？",
   "answer": "...",
   "citations": [],
-  "request_id": "c2ec3b4e-...",
+  "request_id": "...",
   "session_id": "demo-session-001",
-  "memory_messages": [
-    {
-      "role": "user",
-      "content": "轮毂识别异常可能是什么原因？"
-    }
-  ],
+  "memory_messages": [],
   "metadata": {
     "intent": "fault_diagnosis",
-    "evidence_score": 0.78,
+    "evidence_score": 0.83,
     "evidence_enough": true,
     "retry_count": 0,
-    "total_latency_ms": 1250.4
+    "total_latency_ms": 1520.3,
+    "retrieval_mode": "hybrid",
+    "degraded": false
   },
   "intent": "fault_diagnosis",
-  "evidence_score": 0.78,
-  "evidence_enough": true,
-  "retry_count": 0
+  "rewritten_query": "...",
+  "contexts": []
 }
-~~~
+```
 
-Save request_id, answer, citations, intent, and metadata if the response will be submitted as feedback.
+## 4. 流式问答与节点进度
 
-## 3. Upload and index a document
+```powershell
+curl.exe -N -X POST "$env:API_BASE/api/v1/graph-chat/stream" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"扭矩报警如何排查？","top_k":5,"session_id":"stream-demo"}'
+```
 
-Supported extensions: md, txt, pdf, docx.
+接口使用 Server-Sent Events，事件包括阶段开始、节点完成、答案 token、最终 result 和 error。前端应以最终 `result` 事件为完整响应来源。
 
-~~~bash
-curl -X POST "$API_BASE/api/v1/documents/upload" \
-  -H "Authorization: Bearer $TOKEN" \
-  -F "file=@./demo_quality_sop.txt" \
-  -F "doc_type=SOP" \
+## 5. 多模态查询
+
+仅当服务端启用了多模态索引时使用：
+
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/graph-chat" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"question":"图片中设备部件可能存在什么异常？","session_id":"mm-demo","multimodal_query":{"images":["https://example.com/equipment.jpg"]}}'
+```
+
+图片支持 HTTP(S) URL 或 `data:image/...` URI。未开启多模态时，系统保留文本检索结果并在 metadata 标记降级。
+
+## 6. 上传和管理文档
+
+上传：
+
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/documents/upload" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -F "file=@data/raw_docs/ai_vision_fmea.md" `
+  -F "doc_type=FMEA" `
   -F "version=v1"
-~~~
+```
 
-Only admin and engineer can upload.
+列表：
 
-Example response:
+```powershell
+curl.exe "$env:API_BASE/api/v1/documents" `
+  -H "Authorization: Bearer $env:TOKEN"
+```
 
-~~~json
-{
-  "doc_id": "7fc...",
-  "filename": "demo_quality_sop.txt",
-  "doc_type": "SOP",
-  "version": "v1",
-  "status": "indexed",
-  "chunk_count": 2
-}
-~~~
+详情：
 
-## 4. List documents
+```powershell
+curl.exe "$env:API_BASE/api/v1/documents/<doc_id>" `
+  -H "Authorization: Bearer $env:TOKEN"
+```
 
-~~~bash
-curl "$API_BASE/api/v1/documents" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
+重建索引，仅 admin：
 
-Filter by status:
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/documents/<doc_id>/reindex" `
+  -H "Authorization: Bearer $env:TOKEN"
+```
 
-~~~bash
-curl "$API_BASE/api/v1/documents?status=indexed" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
+删除，仅 admin：
 
-Get one document:
+```powershell
+curl.exe -X DELETE "$env:API_BASE/api/v1/documents/<doc_id>" `
+  -H "Authorization: Bearer $env:TOKEN"
+```
 
-~~~bash
-curl "$API_BASE/api/v1/documents/DOC_ID" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
+## 7. 提交反馈
 
-Admin-only maintenance:
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/feedback" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"request_id":"<graph-chat request_id>","session_id":"demo-session-001","question":"轮毂识别异常可能是什么原因？","answer":"...","rating":"positive","comment":"引用和排查顺序准确","intent":"fault_diagnosis","citations":[],"metadata":{}}'
+```
 
-~~~bash
-curl -X POST "$API_BASE/api/v1/documents/DOC_ID/reindex" \
-  -H "Authorization: Bearer $TOKEN"
+反馈统计，admin/engineer：
 
-curl -X DELETE "$API_BASE/api/v1/documents/DOC_ID" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
+```powershell
+curl.exe "$env:API_BASE/api/v1/feedback/stats" `
+  -H "Authorization: Bearer $env:TOKEN"
+```
 
-## 5. Submit answer feedback
+## 8. 评估接口
 
-Use fields from the graph-chat response:
+运行端到端评估：
 
-~~~bash
-curl -X POST "$API_BASE/api/v1/feedback" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "request_id": "c2ec3b4e-...",
-    "session_id": "demo-session-001",
-    "question": "那优先排查哪个？",
-    "answer": "优先检查相机曝光、安装位置和标定状态。",
-    "rating": "positive",
-    "comment": "排查顺序清楚，引用准确",
-    "intent": "fault_diagnosis",
-    "citations": [
-      {
-        "source": "wheel_fmea.md",
-        "doc_type": "FMEA"
-      }
-    ],
-    "metadata": {
-      "evidence_score": 0.78,
-      "total_latency_ms": 1250.4
-    }
-  }'
-~~~
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/evaluation/run" `
+  -H "Authorization: Bearer $env:TOKEN"
+```
 
-Allowed ratings are positive, negative, and neutral. All three roles can submit feedback.
+运行独立检索评估，不调用答案生成 LLM：
 
-## 6. Feedback statistics
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/evaluation/retrieval/run" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"top_k":5,"k_values":[1,3,5],"max_questions":null}'
+```
 
-admin and engineer only:
+运行 RAGAS 评估：
 
-~~~bash
-curl "$API_BASE/api/v1/feedback/stats" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
+```powershell
+curl.exe -X POST "$env:API_BASE/api/v1/evaluation/ragas/run" `
+  -H "Authorization: Bearer $env:TOKEN" `
+  -H "Content-Type: application/json" `
+  -d '{"max_questions":5}'
+```
 
-List negative feedback:
+## 9. 可观测性与审计
 
-~~~bash
-curl "$API_BASE/api/v1/feedback?rating=negative&limit=50" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
+```powershell
+curl.exe "$env:API_BASE/api/v1/observability/requests/<request_id>" `
+  -H "Authorization: Bearer $env:TOKEN"
 
-## 7. Run RAG evaluation
+curl.exe "$env:API_BASE/api/v1/observability/analytics/overview" `
+  -H "Authorization: Bearer $env:TOKEN"
 
-admin and engineer only. v1.0 runs synchronously.
+curl.exe "$env:API_BASE/api/v1/audit-logs?limit=50" `
+  -H "Authorization: Bearer $env:TOKEN"
+```
 
-~~~bash
-curl -X POST "$API_BASE/api/v1/evaluation/run" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
+## 10. 健康检查
 
-List runs:
+```powershell
+curl.exe "$env:API_BASE/health"
+curl.exe "$env:API_BASE/health/ready"
+```
 
-~~~bash
-curl "$API_BASE/api/v1/evaluation/runs?limit=20" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
-
-Get one run with item details:
-
-~~~bash
-curl "$API_BASE/api/v1/evaluation/runs/RUN_ID" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
-
-### Retrieval-only evaluation
-
-This path evaluates ranked Qdrant + OpenSearch retrieval without invoking the
-answer-generating LLM. It still calls the configured query EmbeddingProvider.
-
-~~~bash
-curl -X POST "$API_BASE/api/v1/evaluation/retrieval/run" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "top_k": 5,
-    "k_values": [1, 3, 5]
-  }'
-
-curl "$API_BASE/api/v1/evaluation/retrieval/runs?limit=20" \
-  -H "Authorization: Bearer $TOKEN"
-
-curl "$API_BASE/api/v1/evaluation/retrieval/runs/RETRIEVAL_RUN_ID" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
-
-The response includes Precision@K, Recall@K, HitRate@K, MRR@K, nDCG@K,
-P50/P95/P99 retrieval latency, backend latency breakdown, degraded status, and
-ranked result identifiers. Document text is not copied into the report.
-
-## 8. User administration
-
-admin only:
-
-~~~bash
-curl -X POST "$API_BASE/api/v1/auth/users" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "quality_engineer",
-    "password": "replace_me",
-    "role": "engineer"
-  }'
-
-curl "$API_BASE/api/v1/auth/users" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
-
-## 9. Error behavior
-
-| Status | Meaning |
-|---|---|
-| 400 | Invalid input or unsupported document |
-| 401 | Missing, invalid, or expired token |
-| 403 | Authenticated role lacks permission |
-| 404 | Document or evaluation run not found |
-| 409 | Duplicate user or conflicting resource |
-| 422 | Pydantic request validation failed |
-| 500 | Internal operation failed |
-| 503 | Evaluation failed because a required model/service was unavailable |
-
-## Observability and usage analytics
-
-The existing Bearer token is required for the following admin/engineer endpoints.
-
-~~~bash
-curl -s "$API_BASE/api/v1/observability/analytics/overview" \
-  -H "Authorization: Bearer $TOKEN"
-
-curl -s "$API_BASE/api/v1/observability/analytics/timeseries?granularity=day" \
-  -H "Authorization: Bearer $TOKEN"
-
-curl -s "$API_BASE/api/v1/observability/analytics/models" \
-  -H "Authorization: Bearer $TOKEN"
-
-curl -s "$API_BASE/api/v1/observability/analytics/retrieval" \
-  -H "Authorization: Bearer $TOKEN"
-~~~
-
-Inspect one request by the `request_id` returned from graph-chat:
-
-~~~bash
-curl -s "$API_BASE/api/v1/observability/requests/c2ec3b4e-..." \
-  -H "Authorization: Bearer $TOKEN"
-~~~
-
-Operational endpoints used by the container platform and Prometheus do not invoke a
-paid model API:
-
-~~~bash
-curl -s "$API_BASE/health/live"
-curl -s "$API_BASE/health/ready"
-curl -s "$API_BASE/metrics"
-~~~
-
-The API also returns X-Request-ID for support and log correlation.
+readiness 不调用真实收费 Embedding API；本地 BGE-M3 模式只检查模型目录和关键依赖状态。

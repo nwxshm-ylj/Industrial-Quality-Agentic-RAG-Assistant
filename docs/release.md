@@ -1,117 +1,137 @@
-# Enterprise Release Guide
+# 企业版发布与回滚指南
 
-## Release Scope
+## 1. 发布目标
 
-The release gate validates source integrity, frontend behavior, container
-configuration, environment safety, and rollback readiness. It does not invoke
-real LLM or paid embedding APIs by default.
+发布门禁检查源代码、前端构建、容器配置、环境安全、索引兼容和回滚准备。默认门禁不调用真实 LLM、在线 Embedding 或其他收费 API。
 
-## Validation Tiers
+## 2. 快速质量门禁
 
-### Fast quality gate
-
-```bash
+```powershell
 python -m scripts.release_check
 ```
 
-This runs Python compilation, Compose validation, whitespace checks, React
-typechecking, unit tests, and the production frontend build.
+该脚本组合执行 Python 编译、Compose 校验、空白检查、React 类型检查、单元测试和前端生产构建。
 
-### Mocked browser E2E
+单独检查：
 
-Install Chromium once:
-
-```bash
-cd frontend
-npx playwright install chromium
-npm run test:e2e
+```powershell
+python -m compileall app scripts
+docker compose config --quiet
+git diff --check
 ```
 
-On a Windows workstation with Chrome already installed, the bundled browser
-download can be skipped:
+## 3. 前端 E2E
+
+```powershell
+Set-Location frontend
+npm.cmd ci
+npx playwright install chromium
+npm.cmd run test:e2e
+```
+
+已有本地 Chrome 时：
 
 ```powershell
 $env:PLAYWRIGHT_CHANNEL = "chrome"
-npm run test:e2e
+npm.cmd run test:e2e
 Remove-Item Env:\PLAYWRIGHT_CHANNEL
 ```
 
-The browser tests mock FastAPI responses and cover login, RBAC navigation,
-chat, feedback, user management, audit logs, and readiness. They do not need
-PostgreSQL, Qdrant, OpenSearch, an LLM, or an embedding API.
+Mock E2E 覆盖登录、RBAC、聊天、反馈、用户管理、审计和 readiness，不依赖 PostgreSQL、Qdrant、OpenSearch 或 LLM。
 
-### Docker integration
+## 4. Docker 集成门禁
 
-```bash
-docker compose up -d --build
+```powershell
+docker compose --profile deepdoc up -d --build
 docker compose exec api python -m scripts.test_admin_console
 docker compose exec api python -m scripts.test_auth_rbac
 docker compose exec api python -m scripts.test_document_management
+docker compose exec api python -m scripts.test_memory
+docker compose exec api python -m scripts.test_observability
 docker compose exec api python -m scripts.test_feedback_evaluation
 ```
 
-Model-dependent tests remain manual and must not run in the default CI gate.
+检索集成：
 
-## Production Configuration Check
+```powershell
+docker compose exec api python -m scripts.evaluate_retrieval
+```
 
-Validate a candidate environment without printing secret values:
+RAGAS、DeepDOC Live、多模态真实模型和端到端 LLM 评估属于人工验收，不进入默认 CI。
+
+## 5. 生产环境检查
 
 ```powershell
 Copy-Item .env.production.example .env.production
-# Edit .env.production and replace every CHANGE_ME value.
+# 替换全部 CHANGE_ME
 python -m scripts.validate_release_env --env-file .env.production --production
 ```
 
-The real `.env.production` file is intentionally ignored by Git and is not
-created automatically because it must contain deployment-specific secrets.
-For the bundled PostgreSQL container, `POSTGRES_PASSWORD` must match the
-password in `DATABASE_URL`. Use a URL-safe password because Compose builds the
-container connection string from `POSTGRES_USER`, `POSTGRES_PASSWORD`, and
-`POSTGRES_DB`.
+检查项包括：
 
-The command rejects missing model credentials, insecure JWT defaults, demo
-database passwords, missing Qdrant aliases, invalid embedding dimensions, and
-missing Prompt Release manifests.
+- JWT Secret 和默认密码；
+- PostgreSQL 密码与 DATABASE_URL；
+- Qdrant Collection/Alias；
+- Embedding 模型、维度和本地路径；
+- Prompt Release；
+- 必要外部服务地址；
+- 生产模式下的不安全默认值。
 
-## Versioning
+## 6. 索引发布
 
-Before creating a tag:
+Embedding、Chunk、Parser 或 Payload 结构变化时，不允许直接覆盖活动 Collection：
 
-1. Update the React package version and immutable Docker image tag.
-2. Record the API image digest and React image digest.
-3. Record the Prompt Release ID and Qdrant Alias target.
-4. Export the environment-variable names in use without secret values.
-5. Back up PostgreSQL and verify the restore procedure in a non-production environment.
+1. 创建新的版本化 Qdrant Collection；
+2. 构建对应 OpenSearch 索引；
+3. 验证双路数量；
+4. 运行独立检索评估；
+5. 记录旧 Alias 目标；
+6. 切换稳定 Alias；
+7. 启动 API 并执行 smoke test；
+8. 观察错误率、降级率和延迟。
 
-Recommended tag format:
+旧 Collection 保留到观察期结束，不在发布脚本中删除。
 
-```text
-v1.0.0
-```
+## 7. 版本标识
 
-## Deployment
+发布前检查：
 
-```bash
-docker compose config --quiet
-docker compose up -d --build
-docker compose ps
-curl http://localhost:8000/health/ready
-curl http://localhost:30080/healthz
-```
+- React package version；
+- Docker Image Tag，不使用 latest 作为正式发布标识；
+- `OTEL_SERVICE_VERSION`；
+- Prompt Release；
+- Embedding index version；
+- Keyword index version；
+- parser_version 和 chunk_strategy；
+- 数据库迁移版本。
 
-Do not switch a Qdrant Alias or mark documents indexed until both vector and
-keyword indexes have passed their own validation.
+## 8. 回滚
 
-## Rollback
+### 应用回滚
 
-Rollback is an image and configuration operation, not a destructive data reset:
+使用上一个不可变镜像 Tag 重新部署，不在运行容器内修改源码。
 
-1. Stop new document uploads and evaluation runs.
-2. Restore the previously recorded API and React image tags.
-3. Restore the previous Prompt Release manifest.
-4. Point `industrial_docs_active` only to the last validated Qdrant collection.
-5. Run `/health/ready` and the admin console smoke test.
-6. Resume traffic after PostgreSQL, Qdrant, OpenSearch, auth, and graph-chat checks pass.
+### 向量索引回滚
 
-Never delete the new Qdrant collection during rollback. Retain it for diagnosis
-until the incident review is complete.
+把 `industrial_docs_active` Alias 指回发布前记录的旧 Collection。不要删除失败的新 Collection，先保留用于排查。
+
+### OpenSearch 回滚
+
+当前关键词索引由版本配置选择。回滚应用时同步恢复对应 keyword index version，避免应用与索引 schema 不一致。
+
+### 数据库回滚
+
+数据库结构变更必须有独立 migration 和 downgrade 方案。`scripts/init_sql_data.py` 是样例初始化脚本，不承担正式生产回滚。
+
+## 9. 发布记录
+
+每次发布至少保存：
+
+- Git Commit/Tag；
+- Docker Image Digest；
+- 环境配置版本，不含密钥；
+- Prompt Release；
+- Qdrant Alias 新旧目标；
+- OpenSearch 索引版本；
+- 回归报告和检索评估 run_id；
+- 发布时间、负责人和回滚决策。
