@@ -746,6 +746,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 - [API 调用示例](docs/api_examples.md)
 - [完整功能演示脚本](docs/demo_script.md)
 - [项目代码走读指南](docs/interview_notes.md)
+- [RAG 质量与可观测性标准排障手册](docs/rag-troubleshooting.md)
 - [发布与回滚指南](docs/release.md)
 
 ## Enterprise Observability and Usage Analytics
