@@ -1,387 +1,282 @@
-# Deployment Guide
+# Docker Compose 部署指南
 
-## 1. Prerequisites
+## 1. 环境要求
 
-Recommended local environment:
+- Docker Desktop 或 Docker Engine + Compose v2；
+- 建议至少 16GB 内存；启用 BGE Reranker、DeepDOC 或多模态时需要更多资源；
+- 首次下载 BGE-M3 和调用在线 LLM 时需要网络；
+- `data/` 目录必须可写，模型、上传文件、评估报告通过卷持久化；
+- Windows 建议使用 PowerShell 7 或系统 PowerShell。
 
-- Docker Desktop or Docker Engine with Compose v2
-- 8 GB RAM minimum; more if Reranker is enabled
-- Internet access for the configured LLM and the one-time BGE-M3 download
-- Available application ports 18000, 18010, 30000, 5432, 6333, 6334, and 9200
-- Optional observability ports 3000, 3100, 3200, 4317, 4318, and 9090
+默认端口：
 
-The repository mounts the local data directory into API, Streamlit, and tool containers. Ensure it is writable.
+| 服务 | 地址 |
+|---|---|
+| React | http://localhost:30080 |
+| Streamlit | http://localhost:30000 |
+| FastAPI | http://localhost:18000 |
+| DeepDOC Runtime | http://localhost:18010 |
+| PostgreSQL | localhost:5432 |
+| Qdrant | http://localhost:6333 |
+| OpenSearch | http://localhost:9200 |
+| Redis | localhost:6379 |
+| Neo4j Browser | http://localhost:7474 |
 
-## 2. Environment variables
+## 2. 环境变量
 
-Copy the template:
-
-~~~bash
-cp .env.example .env
-~~~
-
-PowerShell:
-
-~~~powershell
+```powershell
 Copy-Item .env.example .env
-~~~
+```
 
-| Variable | Example/default | Purpose |
-|---|---|---|
-| LLM_MODEL | qwen-plus | OpenAI-compatible chat model |
-| LLM_API_KEY | required | Model provider credential |
-| LLM_BASE_URL | DashScope-compatible endpoint | Model API base URL |
-| QDRANT_URL | http://localhost:6333 | Host-side Qdrant URL |
-| QDRANT_COLLECTION | industrial_docs_bge_m3_1024_v1 | Versioned online vector collection |
-| QDRANT_COLLECTION_ALIAS | industrial_docs_active | Stable runtime query alias |
-| LEGACY_QDRANT_COLLECTION | industrial_docs | Legacy BGE demo collection |
-| EMBEDDING_PROVIDER | local | Online text embedding backend |
-| LOCAL_EMBEDDING_MODEL_PATH | /app/data/models/bge-m3 | Read-only local model directory |
-| LOCAL_EMBEDDING_MODEL_REVISION | 5617a9f... | Pinned Hugging Face revision |
-| LOCAL_EMBEDDING_DIMENSION | 1024 | Online text vector dimension |
-| OPENSEARCH_URL | http://localhost:9200 | OpenSearch endpoint |
-| OPENSEARCH_INDEX_PREFIX | industrial_docs | Keyword index prefix |
-| HYBRID_DEGRADED_MODE | vector_only | Keyword backend failure behavior |
-| DATABASE_URL | PostgreSQL SQLAlchemy URL | Host-side database connection |
-| RERANKER_MODEL | BAAI/bge-reranker-base | Optional reranker |
-| USE_RERANKER | false | Enable CrossEncoder reranking |
-| JWT_SECRET_KEY | change_me | JWT signing secret |
-| JWT_ALGORITHM | HS256 | JWT algorithm |
-| JWT_ACCESS_TOKEN_EXPIRE_MINUTES | 1440 | Token lifetime |
-| LOG_LEVEL | INFO | Application log level |
-| RAG_API_URL | local graph-chat URL | Streamlit API target outside Compose |
-| TELEMETRY_ENABLED | true | Enable trace instrumentation |
-| USAGE_ANALYTICS_ENABLED | true | Persist request/model/retrieval usage facts |
-| OTEL_SERVICE_NAME | industrial-quality-rag-api | Trace service name |
-| OTEL_SERVICE_VERSION | 1.0.0 | Deployed application version |
-| OTEL_EXPORTER_OTLP_ENDPOINT | empty | Optional Collector base endpoint |
-| OTEL_TRACE_SAMPLE_RATIO | 1.0 | Head sampling ratio from 0 to 1 |
-| MODEL_PRICING_PATH | data/config/model_pricing.yaml | Reviewed cost catalog |
-| USAGE_RETENTION_DAYS | 90 | Usage fact retention window |
-| USAGE_BACKGROUND_WORKERS | 4 | Concurrent background usage writers |
-| USAGE_BACKGROUND_MAX_PENDING | 1000 | Bounded pending usage tasks |
+必须修改：
 
-Do not commit a real .env file. Production secrets should come from a secrets manager or orchestrator secret.
+```dotenv
+LLM_MODEL=qwen-plus
+LLM_API_KEY=替换为真实密钥
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+JWT_SECRET_KEY=替换为足够长的随机值
+POSTGRES_PASSWORD=替换为强密码
+DATABASE_URL=postgresql+psycopg2://rag_user:URL编码后的密码@postgres:5432/industrial_rag
+```
 
-## 3. Docker Compose deployment
+本地文本 Embedding：
 
-### 3.1 Start stateful services
+```dotenv
+EMBEDDING_PROVIDER=local
+LOCAL_EMBEDDING_MODEL_NAME=BAAI/bge-m3
+LOCAL_EMBEDDING_MODEL_PATH=/app/data/models/bge-m3
+LOCAL_EMBEDDING_MODEL_REVISION=5617a9f61b028005a4858fdac845db406aefb181
+LOCAL_EMBEDDING_DIMENSION=1024
+LOCAL_EMBEDDING_BATCH_SIZE=8
+LOCAL_EMBEDDING_DEVICE=cpu
+LOCAL_EMBEDDING_NORMALIZE_EMBEDDINGS=true
+QDRANT_COLLECTION=industrial_docs_bge_m3_1024_v1
+QDRANT_COLLECTION_ALIAS=industrial_docs_active
+EMBEDDING_INDEX_VERSION=bge-m3-1024-v1
+```
 
-~~~bash
-docker compose up -d qdrant postgres opensearch
-docker compose ps
-~~~
+在线 Hybrid Search：
 
-Download the pinned BGE-M3 snapshot once into the ignored, bind-mounted model directory:
+```dotenv
+OPENSEARCH_URL=http://opensearch:9200
+OPENSEARCH_INDEX_PREFIX=industrial_docs
+KEYWORD_SEARCH_BACKEND=opensearch
+HYBRID_DEGRADED_MODE=vector_only
+RETRIEVAL_FUSION_STRATEGY=rrf
+RETRIEVAL_RRF_K=60
+USE_RERANKER=true
+RERANKER_MODEL=BAAI/bge-reranker-base
+```
 
-~~~bash
+分层记忆：
+
+```dotenv
+LAYERED_MEMORY_ENABLED=true
+REDIS_URL=redis://redis:6379/0
+MEMORY_SHORT_TERM_TTL_SECONDS=86400
+MEMORY_SHORT_TERM_MAX_MESSAGES=20
+MEMORY_RECENT_LIMIT=6
+MEMORY_LONG_TERM_LIMIT=4
+MEMORY_SEMANTIC_SCORE_THRESHOLD=0.45
+MEMORY_QDRANT_COLLECTION=industrial_memory_bge_m3_1024_v1
+MEMORY_INDEX_VERSION=bge-m3-v1
+```
+
+不要提交真实 `.env`。生产环境应使用 Docker Secret、Kubernetes Secret 或企业密钥管理服务。
+
+## 3. 下载本地 BGE-M3
+
+模型不会在 API 启动或请求期间自动下载。执行一次：
+
+```powershell
 docker compose run --rm api python -m scripts.download_local_embedding_model --destination /app/data/models/bge-m3
-~~~
+```
 
-The API never downloads this model during startup or a request. The model directory must exist before readiness can become ready.
+下载脚本固定 Hugging Face Revision，并写入 `MODEL_PROVENANCE.json`。检查：
 
-Wait until PostgreSQL accepts connections. If the initialization command runs too early, retry it after several seconds.
+```powershell
+Get-Content data/models/bge-m3/MODEL_PROVENANCE.json
+```
 
-### 3.2 Initialize PostgreSQL
+切换现有 `.env`：
 
-~~~bash
+```powershell
+python -m scripts.configure_local_embedding --env-file .env
+```
+
+## 4. 启动基础服务
+
+```powershell
+docker compose up -d postgres qdrant opensearch redis neo4j
+docker compose ps
+```
+
+初始化 PostgreSQL：
+
+```powershell
 docker compose --profile tools run --rm init-sql
-~~~
+```
 
-This command:
+`scripts/init_sql_data.py` 会创建业务、文档、用户、审计、记忆、反馈、评估和用量表。该脚本包含样例数据初始化；在生产数据库执行前必须审查，不应把它当成通用数据库迁移工具。
 
-- recreates and seeds inspection_record, equipment_alarm, and quality_cases;
-- idempotently creates memory, document, user, audit, feedback, evaluation, and usage analytics tables;
-- creates admin/admin123 only when admin does not already exist.
+## 5. 构建在线双索引
 
-Warning: it is a demo initialization command and must not target a production database containing real business records.
+先构建新物理 Collection，不切换 Alias：
 
-### 3.3 Build and validate online indexes
-
-~~~bash
+```powershell
 docker compose run --rm api python -m scripts.migrate_online_indexes
-docker compose run --rm api python -m scripts.test_qdrant_vector_backend
-docker compose run --rm api python -m scripts.test_opensearch_keyword_backend
-docker compose run --rm api python -m scripts.test_online_hybrid_retriever
-docker compose run --rm api python -m scripts.test_index_activation_guard
-~~~
+```
 
-The first command builds the versioned Qdrant collection and OpenSearch keyword index without changing the stable alias. After integration and evaluation checks pass, activate the already-built index pair:
+执行独立检索验收：
 
-~~~bash
+```powershell
+docker compose run --rm -e USE_RERANKER=false api python -m scripts.evaluate_retrieval
+```
+
+只有迁移成功、Qdrant/OpenSearch 数量一致且召回符合预期，才切换 Alias：
+
+```powershell
 docker compose run --rm api python -m scripts.migrate_online_indexes --activate-alias
-~~~
+```
 
-Alias activation is blocked when the two indexed chunk counts differ or are empty. Once the alias targets the online collection, use the Document API reindex operation for repairs instead of running the full migration again.
+迁移脚本不会删除旧 Collection。新索引为空、双路数量不一致或迁移失败时不会切换 Alias。
 
-Legacy Demo ingestion remains available as an explicit, destructive tool:
+## 6. 启动应用
 
-~~~bash
-docker compose --profile tools run --rm ingest
-~~~
+不启用 DeepDOC：
 
-It writes `data/processed/chunks.json` and recreates only `LEGACY_QDRANT_COLLECTION`. It is not part of the online runtime path.
+```powershell
+docker compose up -d --build api react-web streamlit
+```
 
-### 3.4 Start API and Streamlit
+启用独立 DeepDOC Runtime：
 
-~~~bash
-docker compose up -d --build api streamlit
-~~~
+```powershell
+docker compose --profile deepdoc up -d --build
+```
 
-Endpoints:
+DeepDOC 需要提前准备本地源码和模型：
 
-- API: http://localhost:18000
-- Swagger: http://localhost:18000/docs
-- Streamlit: http://localhost:30000
-- Qdrant: http://localhost:6333/dashboard
-- OpenSearch: http://localhost:9200
+```powershell
+python -m scripts.prepare_deepdoc_runtime `
+  --source-root "<包含 deepdoc、rag 和 api 的 service/core 目录>"
+```
 
-### 3.5 Verify
+运行时目录：
 
-~~~bash
-curl http://localhost:8000/health
-docker compose logs --tail=100 api
-~~~
+- `data/deepdoc_runtime/source/`
+- `data/models/deepdoc-runtime-res/rag/res/deepdoc/`
 
-Expected health response:
+DeepDOC 容器强制离线模式，不在请求期间下载模型。缺少模型文件时 readiness 会显示 disabled、degraded 或 unavailable，具体取决于配置。
 
-~~~json
-{"status":"ok"}
-~~~
+## 7. 健康检查
 
-Additional operational endpoints:
+```powershell
+curl.exe http://localhost:18000/health
+curl.exe http://localhost:18000/health/ready
+```
 
-- `/health/live` checks only that the API process is alive.
-- `/health/ready` checks PostgreSQL usage tables, the active Qdrant alias, model
-  configuration, and OpenSearch. It never calls a paid LLM or embedding API.
-- `/metrics` exposes Prometheus metrics and must be restricted to the monitoring
-  network in production.
+readiness 重点检查：
 
-### 3.6 Optional observability stack
+- PostgreSQL；
+- Qdrant Alias；
+- 本地 Embedding 模型目录；
+- Prompt Registry；
+- OpenSearch；
+- Redis、Neo4j；
+- DeepDOC Runtime。
 
-The observability stack is isolated in an additive Compose file so the base
-application remains runnable without Grafana, Tempo, Loki, or Prometheus:
+readiness 不调用真实 Embedding 推理，也不会触发收费 API。
 
-~~~bash
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.observability.yml \
-  up -d --build
-~~~
+## 8. 初始化可选数据
 
-Endpoints:
+同步质量案例到 Neo4j：
 
-- Grafana: http://localhost:3000
-- Prometheus: http://localhost:9090
-- Loki: http://localhost:3100
-- Tempo: http://localhost:3200
-- OTLP HTTP: http://localhost:4318
+```powershell
+docker compose exec api python -m scripts.sync_quality_case_graph
+```
 
-Change `GRAFANA_ADMIN_PASSWORD` before starting the stack. Grafana data sources and
-dashboards are provisioned from `monitoring/grafana`; Prometheus rules are stored in
-`monitoring/prometheus/alerts.yml`.
+多模态索引迁移与 Alias 激活应使用独立脚本，并在非空验证后执行：
 
-JSON logs are collected from Docker through Grafana Alloy. On platforms where the
-Docker socket cannot be mounted, metrics, traces, usage analytics, and the API remain
-available, but Loki container log collection must be configured using the platform's
-supported log source.
+```powershell
+docker compose exec api python -m scripts.migrate_advanced_rag
+docker compose exec api python -m scripts.activate_multimodal_index
+```
 
-## 4. Local application development
+## 9. 可观测性栈
 
-Run PostgreSQL, Qdrant, and OpenSearch with Docker while running Python locally:
+```powershell
+docker compose `
+  -f docker-compose.yml `
+  -f docker-compose.observability.yml `
+  up -d
+```
 
-~~~bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+主要端口：Grafana 3000、Prometheus 9090、Loki 3100、Tempo 3200、OTLP 4317/4318。
 
-docker compose up -d postgres qdrant opensearch
-python -m scripts.init_sql_data
-python -m scripts.migrate_online_indexes
-# Run retrieval/evaluation checks, then activate the stable alias.
-python -m scripts.migrate_online_indexes --activate-alias
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-~~~
+## 10. 常用测试
 
-PowerShell activation:
+快速离线检查：
 
-~~~powershell
-.\.venv\Scripts\Activate.ps1
-~~~
-
-Start Streamlit in another terminal:
-
-~~~bash
-streamlit run ui/streamlit_app.py
-~~~
-
-## 5. Data persistence and backup
-
-Docker volumes:
-
-- postgres_data: relational and audit data.
-- qdrant_data: vector collection.
-- hf_cache: downloaded embedding/reranker models.
-
-Bind-mounted path:
-
-- ./data:/app/data
-
-Before upgrading:
-
-1. Back up PostgreSQL with pg_dump.
-2. Snapshot or back up Qdrant storage.
-3. Back up data/uploads, data/processed, data/rules, and data/eval.
-4. Record image tags and environment variables.
-5. Test restore procedures in a non-production environment.
-
-Do not use docker compose down -v unless deleting all local state is intentional.
-
-## 6. Common troubleshooting
-
-### PostgreSQL connection refused
-
-Symptoms: psycopg2 OperationalError or connection refused.
-
-~~~bash
-docker compose ps postgres
-docker compose logs postgres
-docker compose restart postgres
-~~~
-
-Check that local DATABASE_URL uses localhost, while containers use hostname postgres.
-
-### Qdrant unavailable
-
-~~~bash
-curl http://localhost:6333/collections
-docker compose logs qdrant
-~~~
-
-Inside Compose the API uses http://qdrant:6333, not localhost.
-
-### Local BGE-M3 embedding fails
-
-- Verify `/app/data/models/bge-m3` exists inside the API container.
-- Run `python -m scripts.test_local_embedding_provider` for the offline adapter contract.
-- The provider validates the model output dimension is exactly 1024 before indexing.
-- Do not write BGE-M3 vectors into the old Qwen collection even though both are 1024-dimensional.
-- Rebuild `industrial_docs_bge_m3_1024_v1`, validate retrieval, and only then switch `industrial_docs_active`.
-
-### LLM authentication or connection error
-
-- Verify LLM_API_KEY, LLM_BASE_URL, and LLM_MODEL.
-- Confirm the endpoint supports the OpenAI chat-completions protocol.
-- Test connectivity from inside the API container.
-- Check provider quotas, TLS interception, and proxy configuration.
-
-### 401 Unauthorized
-
-- Login again and use Authorization: Bearer TOKEN.
-- Confirm the user is active.
-- Confirm API replicas use the same JWT_SECRET_KEY.
-- Check token expiration and system clock.
-
-### 403 Forbidden
-
-The token is valid but the role lacks permission. Check the RBAC matrix. Viewer cannot execute SQL analysis, upload/delete/reindex documents, view global feedback, or run evaluation.
-
-### OpenSearch unavailable or keyword results missing
-
-Check `docker compose logs opensearch`, `OPENSEARCH_URL`, index mapping, and document `index_status`. Graph chat may continue in vector-only mode and returns `metadata.degraded=true`; it must not fall back to `chunks.json`.
-
-### Upload directory is read-only
-
-Ensure the host data directory is writable by Docker. On Linux check ownership and mount options. Do not mount `data/uploads` as read-only.
-
-### Port conflict
-
-Change the host side of the relevant docker-compose port mapping or stop the conflicting local service.
-
-## 7. Production security checklist
-
-- Replace admin/admin123 immediately.
-- Use a long random JWT_SECRET_KEY and rotate it under an explicit policy.
-- Store secrets outside source control.
-- Terminate TLS at a trusted reverse proxy or ingress.
-- Restrict PostgreSQL and Qdrant to private networks.
-- Use a dedicated read-only PostgreSQL user for SQL Tool queries.
-- Configure statement timeout, connection limits, and database resource quotas.
-- Add rate limiting, request-size limits, upload quotas, and malware scanning.
-- Validate MIME type in addition to extension for untrusted uploads.
-- Define audit-log access, retention, masking, and export policies.
-- Do not return sensitive contexts or SQL rows to unauthorized users.
-- Pin images and dependencies; add SBOM, SAST, dependency, and image scanning.
-- Back up PostgreSQL, Qdrant, and source documents and test restoration.
-- Run evaluation before promoting model, prompt, embedding, or index changes.
-
-## 8. Release verification
-
-~~~bash
+```powershell
 python -m compileall app scripts
+python -m scripts.test_local_embedding_provider
+python -m scripts.test_document_parser_contract
+python -m scripts.test_layout_chunker
+python -m scripts.test_online_hybrid_retriever
+python -m scripts.test_layered_memory
+python -m scripts.test_retrieval_evaluation
+docker compose config --quiet
 git diff --check
+```
 
-python -m scripts.test_telemetry_context
-python -m scripts.test_model_usage_mock
-python -m scripts.test_metrics
-python -m scripts.test_observability_stack
+集成测试：
 
+```powershell
 docker compose exec api python -m scripts.test_auth_rbac
 docker compose exec api python -m scripts.test_document_management
 docker compose exec api python -m scripts.test_memory
 docker compose exec api python -m scripts.test_observability
-docker compose exec api python -m scripts.test_usage_analytics
 docker compose exec api python -m scripts.test_feedback_evaluation
-~~~
+```
 
-Validate the additive Compose stack:
+## 11. 常见故障
 
-~~~bash
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.observability.yml \
-  config --quiet
-~~~
+### API readiness 显示 LocalEmbeddingModelMissing
 
-A complete verification requires PostgreSQL, Qdrant, OpenSearch, the local BGE-M3 snapshot, and a working LLM endpoint. Default unit tests remain fully offline through mocks.
+确认 `data/models/bge-m3` 已下载，并且容器内路径是 `/app/data/models/bge-m3`。
 
-## 9. Optional retrieval, memory, and graph upgrades
+### Qdrant UnexpectedResponse 或 Alias 不存在
 
-The base text RAG remains the default. Enable the following only after rebuilding the
-API image and completing their data initialization.
+先运行 `scripts.migrate_online_indexes`，校验新索引，再运行 `--activate-alias`。不要直接删除整个 Qdrant 数据卷。
 
-~~~dotenv
-MULTIMODAL_ENABLED=true
-QWEN_MULTIMODAL_EMBEDDING_API_KEY=...
-LAYERED_MEMORY_ENABLED=true
-KNOWLEDGE_GRAPH_ENABLED=true
-NEO4J_PASSWORD=...
-~~~
+### OpenSearch 不可用
 
-~~~bash
-docker compose up -d --build redis neo4j api
-docker compose exec api python -m scripts.migrate_advanced_rag
-docker compose exec api python -m scripts.sync_quality_case_graph
+检查容器 health、JVM 内存和 `OPENSEARCH_URL`。在线问答会按配置降级为 vector-only，并在 metadata 标记 degraded，禁止回退 chunks.json。
 
-# Upload/reindex at least one PDF or PPTX before activation.
-docker compose exec api python -m scripts.activate_multimodal_index
-docker compose exec api python -m scripts.activate_multimodal_index --activate-alias
-~~~
+### 首次检索很慢
 
-The Alias activation command refuses an empty collection or a dimension mismatch.
-It never deletes an old collection. `DOTS_OCR_URL` is optional and must point to a
-private gateway that accepts `{"image": "data:image/..."}` and returns `{"text":
-"..."}`. Without that endpoint, native PDF/PPTX text and image embeddings still work,
-but scanned text is not added to the keyword index.
+本地 BGE-M3 和 Reranker 首次加载存在冷启动。BGE-M3 已本地化；Reranker 也应提前下载并挂载，避免生产请求触发网络下载。
 
-Run the offline checks before real model calls:
+### DeepDOC 容器退出
 
-~~~bash
-python -m scripts.test_multimodal_embedding_provider
-python -m scripts.test_multimodal_qdrant_backend
-python -m scripts.test_multimodal_retrieval
-python -m scripts.test_layered_memory
-python -m scripts.test_knowledge_graph
-python -m scripts.test_ragas_evaluation
-~~~
+检查挂载路径和必需模型文件；不要把 `PASSWORD` 等无关变量传给 Neo4j 或 DeepDOC。使用：
+
+```powershell
+docker compose logs --tail 200 deepdoc-runtime
+```
+
+### PostgreSQL 密码修改后连接失败
+
+已有 volume 不会因修改环境变量自动重置数据库密码。必须让数据库内部用户密码与 DATABASE_URL 一致，且特殊字符需要 URL 编码。不要直接删除生产 volume。
+
+## 12. 生产安全要求
+
+- 修改默认 admin 密码和 JWT_SECRET_KEY；
+- 使用 TLS 和反向代理；
+- 限制 CORS、上传大小和外部 URL；
+- PostgreSQL、Qdrant、OpenSearch、Redis、Neo4j 不直接暴露公网；
+- 模型和 Prompt 使用固定版本；
+- 使用数据库迁移工具替代样例初始化脚本；
+- 配置备份、恢复、日志脱敏、数据保留和告警规则；
+- 发布前记录当前 Qdrant Alias 目标，准备回滚到旧 Collection。

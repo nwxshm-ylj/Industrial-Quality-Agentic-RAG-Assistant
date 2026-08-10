@@ -67,7 +67,7 @@ flowchart LR
     Audit --> PG
 ~~~
 
-详细设计见 [Architecture](docs/architecture.md)。
+详细设计见 [系统技术方案](docs/architecture.md)。
 
 ## 核心功能矩阵
 
@@ -165,7 +165,7 @@ docker compose up -d --build api streamlit
 docker compose logs -f api streamlit
 ~~~
 
-完整部署、初始化和故障排查见 [Deployment](docs/deployment.md)。
+完整部署、初始化和故障排查见 [部署指南](docs/deployment.md)。
 
 ## 默认账号
 
@@ -184,7 +184,7 @@ docker compose logs -f api streamlit
 登录：
 
 ~~~bash
-curl -X POST http://localhost:8000/api/v1/auth/login \
+curl -X POST http://localhost:18000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
 ~~~
@@ -192,7 +192,7 @@ curl -X POST http://localhost:8000/api/v1/auth/login \
 将返回的 access_token 保存为 TOKEN，然后调用 graph-chat：
 
 ~~~bash
-curl -X POST http://localhost:8000/api/v1/graph-chat \
+curl -X POST http://localhost:18000/api/v1/graph-chat \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -207,7 +207,7 @@ curl -X POST http://localhost:8000/api/v1/graph-chat \
 可选图片查询保持原接口兼容：
 
 ~~~bash
-curl -X POST http://localhost:8000/api/v1/graph-chat \
+curl -X POST http://localhost:18000/api/v1/graph-chat \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -248,7 +248,7 @@ docker compose exec api python -m scripts.migrate_advanced_rag
 
 不要在包含真实或需保留样例数据的环境中重复执行 `scripts.init_sql_data`；该脚本仍属于 Demo 初始化流程，会重建部分业务样例表。
 
-更多登录、上传、反馈和评估请求见 [API Examples](docs/api_examples.md)。
+更多登录、上传、反馈和评估请求见 [API 调用示例](docs/api_examples.md)。
 
 ## Streamlit 使用说明
 
@@ -346,7 +346,7 @@ DATABASE_URL=postgresql+psycopg2://rag_user:使用_urlsafe_强密码@postgres:54
 
 `POSTGRES_PASSWORD` 必须与 `DATABASE_URL` 中的密码一致。生产启动时使用 `docker compose --env-file .env.production ...`，不要依赖开发环境 `.env`。
 
-完整发布与回滚步骤见 [Enterprise Release Guide](docs/release.md)。
+完整发布与回滚步骤见 [发布与回滚指南](docs/release.md)。
 
 本地开发：
 
@@ -495,7 +495,7 @@ python -m scripts.evaluate_retrieval --top-k 5 --k-values 1,3,5
 
 版本化报告写入 `data/eval/retrieval_eval_report_<run_id>.json`，Streamlit 的
 RAG Evaluation 页面以及 Grafana Retrieval and Quality Dashboard 可展示最新指标。
-详见 [Retrieval Evaluation](docs/retrieval_evaluation.md)。
+详见 [独立检索评估方案](docs/retrieval_evaluation.md)。
 
 ## 测试命令
 
@@ -649,7 +649,7 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 - 准备一个成功案例、一个失败案例和一个降级案例。
 - 按 `docs/demo_script.md` 完整演示，不依赖临场发挥。
 - 分别练习 30 秒、2 分钟和 10 分钟三个版本的项目介绍。
-- 对照 `docs/interview_notes.md` 做至少三轮追问演练。
+- 对照 `docs/interview_notes.md` 完成一次从 API 到数据层的代码走读。
 - 主动说明项目边界和下一步，不把 Demo 包装成已经进入真实工厂生产。
 
 验收标准：能边演示边解释设计决策，并能用测试或指标支持关键结论。
@@ -741,11 +741,11 @@ docker compose exec api python -m scripts.test_feedback_evaluation
 
 ## 文档导航
 
-- [系统架构](docs/architecture.md)
+- [系统技术方案与节点逻辑](docs/architecture.md)
 - [部署指南](docs/deployment.md)
-- [API 示例](docs/api_examples.md)
-- [完整 Demo 脚本](docs/demo_script.md)
-- [面试讲解笔记](docs/interview_notes.md)
+- [API 调用示例](docs/api_examples.md)
+- [完整功能演示脚本](docs/demo_script.md)
+- [项目代码走读指南](docs/interview_notes.md)
 - [发布与回滚指南](docs/release.md)
 
 ## Enterprise Observability and Usage Analytics
@@ -768,8 +768,8 @@ docker compose \
 
 - Grafana: http://localhost:3000
 - Prometheus: http://localhost:9090
-- Readiness: http://localhost:8000/health/ready
-- Metrics: http://localhost:8000/metrics
+- Readiness: http://localhost:18000/health/ready
+- Metrics: http://localhost:18000/metrics
 
 See [Enterprise Observability and Usage Analytics](docs/observability.md) for signal
 design, usage tables, APIs, privacy constraints, pricing configuration, and tests.
