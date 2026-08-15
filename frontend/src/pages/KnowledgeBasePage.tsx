@@ -22,9 +22,13 @@ import type { DocumentInfo } from "../api/types";
 import { can } from "../auth/rbac";
 import { DocumentDetailDrawer } from "../features/knowledge-base/DocumentDetailDrawer";
 import { DocumentStatusTag } from "../features/knowledge-base/DocumentStatusTag";
-import { DocumentUploadPanel } from "../features/knowledge-base/DocumentUploadPanel";
+import {
+  DocumentUploadPanel,
+  type UploadDocumentType,
+} from "../features/knowledge-base/DocumentUploadPanel";
 import {
   formatDocumentDate,
+  getDocumentTypeLabel,
   matchesDocument,
 } from "../features/knowledge-base/presentation";
 import { useAuthStore } from "../stores/authStore";
@@ -109,7 +113,11 @@ export function KnowledgeBasePage() {
     },
   });
 
-  const handleUpload = async (file: File, docType: string, version: string) => {
+  const handleUpload = async (
+    file: File,
+    docType: UploadDocumentType,
+    version: string,
+  ) => {
     setUploadProgress(0);
     await uploadMutation.mutateAsync({
       file,
@@ -174,7 +182,7 @@ export function KnowledgeBasePage() {
       width: 150,
       render: (_, document) => (
         <Space size={5} wrap>
-          <Tag bordered={false}>{document.doc_type || "未分类"}</Tag>
+          <Tag bordered={false}>{getDocumentTypeLabel(document.doc_type)}</Tag>
           <span className="version-chip">{document.version}</span>
         </Space>
       ),

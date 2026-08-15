@@ -30,6 +30,7 @@ class IndustrialGraphRAGChain:
         user: dict | None = None,
         retrieval_filters: dict[str, list[str]] | None = None,
         multimodal_query: dict | None = None,
+        memory_enabled: bool = True,
     ) -> dict:
         request_id = request_id or str(uuid4())
         session_id = session_id or "default"
@@ -51,19 +52,36 @@ class IndustrialGraphRAGChain:
             "request_id": request_id,
             "session_id": session_id,
             "user": user,
+            "memory_enabled": memory_enabled,
             "memory_messages": [],
             "memory_metadata": {},
             "knowledge_graph_metadata": {},
             "retrieval_filters": retrieval_filters,
             "multimodal_query": multimodal_query,
-            "intent": "doc_qa",
+            "intent": "rag",
+            "query_features": {},
             "rewritten_query": "",
             "contexts": [],
+            "generation_contexts": [],
+            "generation_context_metadata": {},
             "answer": "",
             "citations": [],
             "retrieval_metadata": {},
             "evidence_score": 0.0,
             "evidence_enough": False,
+            "evidence_confidence": 0.0,
+            "evidence_reasons": [],
+            "missing_aspects": [],
+            "abstain_reason": None,
+            "answer_abstained": False,
+            "draft_answer": "",
+            "generation_retry_count": 0,
+            "generation_repair_error": None,
+            "answer_validation": {},
+            "answer_validation_history": [],
+            "answer_structure": {},
+            "generation_quality_passed": False,
+            "citation_pruned": False,
             "retry_count": 0,
             "top_k": top_k,
             "rule_result": None,
@@ -127,10 +145,28 @@ class IndustrialGraphRAGChain:
             "intent": result.get("intent"),
             "evidence_score": result.get("evidence_score"),
             "evidence_enough": result.get("evidence_enough"),
+            "evidence_confidence": result.get("evidence_confidence"),
+            "evidence_reasons": result.get("evidence_reasons", []),
+            "missing_aspects": result.get("missing_aspects", []),
+            "abstain_reason": result.get("abstain_reason"),
+            "answer_abstained": result.get("answer_abstained", False),
+            "generation_retry_count": result.get("generation_retry_count", 0),
+            "generation_repair_error": result.get("generation_repair_error"),
+            "generation_quality_passed": result.get(
+                "generation_quality_passed", False
+            ),
+            "answer_validation": result.get("answer_validation", {}),
+            "answer_validation_history": result.get(
+                "answer_validation_history", []
+            ),
+            "answer_structure": result.get("answer_structure", {}),
+            "citation_pruned": result.get("citation_pruned", False),
             "retry_count": result.get("retry_count"),
+            "query_features": result.get("query_features", {}),
             "total_latency_ms": total_latency_ms,
         }
         metadata.update(result.get("retrieval_metadata", {}))
+        metadata.update(result.get("generation_context_metadata", {}))
         metadata.update(result.get("memory_metadata", {}))
         metadata.update(result.get("knowledge_graph_metadata", {}))
         if settings.prompt_expose_version_in_response:

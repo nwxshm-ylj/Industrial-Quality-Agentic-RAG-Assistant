@@ -1,38 +1,38 @@
 [
-  {
-    "id": "RET001",
-    "question": "轮毂识别异常可能是什么原因？",
-    "relevance_field": "source",
-    "relevant_ids": ["ai_vision_fmea.md"]
-  },
-  {
-    "id": "RET002",
-    "question": "轮毂误识别时应该优先检查相机曝光还是系统配置？",
-    "relevance_field": "source",
-    "relevant_ids": ["ai_vision_fmea.md"]
-  },
-  {
-    "id": "RET003",
-    "question": "合格证上的 VIN 为什么识别失败？",
-    "relevance_field": "source",
-    "relevant_ids": ["ocr_certificate_rule.md"]
-  },
-  {
-    "id": "RET004",
-    "question": "OCR 模板和打印位置异常应该如何排查？",
-    "relevance_field": "source",
-    "relevant_ids": ["ocr_certificate_rule.md"]
-  },
-  {
-    "id": "RET005",
-    "question": "同一工位连续出现扭矩报警应该怎么处理？",
-    "relevance_field": "source",
-    "relevant_ids": ["torque_alarm_sop.md"]
-  },
-  {
-    "id": "RET006",
-    "question": "拧紧枪标定异常和套筒磨损会造成什么问题？",
-    "relevance_field": "source",
-    "relevant_ids": ["torque_alarm_sop.md"]
-  }
+  {"id":"RET001","category":"standard","question":"项目阶段车身尺寸评价需要哪些测量和匹配输入？","relevance_field":"doc_id","relevant_ids":["5814b5872a95453d8a1199c4103fb9d1"]},
+  {"id":"RET002","category":"standard","question":"表面匹配管理覆盖车身、油漆、总装和哪些评价环节？","relevance_field":"doc_id","relevant_ids":["2d1ef3ae99e84f739b1e116a602f7b97"]},
+  {"id":"RET003","category":"standard","question":"电子电气故障原因不明确时如何使用ODIS和CFT返工流程？","relevance_field":"doc_id","relevant_ids":["e59cb68d98384765813b8b9c7e3df873"]},
+  {"id":"RET004","category":"standard","question":"油漆附着力失效会导致哪些腐蚀和市场风险？","relevance_field":"doc_id","relevant_ids":["51530105e31e439cbdb86f50cc8f90ce"]},
+  {"id":"RET005","category":"standard","question":"焊接管理为什么涉及车身强度和D/TLD关键特性？","relevance_field":"doc_id","relevant_ids":["95c751105ce142a18050c9c5d0c7233e"]},
+  {"id":"RET006","category":"standard","question":"车身雨淋漏水为何需要跨车身涂胶、PVC和零件装配控制？","relevance_field":"doc_id","relevant_ids":["8885e85879714bfda233c9dc450281ae"]},
+  {"id":"RET007","category":"standard","question":"整车扭矩管理重点保护哪些安全等级和存档责任特性？","relevance_field":"doc_id","relevant_ids":["8fe8d142827c438c9dffbbe333b74bfa"]},
+  {"id":"RET008","category":"standard","question":"燃油密封系统为什么涉及国家法规和密封排放检测？","relevance_field":"doc_id","relevant_ids":["e973de4c0e5f48c3805b77cea5ab28c9"]},
+  {"id":"RET009","category":"lesson_learned","question":"左后轮罩与后纵梁离缝大如何分析零件误差累积和夹具定位？","relevance_field":"doc_id","relevant_ids":["fe5fe61cc87c4aa99dbb7c0aa19cb490"]},
+  {"id":"RET010","category":"lesson_learned","question":"Lamando NF后Logo灯左小右大的原因和修模措施是什么？","relevance_field":"doc_id","relevant_ids":["5da20c64ce06460ea7022e20bde6e186"]},
+  {"id":"RET011","category":"lesson_learned","question":"Audi A7L前盖胶水收缩印与内外板间隙有什么关系？","relevance_field":"doc_id","relevant_ids":["5997ef6c9a1644c7afcbd448f7489ca2"]},
+  {"id":"RET012","category":"lesson_learned","question":"总装VIN与冲压零件钢印重叠如何通过PDM和图纸统一解决？","relevance_field":"doc_id","relevant_ids":["eaafc6a8fc41434f818f25a2f69e1265"]},
+  {"id":"RET013","category":"lesson_learned","question":"Teramont后盖大尾灯银色螺栓可见如何优化？","relevance_field":"doc_id","relevant_ids":["e014b720494743ea9b2643660bd0c0e3"]},
+  {"id":"RET014","category":"lesson_learned","question":"MPV侧围D柱激光焊热变形如何通过冷却和钢琴键改善？","relevance_field":"doc_id","relevant_ids":["f7e30e2ff13c473a9dacf1fb77936378"]},
+  {"id":"RET015","category":"lesson_learned","question":"Tharu前翼子板虎口瘪塘在哪道拉伸工序产生，如何型面补偿？","relevance_field":"doc_id","relevant_ids":["ae70276ecd6f449c8c78204b2902e6c1"]},
+  {"id":"RET016","category":"lesson_learned","question":"Tharu侧围尾灯平整度内陷时球销开档应如何控制？","relevance_field":"doc_id","relevant_ids":["c2144b57688d431a8216b37564e83920"]},
+  {"id":"RET017","category":"lesson_learned","question":"返工零件总膜厚、返工次数和记录保存有哪些控制要求？","relevance_field":"doc_id","relevant_ids":["ec0a907d821f469e8453b121f56c411f"]},
+  {"id":"RET018","category":"lesson_learned","question":"Lamando L侧围激光焊起始段热量过大如何优化出光程序？","relevance_field":"doc_id","relevant_ids":["f2f38f8ecded444d9250d0bfa997f79d"]},
+  {"id":"RET019","category":"lesson_learned","question":"右侧门槛下板PVC露白与材料粘度和喷涂扇面有什么关系？","relevance_field":"doc_id","relevant_ids":["2947f4c057344e22ae0b3466c49adb0b"]},
+  {"id":"RET020","category":"lesson_learned","question":"ID3车门高强度外板回弹量大时如何在开模和试模阶段预防？","relevance_field":"doc_id","relevant_ids":["77b1c7bb337d4d45a1ebeec1f3c9ff5e"]},
+  {"id":"RET021","category":"lesson_learned","question":"Audi CSUV右后门C柱波浪为何由内板尺寸调整引起？","relevance_field":"doc_id","relevant_ids":["9a7360e97abe4b65b35da6550ac388da"]},
+  {"id":"RET022","category":"lesson_learned","question":"Passat倒车后视摄像头无影像与晶振和超声波熔接有什么关系？","relevance_field":"doc_id","relevant_ids":["9a5e81b689ec4483b01d83ca56ee9aa9"]},
+  {"id":"RET023","category":"lesson_learned","question":"前地板工字梁倒插如何通过感应器、抓手轨迹和防错凸台预防？","relevance_field":"doc_id","relevant_ids":["f9e071b131a64ff9a290eaeaa5c825fc"]},
+  {"id":"RET024","category":"lesson_learned","question":"途观L后盖上下板错位应如何调整RPS定位销和夹具？","relevance_field":"doc_id","relevant_ids":["f7fc1853795f40f092c5789a56e245ee"]},
+  {"id":"RET025","category":"lesson_learned","question":"途昂副车架固定孔与车身孔对不齐如何控制公差累加和同轴度？","relevance_field":"doc_id","relevant_ids":["c6c4e8ff3f934f258024da8a5fe9fd46"]},
+  {"id":"RET026","category":"lesson_learned","question":"前围导风件遮挡卡脚时如何开孔改善安装人机工程？","relevance_field":"doc_id","relevant_ids":["e3ddc2e93312446286840a99c8f95213"]},
+  {"id":"RET027","category":"lesson_learned","question":"左侧围三角窗焊点假焊与电极帽修磨和焊接能量有什么关系？","relevance_field":"doc_id","relevant_ids":["e5715102638648c3b0988376cbca3163"]},
+  {"id":"RET028","category":"lesson_learned","question":"后围板PVC未密封为何与VMT摄像头定位补偿偏差有关？","relevance_field":"doc_id","relevant_ids":["ec8bd8411e654c9db993dfa34d593d12"]},
+  {"id":"RET029","category":"traceability","question":"追溯D柱激光焊后表面波浪的标准要求和相似历史案例。","relevance_field":"doc_id","relevant_ids":["2d1ef3ae99e84f739b1e116a602f7b97","f7e30e2ff13c473a9dacf1fb77936378","f2f38f8ecded444d9250d0bfa997f79d"]},
+  {"id":"RET030","category":"traceability","question":"追溯焊点假焊的标准控制要求和历史设备维护案例。","relevance_field":"doc_id","relevant_ids":["95c751105ce142a18050c9c5d0c7233e","e5715102638648c3b0988376cbca3163"]},
+  {"id":"RET031","category":"traceability","question":"追溯PVC密封异常涉及的车身泄漏标准与历史案例。","relevance_field":"doc_id","relevant_ids":["8885e85879714bfda233c9dc450281ae","ec8bd8411e654c9db993dfa34d593d12","2947f4c057344e22ae0b3466c49adb0b"]},
+  {"id":"RET032","category":"traceability","question":"追溯倒车摄像头无影像的电子电气诊断方法和售后历史案例。","relevance_field":"doc_id","relevant_ids":["e59cb68d98384765813b8b9c7e3df873","9a5e81b689ec4483b01d83ca56ee9aa9"]},
+  {"id":"RET033","category":"traceability","question":"追溯尺寸累积导致装配孔位和轮罩离缝问题。","relevance_field":"doc_id","relevant_ids":["5814b5872a95453d8a1199c4103fb9d1","fe5fe61cc87c4aa99dbb7c0aa19cb490","c6c4e8ff3f934f258024da8a5fe9fd46"]},
+  {"id":"RET034","category":"traceability","question":"追溯外覆盖件表面缺陷与胶水间隙、高强板回弹的关系。","relevance_field":"doc_id","relevant_ids":["2d1ef3ae99e84f739b1e116a602f7b97","5997ef6c9a1644c7afcbd448f7489ca2","77b1c7bb337d4d45a1ebeec1f3c9ff5e"]},
+  {"id":"RET035","category":"traceability","question":"追溯尾灯匹配异常涉及的Logo灯定位和球销开档经验。","relevance_field":"doc_id","relevant_ids":["5da20c64ce06460ea7022e20bde6e186","c2144b57688d431a8216b37564e83920","e014b720494743ea9b2643660bd0c0e3"]},
+  {"id":"RET036","category":"traceability","question":"追溯涂胶和胶水工艺引起的外观、装配与密封风险。","relevance_field":"doc_id","relevant_ids":["5997ef6c9a1644c7afcbd448f7489ca2","f7fc1853795f40f092c5789a56e245ee","ec8bd8411e654c9db993dfa34d593d12"]}
 ]

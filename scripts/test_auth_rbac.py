@@ -111,7 +111,7 @@ def main() -> None:
                 "username": TEST_VIEWER_USERNAME,
                 "role": "viewer",
             },
-            "intent": "sql_analysis",
+            "intent": "sql",
         }
         try:
             sql_tool_node(viewer_state)

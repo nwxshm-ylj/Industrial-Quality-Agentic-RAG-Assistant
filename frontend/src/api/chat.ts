@@ -2,6 +2,7 @@ import { useAuthStore } from "../stores/authStore";
 import { apiBaseUrl, apiClient } from "./client";
 import type {
   ChatAcceptedEvent,
+  ChatAnswerReplaceEvent,
   ChatProgressEvent,
   ChatRequest,
   ChatResponse,
@@ -15,6 +16,7 @@ export interface ChatStreamHandlers {
   onAccepted?: (event: ChatAcceptedEvent) => void;
   onProgress?: (event: ChatProgressEvent) => void;
   onToken?: (event: ChatTokenEvent) => void;
+  onAnswerReplace?: (event: ChatAnswerReplaceEvent) => void;
   onResult?: (response: ChatResponse) => void;
   onDone?: (event: { request_id: string; session_id: string }) => void;
 }
@@ -89,6 +91,8 @@ export const chatApi = {
         handlers.onProgress?.(data as unknown as ChatProgressEvent);
       } else if (event === "token") {
         handlers.onToken?.(data as unknown as ChatTokenEvent);
+      } else if (event === "answer_replace") {
+        handlers.onAnswerReplace?.(data as unknown as ChatAnswerReplaceEvent);
       } else if (event === "result") {
         finalResponse = data.response as ChatResponse;
         handlers.onResult?.(finalResponse);

@@ -38,6 +38,7 @@ class _FakeOpenSearchClient:
                         "_source": {
                             "doc_id": "d1",
                             "chunk_id": "d1_0",
+                            "chunk_index": 0,
                             "text": "轮毂识别异常",
                             "source": "quality.txt",
                             "doc_type": "QUALITY",
@@ -108,6 +109,7 @@ def main() -> None:
     results = backend.search("轮毂", top_k=5)
     assert results[0]["retrieval_source"] == "keyword"
     assert results[0]["page_number"] == 3
+    assert results[0]["chunk_index"] == 0
     assert results[0]["parser_version"] == "deepdoc-layout-v1"
     assert backend.count_indexed() == 1
     assert client.searches[0]["body"]["query"]["bool"]["filter"] == [
@@ -130,6 +132,14 @@ def main() -> None:
         {"terms": {"version": ["v1"]}},
         {"terms": {"source.keyword": ["quality.txt"]}},
     ]
+    neighbors = backend.get_adjacent_chunks(
+        [{"doc_id": "d1", "chunk_id": "d1_0", "chunk_index": 1}],
+        window=1,
+    )
+    assert neighbors[0]["chunk_index"] == 0
+    neighbor_bool = client.searches[2]["body"]["query"]["bool"]
+    assert neighbor_bool["minimum_should_match"] == 1
+    assert neighbor_bool["must_not"] == [{"terms": {"chunk_id": ["d1_0"]}}]
 
     backend.delete_by_doc_id("d1")
     delete_bool = client.deleted[0]["body"]["query"]["bool"]

@@ -49,8 +49,25 @@ def main() -> None:
         description="Switch an existing env file to the local BGE-M3 index."
     )
     parser.add_argument("--env-file", type=Path, default=Path(".env"))
+    parser.add_argument(
+        "--data-host-path",
+        type=Path,
+        help=(
+            "Optional host data directory mounted at /app/data by Docker Compose. "
+            "Useful when the env file and model data live in the main checkout."
+        ),
+    )
     args = parser.parse_args()
-    update_env_file(args.env_file, BGE_M3_ENV)
+    values = dict(BGE_M3_ENV)
+    if args.data_host_path is not None:
+        resolved = args.data_host_path.expanduser().resolve()
+        if not (resolved / "models" / "bge-m3").is_dir():
+            raise FileNotFoundError(
+                f"Pinned BGE-M3 model directory does not exist: "
+                f"{resolved / 'models' / 'bge-m3'}"
+            )
+        values["DATA_HOST_PATH"] = resolved.as_posix()
+    update_env_file(args.env_file, values)
     print(f"Configured local BGE-M3 embedding in: {args.env_file.resolve()}")
 
 

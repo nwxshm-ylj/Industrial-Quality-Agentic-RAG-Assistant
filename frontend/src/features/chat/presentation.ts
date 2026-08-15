@@ -1,12 +1,14 @@
 import type { ChatResponse, Citation } from "../../api/types";
 
 export const intentLabels: Record<string, string> = {
+  rag: "知识检索",
+  sql: "数据分析",
+  general: "普通对话",
   doc_qa: "文档问答",
   fault_diagnosis: "故障诊断",
   case_search: "历史案例",
   rule_query: "规则查询",
   sql_analysis: "数据分析",
-  general: "通用问答",
 };
 
 export function formatLatency(value: unknown): string {

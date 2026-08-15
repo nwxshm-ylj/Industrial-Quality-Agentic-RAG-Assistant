@@ -16,6 +16,9 @@ aivenv/
 .env.local
 .env.dev
 .env.production
+.env.*
+!.env.example
+!.env.*.example
 
 # IDE
 .vscode/
@@ -28,7 +31,15 @@ aivenv/
 .cache/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
 .ipynb_checkpoints/
+
+# Test and coverage output
+.coverage
+.coverage.*
+htmlcov/
 
 # OS
 .DS_Store
@@ -48,6 +59,9 @@ frontend/test-results/
 # Docker temp
 *.pid
 
+# Local temporary and synchronization backups
+.tmp/
+
 # HuggingFace / model cache
 huggingface/
 hf_cache/
@@ -58,4 +72,19 @@ models/
 data/processed/*.tmp
 data/eval/retrieval_eval_report*.json
 data/deepdoc_runtime/
+
+# Runtime document uploads and derived parsing assets
+data/uploads/
+
+# Generated evaluation run reports (keep datasets and named baselines)
+data/eval/eval_report_????????-????-????-????-????????????.json
+data/eval/ragas_eval_report_ragas_*.json
+data/eval/ragas_grounding_*_report_retrieval_*.json
+
+# Local exports that may contain personal information
+/resume_page-*.png
+
+# Repository-local agent state
 .agents/
+
+docs/

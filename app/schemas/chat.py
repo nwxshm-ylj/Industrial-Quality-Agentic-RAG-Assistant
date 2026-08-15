@@ -66,6 +66,8 @@ class Citation(BaseModel):
     cross_modal_rrf_score: float | None = None
     text_hybrid_score: float | None = None
     multimodal_score: float | None = None
+    traceability_role: str | None = None
+    quality_entities: dict[str, Any] | None = None
 
 
 class ChatResponse(BaseModel):

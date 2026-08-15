@@ -21,11 +21,14 @@ NODE_PROGRESS: dict[str, tuple[int, int, str]] = {
     "intent_router": (10, 18, "识别问题意图"),
     "rule_tool": (24, 36, "查询质量规则"),
     "sql_tool": (24, 42, "执行质量数据分析"),
-    "case_retriever": (24, 42, "检索历史案例"),
     "query_rewriter": (24, 34, "改写检索问题"),
     "retrieve": (38, 55, "执行混合检索"),
     "evidence_judge": (58, 68, "评估证据充分性"),
-    "generate": (72, 95, "生成可追溯回答"),
+    "context_builder": (69, 74, "整理生成上下文"),
+    "generate": (75, 86, "生成回答草稿"),
+    "answer_verifier": (87, 91, "校验回答引用"),
+    "answer_repair": (92, 94, "修复回答引用"),
+    "finalize_answer": (95, 96, "确认最终回答"),
     "save_memory": (97, 99, "保存会话记忆"),
 }
 
@@ -79,6 +82,11 @@ def emit_node_progress(
 def emit_answer_token(delta: str) -> None:
     if delta:
         _emit({"event": "token", "delta": delta})
+
+
+def emit_answer_replace(answer: str) -> None:
+    """Replace any provisional streamed draft with the verified final answer."""
+    _emit({"event": "answer_replace", "answer": answer})
 
 
 def _emit(event: StreamEvent) -> None:

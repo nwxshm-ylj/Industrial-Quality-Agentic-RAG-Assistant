@@ -36,6 +36,7 @@ class IndustrialRetriever:
         multimodal_enabled: bool | None = None,
         multimodal_rrf_k: int | None = None,
         multimodal_degraded_mode: str | None = None,
+        rerank_candidate_k: int | None = None,
     ):
         self.hybrid_retriever = (
             hybrid_retriever or build_online_hybrid_retriever()
@@ -45,6 +46,7 @@ class IndustrialRetriever:
             multimodal_enabled is None
             or multimodal_rrf_k is None
             or multimodal_degraded_mode is None
+            or rerank_candidate_k is None
         ):
             from app.core.config import settings
 
@@ -63,6 +65,13 @@ class IndustrialRetriever:
             if multimodal_degraded_mode is None
             else multimodal_degraded_mode
         )
+        self.rerank_candidate_k = (
+            settings.retrieval_rerank_candidate_k
+            if rerank_candidate_k is None
+            else rerank_candidate_k
+        )
+        if self.rerank_candidate_k <= 0:
+            raise ValueError("rerank_candidate_k must be greater than zero")
 
     def retrieve(
         self,
@@ -90,7 +99,7 @@ class IndustrialRetriever:
             top_k=top_k,
             vector_top_k=max(top_k * 4, 20),
             keyword_top_k=max(top_k * 4, 20),
-            rerank_candidate_k=max(top_k * 4, 20),
+            rerank_candidate_k=max(top_k, self.rerank_candidate_k),
             filters=filters,
         )
         if not multimodal_query:

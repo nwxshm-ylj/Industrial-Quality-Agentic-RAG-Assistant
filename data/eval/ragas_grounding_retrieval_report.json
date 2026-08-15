@@ -1,0 +1,3092 @@
+{
+  "run_id": "retrieval_20260814T072828Z_27f9722b",
+  "status": "completed",
+  "dataset_name": "ragas_eval_questions.json:doc_id",
+  "started_at": "2026-08-14T07:28:28.865904+00:00",
+  "completed_at": "2026-08-14T07:30:17.188734+00:00",
+  "config": {
+    "top_k": 5,
+    "k_values": [
+      1,
+      3,
+      5
+    ],
+    "max_questions": null
+  },
+  "summary": {
+    "total_questions": 30,
+    "successful_questions": 30,
+    "failed_questions": 0,
+    "degraded_questions": 0,
+    "degraded_rate": 0.0
+  },
+  "metrics": {
+    "hit_rate@1": 0.933333,
+    "hit_rate@3": 1.0,
+    "hit_rate@5": 1.0,
+    "mrr@1": 0.933333,
+    "mrr@3": 0.966667,
+    "mrr@5": 0.966667,
+    "ndcg@1": 0.933333,
+    "ndcg@3": 0.975395,
+    "ndcg@5": 0.975395,
+    "precision@1": 0.933333,
+    "precision@3": 0.333333,
+    "precision@5": 0.2,
+    "recall@1": 0.933333,
+    "recall@3": 1.0,
+    "recall@5": 1.0
+  },
+  "latency": {
+    "retrieval_total": {
+      "count": 30,
+      "min_ms": 2629.3,
+      "avg_ms": 3610.68,
+      "p50_ms": 3271.89,
+      "p95_ms": 3403.11,
+      "p99_ms": 13113.5,
+      "max_ms": 17079.34
+    },
+    "components": {
+      "qdrant_latency_ms": {
+        "count": 30,
+        "min_ms": 51.65,
+        "avg_ms": 138.68,
+        "p50_ms": 76.63,
+        "p95_ms": 118.82,
+        "p99_ms": 1347.31,
+        "max_ms": 1848.88
+      },
+      "opensearch_latency_ms": {
+        "count": 30,
+        "min_ms": 5.33,
+        "avg_ms": 11.11,
+        "p50_ms": 6.62,
+        "p95_ms": 21.73,
+        "p99_ms": 70.67,
+        "max_ms": 90.61
+      },
+      "fusion_latency_ms": {
+        "count": 30,
+        "min_ms": 0.06,
+        "avg_ms": 0.08,
+        "p50_ms": 0.07,
+        "p95_ms": 0.12,
+        "p99_ms": 0.15,
+        "max_ms": 0.16
+      },
+      "reranker_latency_ms": {
+        "count": 30,
+        "min_ms": 2564.7,
+        "avg_ms": 3062.26,
+        "p50_ms": 3185.78,
+        "p95_ms": 3286.13,
+        "p99_ms": 3302.2,
+        "max_ms": 3308.5
+      }
+    }
+  },
+  "items": [
+    {
+      "id": "KB-LL-001",
+      "question": "Lavida NF左后轮罩与后纵梁离缝大的整改措施和排查经验是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "fe5fe61cc87c4aa99dbb7c0aa19cb490"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 17079.34,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 1848.88,
+        "opensearch_latency_ms": 90.61,
+        "fusion_latency_ms": 0.11,
+        "reranker_latency_ms": 3186.86
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_2fe7a04643cf2eebf16ea46b",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9960033297538757,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9960033297538757,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_f4d55778da2de3688752dc98",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9937599301338196,
+          "rrf_score": 0.03149801587301587,
+          "rerank_score": 0.9937599301338196,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_7f531e6b0c6897be3487d715",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.978467583656311,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.978467583656311,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_541d883006894e6301b6a6ff",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword",
+          "score": 0.975955605506897,
+          "rrf_score": 0.015151515151515152,
+          "rerank_score": 0.975955605506897,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_3ecfc9ca1c5bb77e7a7d20e8",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.964806854724884,
+          "rrf_score": 0.02886002886002886,
+          "rerank_score": 0.964806854724884,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-002",
+      "question": "Lamando NF后Logo灯匹配单边的原因、影响和整改措施是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "5da20c64ce06460ea7022e20bde6e186"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 2791.33,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 108.48,
+        "opensearch_latency_ms": 21.49,
+        "fusion_latency_ms": 0.09,
+        "reranker_latency_ms": 2661.15
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "5da20c64ce06460ea7022e20bde6e186",
+          "chunk_id": "5da20c64ce06460ea7022e20bde6e186_chunk_e07480f1d2d0d6eae2715e1a",
+          "source": "LL-MQFH-2022-29_Lamando_NF后Logo灯单边.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.991305410861969,
+          "rrf_score": 0.032266458495966696,
+          "rerank_score": 0.991305410861969,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "c2144b57688d431a8216b37564e83920",
+          "chunk_id": "c2144b57688d431a8216b37564e83920_chunk_88300c55fb09f6ae99423c8e",
+          "source": "LL-MQFH-2023-67_Tharu_PA_侧围与侧围尾灯平整度差_工装调整后的球销到匹配面的开档.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.581499457359314,
+          "rrf_score": 0.03200204813108039,
+          "rerank_score": 0.581499457359314,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_afbd99c29bb3e04420b13d3b",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.27505892515182495,
+          "rrf_score": 0.016129032258064516,
+          "rerank_score": 0.27505892515182495,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_4f63286b8bdf803f5a446b72",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.2646294832229614,
+          "rrf_score": 0.014492753623188406,
+          "rerank_score": 0.2646294832229614,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "e014b720494743ea9b2643660bd0c0e3",
+          "chunk_id": "e014b720494743ea9b2643660bd0c0e3_0ec7ac7d09f34dc194f738321a659520_chunk_b1c0f5bd3674a932fc688c70",
+          "source": "LL-MQFH-2021-1_Teramont_PA后盖大尾灯银色螺栓可见.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword",
+          "score": 0.2179301232099533,
+          "rrf_score": 0.015625,
+          "rerank_score": 0.2179301232099533,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-003",
+      "question": "Audi A7L前盖胶水收缩印是怎样产生的，采取了什么措施？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "5997ef6c9a1644c7afcbd448f7489ca2"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3401.98,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 93.07,
+        "opensearch_latency_ms": 21.85,
+        "fusion_latency_ms": 0.12,
+        "reranker_latency_ms": 3286.77
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "5997ef6c9a1644c7afcbd448f7489ca2",
+          "chunk_id": "5997ef6c9a1644c7afcbd448f7489ca2_chunk_bdf2986bfaf9eae57a6b6c23",
+          "source": "LL-MQFA3-2021-8_Audi_A7L前盖胶水收缩印.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9990598559379578,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9990598559379578,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "5997ef6c9a1644c7afcbd448f7489ca2",
+          "chunk_id": "5997ef6c9a1644c7afcbd448f7489ca2_chunk_e54dc372e18abf4407c785d2",
+          "source": "LL-MQFA3-2021-8_Audi_A7L前盖胶水收缩印.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9361428022384644,
+          "rrf_score": 0.031746031746031744,
+          "rerank_score": 0.9361428022384644,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "ec0a907d821f469e8453b121f56c411f",
+          "chunk_id": "ec0a907d821f469e8453b121f56c411f_chunk_b04592e09bae2cdcb99b439f",
+          "source": "LL-MQFA3-2021-19_A_防腐车四门切边区域PVC表面漆膜开裂.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.8774975538253784,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.8774975538253784,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "f7fc1853795f40f092c5789a56e245ee",
+          "chunk_id": "f7fc1853795f40f092c5789a56e245ee_chunk_5618bb62d968bf94d32b408e",
+          "source": "LL-MQFA3-2021-3_途观L后盖上下板错位.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "vector",
+          "score": 0.5235702395439148,
+          "rrf_score": 0.015384615384615385,
+          "rerank_score": 0.5235702395439148,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "f7fc1853795f40f092c5789a56e245ee",
+          "chunk_id": "f7fc1853795f40f092c5789a56e245ee_chunk_d381acfd07330091fe413e5f",
+          "source": "LL-MQFA3-2021-3_途观L后盖上下板错位.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.48038414120674133,
+          "rrf_score": 0.028612012987012988,
+          "rerank_score": 0.48038414120674133,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-004",
+      "question": "Viloran PA1总装VIN与零件钢印重叠的根因、措施和前期预防经验是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "eaafc6a8fc41434f818f25a2f69e1265"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3384.75,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 119.33,
+        "opensearch_latency_ms": 21.59,
+        "fusion_latency_ms": 0.08,
+        "reranker_latency_ms": 3243.63
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "eaafc6a8fc41434f818f25a2f69e1265",
+          "chunk_id": "eaafc6a8fc41434f818f25a2f69e1265_chunk_26192aa60e00371a5caf5ef7",
+          "source": "LL-MQFH-2022-35_总装VIN与零件钢印重叠问题.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9991082549095154,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9991082549095154,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_c16bc0c166fafda2520fc0ac",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.6125689744949341,
+          "rrf_score": 0.015873015873015872,
+          "rerank_score": 0.6125689744949341,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "9a7360e97abe4b65b35da6550ac388da",
+          "chunk_id": "9a7360e97abe4b65b35da6550ac388da_chunk_6b8ba3c2d131b7ec38376e58",
+          "source": "LL-MQFH-2023-68_Audi_CSUV右后门C柱波浪.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.39233818650245667,
+          "rrf_score": 0.02857142857142857,
+          "rerank_score": 0.39233818650245667,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "2947f4c057344e22ae0b3466c49adb0b",
+          "chunk_id": "2947f4c057344e22ae0b3466c49adb0b_chunk_48934a22596b9d19fbfc7c47",
+          "source": "LL-MQFH-2023-70_右侧门槛下板_PVC露白.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword",
+          "score": 0.26336148381233215,
+          "rrf_score": 0.014925373134328358,
+          "rerank_score": 0.26336148381233215,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_4f63286b8bdf803f5a446b72",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.24290524423122406,
+          "rrf_score": 0.030090497737556562,
+          "rerank_score": 0.24290524423122406,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-005",
+      "question": "Teramont PA后盖大尾灯装配后银色螺栓可见，应如何整改？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "e014b720494743ea9b2643660bd0c0e3"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3307.91,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 68.04,
+        "opensearch_latency_ms": 8.4,
+        "fusion_latency_ms": 0.16,
+        "reranker_latency_ms": 3231.2
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "e014b720494743ea9b2643660bd0c0e3",
+          "chunk_id": "e014b720494743ea9b2643660bd0c0e3_0ec7ac7d09f34dc194f738321a659520_chunk_b1c0f5bd3674a932fc688c70",
+          "source": "LL-MQFH-2021-1_Teramont_PA后盖大尾灯银色螺栓可见.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9979619979858398,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9979619979858398,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_a812d368152508574684bdee",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.7958450317382812,
+          "rrf_score": 0.028125,
+          "rerank_score": 0.7958450317382812,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_61ae8e058bae5aaf0ba4ffca",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.6879239678382874,
+          "rrf_score": 0.03128054740957967,
+          "rerank_score": 0.6879239678382874,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "c2144b57688d431a8216b37564e83920",
+          "chunk_id": "c2144b57688d431a8216b37564e83920_chunk_88300c55fb09f6ae99423c8e",
+          "source": "LL-MQFH-2023-67_Tharu_PA_侧围与侧围尾灯平整度差_工装调整后的球销到匹配面的开档.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.6265341639518738,
+          "rrf_score": 0.028531243721117136,
+          "rerank_score": 0.6265341639518738,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_9155c3cfae0fb7d85ab044b9",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.36645543575286865,
+          "rrf_score": 0.014705882352941176,
+          "rerank_score": 0.36645543575286865,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-006",
+      "question": "MPV侧围D柱激光焊后表面波浪的主要原因和有效措施是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "f7e30e2ff13c473a9dacf1fb77936378"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3293.83,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 68.88,
+        "opensearch_latency_ms": 9.71,
+        "fusion_latency_ms": 0.08,
+        "reranker_latency_ms": 3215.01
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "f7e30e2ff13c473a9dacf1fb77936378",
+          "chunk_id": "f7e30e2ff13c473a9dacf1fb77936378_chunk_d1e48e6a0ef7ef30bdfc0a63",
+          "source": "LL-MQFH-2022-26_MPV侧围D柱表面波浪.1__左侧围D柱瘪塘.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9991722106933594,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.9991722106933594,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "f7e30e2ff13c473a9dacf1fb77936378",
+          "chunk_id": "f7e30e2ff13c473a9dacf1fb77936378_chunk_78cc1c2e63a5da73ae116178",
+          "source": "LL-MQFH-2022-26_MPV侧围D柱表面波浪.1__左侧围D柱瘪塘.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9959557056427002,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9959557056427002,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "f2f38f8ecded444d9250d0bfa997f79d",
+          "chunk_id": "f2f38f8ecded444d9250d0bfa997f79d_chunk_66f250a6305972977dbf4371",
+          "source": "LL-MQFH-2024-95_Lamando_L侧围激光焊热变形.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9779926538467407,
+          "rrf_score": 0.031746031746031744,
+          "rerank_score": 0.9779926538467407,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "9a7360e97abe4b65b35da6550ac388da",
+          "chunk_id": "9a7360e97abe4b65b35da6550ac388da_chunk_f692130bc92ae424a09de5b0",
+          "source": "LL-MQFH-2023-68_Audi_CSUV右后门C柱波浪.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9333859086036682,
+          "rrf_score": 0.02804284323271665,
+          "rerank_score": 0.9333859086036682,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_0ceb5154655eeb77b0b0e7a7",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.7160028219223022,
+          "rrf_score": 0.02967032967032967,
+          "rerank_score": 0.7160028219223022,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-007",
+      "question": "Tharu PA前翼子板大灯虎口瘪塘应在哪个工序处理，项目早期应吸取什么经验？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "ae70276ecd6f449c8c78204b2902e6c1"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3331.72,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 118.2,
+        "opensearch_latency_ms": 9.82,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3203.49
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "ae70276ecd6f449c8c78204b2902e6c1",
+          "chunk_id": "ae70276ecd6f449c8c78204b2902e6c1_chunk_42a081c8b6ffa64824f3d6ee",
+          "source": "LL-MQFH-2023-62_Tharu_PA前翼子板大灯虎口瘪塘.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9966841340065002,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9966841340065002,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "ae70276ecd6f449c8c78204b2902e6c1",
+          "chunk_id": "ae70276ecd6f449c8c78204b2902e6c1_chunk_99cf06cc4ef6e11381151fc1",
+          "source": "LL-MQFH-2023-62_Tharu_PA前翼子板大灯虎口瘪塘.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9513004422187805,
+          "rrf_score": 0.028629032258064516,
+          "rerank_score": 0.9513004422187805,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_d04a73fbe6419a6a76d5b210",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.9512631893157959,
+          "rrf_score": 0.014492753623188406,
+          "rerank_score": 0.9512631893157959,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "f2f38f8ecded444d9250d0bfa997f79d",
+          "chunk_id": "f2f38f8ecded444d9250d0bfa997f79d_chunk_66f250a6305972977dbf4371",
+          "source": "LL-MQFH-2024-95_Lamando_L侧围激光焊热变形.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9315308928489685,
+          "rrf_score": 0.030117753623188408,
+          "rerank_score": 0.9315308928489685,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_6b3ebfe6930fee5bcc8c1cb5",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9065845608711243,
+          "rrf_score": 0.02797339593114241,
+          "rerank_score": 0.9065845608711243,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-008",
+      "question": "Tharu PA侧围尾灯平整度内陷的工装原因和调整原则是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "c2144b57688d431a8216b37564e83920"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3275.39,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 85.23,
+        "opensearch_latency_ms": 7.27,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3182.67
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "c2144b57688d431a8216b37564e83920",
+          "chunk_id": "c2144b57688d431a8216b37564e83920_chunk_88300c55fb09f6ae99423c8e",
+          "source": "LL-MQFH-2023-67_Tharu_PA_侧围与侧围尾灯平整度差_工装调整后的球销到匹配面的开档.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9988391995429993,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9988391995429993,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "c2144b57688d431a8216b37564e83920",
+          "chunk_id": "c2144b57688d431a8216b37564e83920_chunk_4e9de7321d47f9810e16663b",
+          "source": "LL-MQFH-2023-67_Tharu_PA_侧围与侧围尾灯平整度差_工装调整后的球销到匹配面的开档.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9545866847038269,
+          "rrf_score": 0.028531243721117136,
+          "rerank_score": 0.9545866847038269,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "5da20c64ce06460ea7022e20bde6e186",
+          "chunk_id": "5da20c64ce06460ea7022e20bde6e186_chunk_e07480f1d2d0d6eae2715e1a",
+          "source": "LL-MQFH-2022-29_Lamando_NF后Logo灯单边.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9169430732727051,
+          "rrf_score": 0.03021353930031804,
+          "rerank_score": 0.9169430732727051,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_afbd99c29bb3e04420b13d3b",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.9143502712249756,
+          "rrf_score": 0.014285714285714285,
+          "rerank_score": 0.9143502712249756,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "e014b720494743ea9b2643660bd0c0e3",
+          "chunk_id": "e014b720494743ea9b2643660bd0c0e3_0ec7ac7d09f34dc194f738321a659520_chunk_b1c0f5bd3674a932fc688c70",
+          "source": "LL-MQFH-2021-1_Teramont_PA后盖大尾灯银色螺栓可见.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9024665355682373,
+          "rrf_score": 0.030330882352941176,
+          "rerank_score": 0.9024665355682373,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-009",
+      "question": "A+防腐车四门切边区域PVC表面漆膜开裂的原因和预防措施是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "ec0a907d821f469e8453b121f56c411f"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3249.74,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 69.34,
+        "opensearch_latency_ms": 7.68,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3172.53
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "ec0a907d821f469e8453b121f56c411f",
+          "chunk_id": "ec0a907d821f469e8453b121f56c411f_chunk_bdc30bcc404c4ea483fe32b3",
+          "source": "LL-MQFA3-2021-19_A_防腐车四门切边区域PVC表面漆膜开裂.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9993475079536438,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9993475079536438,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_0ff212bf302014a879d93827",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.8974088430404663,
+          "rrf_score": 0.02786377708978328,
+          "rerank_score": 0.8974088430404663,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_d27e9869dae508128550d116",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.87028968334198,
+          "rrf_score": 0.016129032258064516,
+          "rerank_score": 0.87028968334198,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_efc56549c5a43ff833c8c534",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.7933395504951477,
+          "rrf_score": 0.015384615384615385,
+          "rerank_score": 0.7933395504951477,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_635db2562d28d217b6824947",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.7400687336921692,
+          "rrf_score": 0.015873015873015872,
+          "rerank_score": 0.7400687336921692,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-010",
+      "question": "Lamando L侧围激光焊热变形为什么集中在起始段，程序如何优化？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "f2f38f8ecded444d9250d0bfa997f79d"
+      ],
+      "metrics": {
+        "precision@1": 0.0,
+        "recall@1": 0.0,
+        "hit_rate@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 0.5,
+        "ndcg@3": 0.63093,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.63093
+      },
+      "latency_ms": 2914.99,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 74.19,
+        "opensearch_latency_ms": 7.38,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 2833.25
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "f7e30e2ff13c473a9dacf1fb77936378",
+          "chunk_id": "f7e30e2ff13c473a9dacf1fb77936378_chunk_d1e48e6a0ef7ef30bdfc0a63",
+          "source": "LL-MQFH-2022-26_MPV侧围D柱表面波浪.1__左侧围D柱瘪塘.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.994746208190918,
+          "rrf_score": 0.03252247488101534,
+          "rerank_score": 0.994746208190918,
+          "relevant": false
+        },
+        {
+          "rank": 2,
+          "doc_id": "f2f38f8ecded444d9250d0bfa997f79d",
+          "chunk_id": "f2f38f8ecded444d9250d0bfa997f79d_chunk_66f250a6305972977dbf4371",
+          "source": "LL-MQFH-2024-95_Lamando_L侧围激光焊热变形.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.992323637008667,
+          "rrf_score": 0.03200204813108039,
+          "rerank_score": 0.992323637008667,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "f2f38f8ecded444d9250d0bfa997f79d",
+          "chunk_id": "f2f38f8ecded444d9250d0bfa997f79d_chunk_09a07ccf44ffdfd4debfee6d",
+          "source": "LL-MQFH-2024-95_Lamando_L侧围激光焊热变形.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9713103175163269,
+          "rrf_score": 0.032266458495966696,
+          "rerank_score": 0.9713103175163269,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "f7e30e2ff13c473a9dacf1fb77936378",
+          "chunk_id": "f7e30e2ff13c473a9dacf1fb77936378_chunk_78cc1c2e63a5da73ae116178",
+          "source": "LL-MQFH-2022-26_MPV侧围D柱表面波浪.1__左侧围D柱瘪塘.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9172214269638062,
+          "rrf_score": 0.03125,
+          "rerank_score": 0.9172214269638062,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_df975c0c6809fb1a0966b0f7",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.6610168814659119,
+          "rrf_score": 0.015151515151515152,
+          "rerank_score": 0.6610168814659119,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-011",
+      "question": "右侧门槛下板PVC露白的材料和喷涂原因是什么，如何整改和监控？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "2947f4c057344e22ae0b3466c49adb0b"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3268.38,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 75.42,
+        "opensearch_latency_ms": 8.83,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3183.95
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "2947f4c057344e22ae0b3466c49adb0b",
+          "chunk_id": "2947f4c057344e22ae0b3466c49adb0b_chunk_48934a22596b9d19fbfc7c47",
+          "source": "LL-MQFH-2023-70_右侧门槛下板_PVC露白.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9985322952270508,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9985322952270508,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_13ae64fd4b36d301dcb350af",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.5737080574035645,
+          "rrf_score": 0.014285714285714285,
+          "rerank_score": 0.5737080574035645,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_1a50a721911d4086cf916585",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.38342389464378357,
+          "rrf_score": 0.015625,
+          "rerank_score": 0.38342389464378357,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "f9e071b131a64ff9a290eaeaa5c825fc",
+          "chunk_id": "f9e071b131a64ff9a290eaeaa5c825fc_chunk_3da9d619b2f4b8297f130de1",
+          "source": "LL-MQFA2-2021-6_LL-MQFA2-2021-004_-_前地板工字梁倒插.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "vector",
+          "score": 0.36834830045700073,
+          "rrf_score": 0.014492753623188406,
+          "rerank_score": 0.36834830045700073,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_4a677771af936dacf182bf6d",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.36035048961639404,
+          "rrf_score": 0.027884615384615386,
+          "rerank_score": 0.36035048961639404,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-012",
+      "question": "ID3车门外板使用高强度板材时为什么尺寸难控制，项目阶段应如何应对？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "77b1c7bb337d4d45a1ebeec1f3c9ff5e"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3300.56,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 77.85,
+        "opensearch_latency_ms": 7.77,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3214.77
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "77b1c7bb337d4d45a1ebeec1f3c9ff5e",
+          "chunk_id": "77b1c7bb337d4d45a1ebeec1f3c9ff5e_chunk_b2d89ff0aaad44d4a0520cef",
+          "source": "LL-MQFM-2024-50_ID3车门外板使用高强度板材_由于板材屈服强度高_回弹量大_影响零件尺寸且优化难度高.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9985112547874451,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9985112547874451,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_d1e3b9ba8eb35aca457fea0d",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.806854784488678,
+          "rrf_score": 0.027884615384615386,
+          "rerank_score": 0.806854784488678,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "5814b5872a95453d8a1199c4103fb9d1",
+          "chunk_id": "5814b5872a95453d8a1199c4103fb9d1_243a61503a4e4f6a8e6cd513a6047f6b_chunk_bda3aed947b1580d8893e08d",
+          "source": "整车制造过程_标准化管理手册_车身尺寸模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.7965747714042664,
+          "rrf_score": 0.014705882352941176,
+          "rerank_score": 0.7965747714042664,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "5814b5872a95453d8a1199c4103fb9d1",
+          "chunk_id": "5814b5872a95453d8a1199c4103fb9d1_243a61503a4e4f6a8e6cd513a6047f6b_chunk_fb07d879a365243dd8e826dd",
+          "source": "整车制造过程_标准化管理手册_车身尺寸模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.7650822997093201,
+          "rrf_score": 0.014492753623188406,
+          "rerank_score": 0.7650822997093201,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "5814b5872a95453d8a1199c4103fb9d1",
+          "chunk_id": "5814b5872a95453d8a1199c4103fb9d1_243a61503a4e4f6a8e6cd513a6047f6b_chunk_6a2d3df66c5417b82ce3863c",
+          "source": "整车制造过程_标准化管理手册_车身尺寸模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.7268757820129395,
+          "rrf_score": 0.016129032258064516,
+          "rerank_score": 0.7268757820129395,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-013",
+      "question": "Audi CSUV右后门C柱波浪与哪项尺寸调整有关，最终如何恢复表面状态？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "9a7360e97abe4b65b35da6550ac388da"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3315.46,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 67.2,
+        "opensearch_latency_ms": 5.68,
+        "fusion_latency_ms": 0.08,
+        "reranker_latency_ms": 3242.4
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "9a7360e97abe4b65b35da6550ac388da",
+          "chunk_id": "9a7360e97abe4b65b35da6550ac388da_chunk_f692130bc92ae424a09de5b0",
+          "source": "LL-MQFH-2023-68_Audi_CSUV右后门C柱波浪.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9966577291488647,
+          "rrf_score": 0.03252247488101534,
+          "rerank_score": 0.9966577291488647,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "9a7360e97abe4b65b35da6550ac388da",
+          "chunk_id": "9a7360e97abe4b65b35da6550ac388da_chunk_6b8ba3c2d131b7ec38376e58",
+          "source": "LL-MQFH-2023-68_Audi_CSUV右后门C柱波浪.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9952051639556885,
+          "rrf_score": 0.03252247488101534,
+          "rerank_score": 0.9952051639556885,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "f7e30e2ff13c473a9dacf1fb77936378",
+          "chunk_id": "f7e30e2ff13c473a9dacf1fb77936378_chunk_d1e48e6a0ef7ef30bdfc0a63",
+          "source": "LL-MQFH-2022-26_MPV侧围D柱表面波浪.1__左侧围D柱瘪塘.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.7799069881439209,
+          "rrf_score": 0.031024531024531024,
+          "rerank_score": 0.7799069881439209,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_8275b923d716e555b4755f59",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.49837014079093933,
+          "rrf_score": 0.014285714285714285,
+          "rerank_score": 0.49837014079093933,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_59952e1d7febfcf213e873be",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.45907944440841675,
+          "rrf_score": 0.014492753623188406,
+          "rerank_score": 0.45907944440841675,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-014",
+      "question": "Passat倒车后视摄像头无影像的失效链路和最终措施是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "9a5e81b689ec4483b01d83ca56ee9aa9"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3263.13,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 57.71,
+        "opensearch_latency_ms": 5.94,
+        "fusion_latency_ms": 0.09,
+        "reranker_latency_ms": 3199.27
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "9a5e81b689ec4483b01d83ca56ee9aa9",
+          "chunk_id": "9a5e81b689ec4483b01d83ca56ee9aa9_chunk_297477edee842acf0a0094a0",
+          "source": "LL-MQFN-2022-28_Passat_倒车后视摄像头无影像.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.996955394744873,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.996955394744873,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "e014b720494743ea9b2643660bd0c0e3",
+          "chunk_id": "e014b720494743ea9b2643660bd0c0e3_0ec7ac7d09f34dc194f738321a659520_chunk_b1c0f5bd3674a932fc688c70",
+          "source": "LL-MQFH-2021-1_Teramont_PA后盖大尾灯银色螺栓可见.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.443215936422348,
+          "rrf_score": 0.02666666666666667,
+          "rerank_score": 0.443215936422348,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_3ca617bae8c5dde0d34c300a",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.35098162293434143,
+          "rrf_score": 0.014705882352941176,
+          "rerank_score": 0.35098162293434143,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "ec8bd8411e654c9db993dfa34d593d12",
+          "chunk_id": "ec8bd8411e654c9db993dfa34d593d12_chunk_21d29862d2eef4c55f419c56",
+          "source": "LL-MQFH-2022-23_后围板_PVC未密封.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.26943883299827576,
+          "rrf_score": 0.03149801587301587,
+          "rerank_score": 0.26943883299827576,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_4f94dd07fe87932e32fbf512",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.23588690161705017,
+          "rrf_score": 0.014285714285714285,
+          "rerank_score": 0.23588690161705017,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-015",
+      "question": "前地板工字梁倒插涉及哪些累计误差，采取了哪些防错措施？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "f9e071b131a64ff9a290eaeaa5c825fc"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3112.68,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 74.94,
+        "opensearch_latency_ms": 5.94,
+        "fusion_latency_ms": 0.11,
+        "reranker_latency_ms": 3031.58
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "f9e071b131a64ff9a290eaeaa5c825fc",
+          "chunk_id": "f9e071b131a64ff9a290eaeaa5c825fc_chunk_3da9d619b2f4b8297f130de1",
+          "source": "LL-MQFA2-2021-6_LL-MQFA2-2021-004_-_前地板工字梁倒插.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.994623064994812,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.994623064994812,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "f9e071b131a64ff9a290eaeaa5c825fc",
+          "chunk_id": "f9e071b131a64ff9a290eaeaa5c825fc_chunk_c313523a6c03b1adc389ff7b",
+          "source": "LL-MQFA2-2021-6_LL-MQFA2-2021-004_-_前地板工字梁倒插.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9842979907989502,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.9842979907989502,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_541d883006894e6301b6a6ff",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.877164363861084,
+          "rrf_score": 0.027651515151515153,
+          "rerank_score": 0.877164363861084,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_3ecfc9ca1c5bb77e7a7d20e8",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.8252232670783997,
+          "rrf_score": 0.03125763125763126,
+          "rerank_score": 0.8252232670783997,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_f4d55778da2de3688752dc98",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.5963212847709656,
+          "rrf_score": 0.02666666666666667,
+          "rerank_score": 0.5963212847709656,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-016",
+      "question": "途观L后盖上下板错位应如何调整定位方案？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "f7fc1853795f40f092c5789a56e245ee"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 2816.98,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 51.65,
+        "opensearch_latency_ms": 6.08,
+        "fusion_latency_ms": 0.06,
+        "reranker_latency_ms": 2759.07
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "f7fc1853795f40f092c5789a56e245ee",
+          "chunk_id": "f7fc1853795f40f092c5789a56e245ee_chunk_9e932a838e8dc8ae18e855d2",
+          "source": "LL-MQFA3-2021-3_途观L后盖上下板错位.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9981285929679871,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9981285929679871,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "f7fc1853795f40f092c5789a56e245ee",
+          "chunk_id": "f7fc1853795f40f092c5789a56e245ee_chunk_d381acfd07330091fe413e5f",
+          "source": "LL-MQFA3-2021-3_途观L后盖上下板错位.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9910613894462585,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.9910613894462585,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_8f63d8619286133830c3dd3e",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9313766956329346,
+          "rrf_score": 0.030776515151515152,
+          "rerank_score": 0.9313766956329346,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_0cac21bbda03aeaf5eb95be9",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.926011860370636,
+          "rrf_score": 0.03076923076923077,
+          "rerank_score": 0.926011860370636,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_9155c3cfae0fb7d85ab044b9",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.8888376355171204,
+          "rrf_score": 0.030117753623188408,
+          "rerank_score": 0.8888376355171204,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-017",
+      "question": "途昂副车架固定孔与车身孔无法对齐的尺寸链原因和解决方案是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "c6c4e8ff3f934f258024da8a5fe9fd46"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3372.3,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 80.15,
+        "opensearch_latency_ms": 6.59,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3285.35
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "c6c4e8ff3f934f258024da8a5fe9fd46",
+          "chunk_id": "c6c4e8ff3f934f258024da8a5fe9fd46_chunk_737c882d35dd0a4c030c707c",
+          "source": "LL-MQFH-2022-31_途昂车型副车架车身孔与车身对不齐.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9988362193107605,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9988362193107605,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_2c83b27936537c124beebfc0",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.5595658421516418,
+          "rrf_score": 0.03036576949620428,
+          "rerank_score": 0.5595658421516418,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_492667a2aacaaedc52ff15fe",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.5507106781005859,
+          "rrf_score": 0.03055037313432836,
+          "rerank_score": 0.5507106781005859,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "f7fc1853795f40f092c5789a56e245ee",
+          "chunk_id": "f7fc1853795f40f092c5789a56e245ee_chunk_5618bb62d968bf94d32b408e",
+          "source": "LL-MQFA3-2021-3_途观L后盖上下板错位.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "vector",
+          "score": 0.4168323576450348,
+          "rrf_score": 0.015384615384615385,
+          "rerank_score": 0.4168323576450348,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_a8bba7fe4dac1d45f8333df0",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.38333719968795776,
+          "rrf_score": 0.03200204813108039,
+          "rerank_score": 0.38333719968795776,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-018",
+      "question": "Lavida NF PA前围导风件为什么安装不便，采用了什么人机工程改进？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "e3ddc2e93312446286840a99c8f95213"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 2683.08,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 92.51,
+        "opensearch_latency_ms": 6.35,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 2584.02
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "e3ddc2e93312446286840a99c8f95213",
+          "chunk_id": "e3ddc2e93312446286840a99c8f95213_chunk_1905c492c21e8e6bda7821eb",
+          "source": "LL-MQFA2-2021-9_优化前围导风件安装工艺.pdf",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9918540716171265,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9918540716171265,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "c2144b57688d431a8216b37564e83920",
+          "chunk_id": "c2144b57688d431a8216b37564e83920_chunk_88300c55fb09f6ae99423c8e",
+          "source": "LL-MQFH-2023-67_Tharu_PA_侧围与侧围尾灯平整度差_工装调整后的球销到匹配面的开档.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "vector",
+          "score": 0.18226410448551178,
+          "rrf_score": 0.015625,
+          "rerank_score": 0.18226410448551178,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "f9e071b131a64ff9a290eaeaa5c825fc",
+          "chunk_id": "f9e071b131a64ff9a290eaeaa5c825fc_chunk_c313523a6c03b1adc389ff7b",
+          "source": "LL-MQFA2-2021-6_LL-MQFA2-2021-004_-_前地板工字梁倒插.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "vector",
+          "score": 0.13203300535678864,
+          "rrf_score": 0.014925373134328358,
+          "rerank_score": 0.13203300535678864,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_0866e460de4ab3f093a1c5af",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.03946611285209656,
+          "rrf_score": 0.015384615384615385,
+          "rerank_score": 0.03946611285209656,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490",
+          "chunk_id": "fe5fe61cc87c4aa99dbb7c0aa19cb490_3230a6b679b0449487cb154de36a3a99_chunk_2fe7a04643cf2eebf16ea46b",
+          "source": "LL-MQFA2-2021-8_LL-MQFA2-2021-001_-_左后轮罩与后纵梁离缝大.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "vector",
+          "score": 0.03314274176955223,
+          "rrf_score": 0.016129032258064516,
+          "rerank_score": 0.03314274176955223,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-019",
+      "question": "Coupe左侧围三角窗焊点假焊的设备原因、参数措施和维护要求是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "e5715102638648c3b0988376cbca3163"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3251.58,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 60.63,
+        "opensearch_latency_ms": 6.08,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3184.69
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "e5715102638648c3b0988376cbca3163",
+          "chunk_id": "e5715102638648c3b0988376cbca3163_chunk_de610b7770326b4ea78ca9bb",
+          "source": "LL-MQFH-2022-39_Coupe_左侧围后部三角窗上部焊点假焊.2左侧围三角窗焊点假焊.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9881265163421631,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9881265163421631,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_df975c0c6809fb1a0966b0f7",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9751817584037781,
+          "rrf_score": 0.03200204813108039,
+          "rerank_score": 0.9751817584037781,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "e5715102638648c3b0988376cbca3163",
+          "chunk_id": "e5715102638648c3b0988376cbca3163_chunk_e41c6c1d15c53b90a6f3edf5",
+          "source": "LL-MQFH-2022-39_Coupe_左侧围后部三角窗上部焊点假焊.2左侧围三角窗焊点假焊.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9628617763519287,
+          "rrf_score": 0.03021353930031804,
+          "rerank_score": 0.9628617763519287,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "f2f38f8ecded444d9250d0bfa997f79d",
+          "chunk_id": "f2f38f8ecded444d9250d0bfa997f79d_chunk_66f250a6305972977dbf4371",
+          "source": "LL-MQFH-2024-95_Lamando_L侧围激光焊热变形.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "vector",
+          "score": 0.9516334533691406,
+          "rrf_score": 0.015384615384615385,
+          "rerank_score": 0.9516334533691406,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_68410cbb9ce23fdaff1b65a9",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.8644254207611084,
+          "rrf_score": 0.014705882352941176,
+          "rerank_score": 0.8644254207611084,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-LL-020",
+      "question": "后围板PVC未密封为何与VMT摄像头临时变更有关，变化点应怎样管控？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "ec8bd8411e654c9db993dfa34d593d12"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3323.45,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 85.88,
+        "opensearch_latency_ms": 5.71,
+        "fusion_latency_ms": 0.1,
+        "reranker_latency_ms": 3231.65
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "ec8bd8411e654c9db993dfa34d593d12",
+          "chunk_id": "ec8bd8411e654c9db993dfa34d593d12_chunk_21d29862d2eef4c55f419c56",
+          "source": "LL-MQFH-2022-23_后围板_PVC未密封.pptx",
+          "doc_type": "LessonLearn",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9980219602584839,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9980219602584839,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_1a50a721911d4086cf916585",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.6630026698112488,
+          "rrf_score": 0.028790389395194696,
+          "rerank_score": 0.6630026698112488,
+          "relevant": false
+        },
+        {
+          "rank": 3,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_39715b433999be5f5cd0f6ea",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.35024893283843994,
+          "rrf_score": 0.015873015873015872,
+          "rerank_score": 0.35024893283843994,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_32b38dbcf5f74e6b0ca0ba4c",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.30412253737449646,
+          "rrf_score": 0.026742734890354787,
+          "rerank_score": 0.30412253737449646,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_efc56549c5a43ff833c8c534",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.1825278252363205,
+          "rrf_score": 0.029386529386529386,
+          "rerank_score": 0.1825278252363205,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-001",
+      "question": "车身尺寸管理在VFF和PVS阶段需要哪些核心输入，这些输入分别用于什么评价？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "5814b5872a95453d8a1199c4103fb9d1"
+      ],
+      "metrics": {
+        "precision@1": 0.0,
+        "recall@1": 0.0,
+        "hit_rate@1": 0.0,
+        "mrr@1": 0.0,
+        "ndcg@1": 0.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 0.5,
+        "ndcg@3": 0.63093,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 0.5,
+        "ndcg@5": 0.63093
+      },
+      "latency_ms": 2943.49,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 81.53,
+        "opensearch_latency_ms": 5.97,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 2855.8
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_481a0e6ada13f3ea5a1f4f5b",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9941754937171936,
+          "rrf_score": 0.03200204813108039,
+          "rerank_score": 0.9941754937171936,
+          "relevant": false
+        },
+        {
+          "rank": 2,
+          "doc_id": "5814b5872a95453d8a1199c4103fb9d1",
+          "chunk_id": "5814b5872a95453d8a1199c4103fb9d1_243a61503a4e4f6a8e6cd513a6047f6b_chunk_ae8ecc6645cafdfcbdc34b38",
+          "source": "整车制造过程_标准化管理手册_车身尺寸模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.993783712387085,
+          "rrf_score": 0.031544957774465976,
+          "rerank_score": 0.993783712387085,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_00f55faeaf8dd14bbe4ff19c",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9912195801734924,
+          "rrf_score": 0.03057889822595705,
+          "rerank_score": 0.9912195801734924,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "e973de4c0e5f48c3805b77cea5ab28c9",
+          "chunk_id": "e973de4c0e5f48c3805b77cea5ab28c9_chunk_625a9dc6f585073a0ee7a06b",
+          "source": "整车制造过程_标准化管理手册_燃油密封系统_1.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.9856284856796265,
+          "rrf_score": 0.014925373134328358,
+          "rerank_score": 0.9856284856796265,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_7a903654adc971c29f94aad7",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9833479523658752,
+          "rrf_score": 0.02946912242686891,
+          "rerank_score": 0.9833479523658752,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-002",
+      "question": "为什么整车制造需要对表面匹配进行标准化管理？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "2d1ef3ae99e84f739b1e116a602f7b97"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 2831.26,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 65.06,
+        "opensearch_latency_ms": 6.25,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 2759.75
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_a4e14b0a17df317d6a895a4c",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9993807077407837,
+          "rrf_score": 0.030798389007344232,
+          "rerank_score": 0.9993807077407837,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_dc566f5b2ff8a04e0fe8de7f",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9989142417907715,
+          "rrf_score": 0.032018442622950824,
+          "rerank_score": 0.9989142417907715,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_53869992412aa01aec9df3fe",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9985719919204712,
+          "rrf_score": 0.03200204813108039,
+          "rerank_score": 0.9985719919204712,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_2203130142613945992dbe19",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9932103753089905,
+          "rrf_score": 0.02786377708978328,
+          "rerank_score": 0.9932103753089905,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_107ab26e2d5c539dae8b2d7e",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.9718851447105408,
+          "rrf_score": 0.014492753623188406,
+          "rerank_score": 0.9718851447105408,
+          "relevant": false
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-003",
+      "question": "ZP8 ECOS电子电气检查包含哪些内容，电瓶SOC内控目标是多少？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "e59cb68d98384765813b8b9c7e3df873"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 2869.53,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 88.09,
+        "opensearch_latency_ms": 5.56,
+        "fusion_latency_ms": 0.1,
+        "reranker_latency_ms": 2775.66
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_bb837743b848ba05d2aaa9d2",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9982373714447021,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9982373714447021,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_6667ec29bae015adff390d4b",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9895491600036621,
+          "rrf_score": 0.03125,
+          "rerank_score": 0.9895491600036621,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_17dd42546559b16d83e4602a",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9850355386734009,
+          "rrf_score": 0.027972027972027972,
+          "rerank_score": 0.9850355386734009,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "2d1ef3ae99e84f739b1e116a602f7b97",
+          "chunk_id": "2d1ef3ae99e84f739b1e116a602f7b97_4c9851f6da5a439eaf1f94bcd5e2dcd2_chunk_8c142e646b8f011c1927a052",
+          "source": "整车制造过程_标准化管理手册_表面匹配_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.9333221316337585,
+          "rrf_score": 0.014285714285714285,
+          "rerank_score": 0.9333221316337585,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_46ae99c181740984dcf6deb4",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.9077431559562683,
+          "rrf_score": 0.015151515151515152,
+          "rerank_score": 0.9077431559562683,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-004",
+      "question": "电子电气缺陷原因不明确时，ODIS诊断和返工流程有什么要求？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "e59cb68d98384765813b8b9c7e3df873"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3286.31,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 64.85,
+        "opensearch_latency_ms": 5.86,
+        "fusion_latency_ms": 0.1,
+        "reranker_latency_ms": 3215.39
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_10fefb01d27227bec7066631",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9966316819190979,
+          "rrf_score": 0.03036576949620428,
+          "rerank_score": 0.9966316819190979,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_c9dc0a7696663934a2b5b503",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9945152401924133,
+          "rrf_score": 0.03252247488101534,
+          "rerank_score": 0.9945152401924133,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_9f5f90db5e0a2155fbf49452",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9703236222267151,
+          "rrf_score": 0.028594771241830064,
+          "rerank_score": 0.9703236222267151,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_651e75f68494747f563fbf9f",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9605762958526611,
+          "rrf_score": 0.030798389007344232,
+          "rerank_score": 0.9605762958526611,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "e59cb68d98384765813b8b9c7e3df873",
+          "chunk_id": "e59cb68d98384765813b8b9c7e3df873_chunk_bb89e8efd2049e6e5cfa9e5c",
+          "source": "整车制造过程_标准化管理手册_电子电气_1.4.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9518805146217346,
+          "rrf_score": 0.032018442622950824,
+          "rerank_score": 0.9518805146217346,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-005",
+      "question": "油漆附着力失效会带来哪些质量和市场风险？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "51530105e31e439cbdb86f50cc8f90ce"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 2629.3,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 57.75,
+        "opensearch_latency_ms": 6.65,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 2564.7
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_98bb033aa2892f51d9cd392c",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9947667121887207,
+          "rrf_score": 0.032266458495966696,
+          "rerank_score": 0.9947667121887207,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_dcd359e6dd3a3eb0ea9ea648",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9565278887748718,
+          "rrf_score": 0.032266458495966696,
+          "rerank_score": 0.9565278887748718,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_5b10ab6d844c634a2ac24ed8",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9549809694290161,
+          "rrf_score": 0.031754032258064516,
+          "rerank_score": 0.9549809694290161,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_d5b337c4ea2247fcc221cb66",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.8018465042114258,
+          "rrf_score": 0.015625,
+          "rerank_score": 0.8018465042114258,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_ecd0f91dbf0666a882d04fe9",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.5128234028816223,
+          "rrf_score": 0.015151515151515152,
+          "rerank_score": 0.5128234028816223,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-006",
+      "question": "电阻点焊和焊缝质量分别可以采用哪些非破坏性与破坏性检验方法？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "95c751105ce142a18050c9c5d0c7233e"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3330.36,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 75.35,
+        "opensearch_latency_ms": 7.49,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3247.35
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_f5074a55111dc86145be09ca",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9958580136299133,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.9958580136299133,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_42d7c5975649ad32b3933b28",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9920614957809448,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9920614957809448,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_d35cce679c3e92e51cc936c0",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9744834899902344,
+          "rrf_score": 0.02976190476190476,
+          "rerank_score": 0.9744834899902344,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_ff47b1454ddc533f1b8a58ed",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9532175660133362,
+          "rrf_score": 0.02761904761904762,
+          "rerank_score": 0.9532175660133362,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "95c751105ce142a18050c9c5d0c7233e",
+          "chunk_id": "95c751105ce142a18050c9c5d0c7233e_chunk_77f6d9b3980995171ebe1785",
+          "source": "整车制造过程_标准化管理手册_焊接模块_2022.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9509267807006836,
+          "rrf_score": 0.03055037313432836,
+          "rerank_score": 0.9509267807006836,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-007",
+      "question": "车身泄漏批量评价中，雨淋一次合格率和MQF专项审核分数的目标值分别是多少？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "8885e85879714bfda233c9dc450281ae"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3316.44,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 92.64,
+        "opensearch_latency_ms": 6.24,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3217.34
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_82f2ed2874328d9940f7d9b3",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9991430044174194,
+          "rrf_score": 0.03278688524590164,
+          "rerank_score": 0.9991430044174194,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_8987fcad08b12048f9f9c73d",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9984983205795288,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.9984983205795288,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_77d3d2632bc2ffa0df241154",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9846100807189941,
+          "rrf_score": 0.029709507042253523,
+          "rerank_score": 0.9846100807189941,
+          "relevant": false
+        },
+        {
+          "rank": 4,
+          "doc_id": "51530105e31e439cbdb86f50cc8f90ce",
+          "chunk_id": "51530105e31e439cbdb86f50cc8f90ce_chunk_9233d56d87e6cbfc416f35b1",
+          "source": "整车制造过程_标准化管理手册_附着力_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "vector",
+          "score": 0.9827632904052734,
+          "rrf_score": 0.014285714285714285,
+          "rerank_score": 0.9827632904052734,
+          "relevant": false
+        },
+        {
+          "rank": 5,
+          "doc_id": "8885e85879714bfda233c9dc450281ae",
+          "chunk_id": "8885e85879714bfda233c9dc450281ae_chunk_62ac261b7791a0d37b9bfecd",
+          "source": "整车制造过程_标准化管理手册_密封_车身泄漏__1.2.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.9792713522911072,
+          "rrf_score": 0.015384615384615385,
+          "rerank_score": 0.9792713522911072,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-008",
+      "question": "扭矩拧紧工具的设备能力和转速、公差要求是什么？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "8fe8d142827c438c9dffbbe333b74bfa"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3048.64,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 106.04,
+        "opensearch_latency_ms": 6.38,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 2936.01
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_25d130dc919eec8a1967d960",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9934542179107666,
+          "rrf_score": 0.03252247488101534,
+          "rerank_score": 0.9934542179107666,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_df5a12118a956dd5237b17f7",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9856884479522705,
+          "rrf_score": 0.03149801587301587,
+          "rerank_score": 0.9856884479522705,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_2c9b6d66dd14fa6c82a8ccdc",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9642684459686279,
+          "rrf_score": 0.03177805800756621,
+          "rerank_score": 0.9642684459686279,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_437ab307e0b5352cdc85303f",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9223021268844604,
+          "rrf_score": 0.03036576949620428,
+          "rerank_score": 0.9223021268844604,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_3af1e5ad1dcd5f88208ff10e",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.8463013172149658,
+          "rrf_score": 0.02904040404040404,
+          "rerank_score": 0.8463013172149658,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-009",
+      "question": "扭矩管理在SOP阶段对维护保养、参数设置和放行系统有哪些成熟度要求？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "8fe8d142827c438c9dffbbe333b74bfa"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 3404.03,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 88.4,
+        "opensearch_latency_ms": 6.9,
+        "fusion_latency_ms": 0.07,
+        "reranker_latency_ms": 3308.5
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_b07f5a66ca418d29e287c9ef",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9922670722007751,
+          "rrf_score": 0.031754032258064516,
+          "rerank_score": 0.9922670722007751,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_6e5ed46dc0b8be798237e9e2",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9360408186912537,
+          "rrf_score": 0.02967032967032967,
+          "rerank_score": 0.9360408186912537,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_494e41c163d22463d48886a0",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.8919728994369507,
+          "rrf_score": 0.028782894736842105,
+          "rerank_score": 0.8919728994369507,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_f2dc0a7da11d9e66b68d66e0",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.8755886554718018,
+          "rrf_score": 0.016129032258064516,
+          "rerank_score": 0.8755886554718018,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "8fe8d142827c438c9dffbbe333b74bfa",
+          "chunk_id": "8fe8d142827c438c9dffbbe333b74bfa_chunk_55e0d80af551ecc0871c754a",
+          "source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.831697940826416,
+          "rrf_score": 0.028169014084507043,
+          "rerank_score": 0.831697940826416,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    },
+    {
+      "id": "KB-STD-010",
+      "question": "燃油系统气密性检测设备日常巡检要检查哪些关键项目？",
+      "status": "success",
+      "relevance_field": "doc_id",
+      "relevant_ids": [
+        "e973de4c0e5f48c3805b77cea5ab28c9"
+      ],
+      "metrics": {
+        "precision@1": 1.0,
+        "recall@1": 1.0,
+        "hit_rate@1": 1.0,
+        "mrr@1": 1.0,
+        "ndcg@1": 1.0,
+        "precision@3": 0.333333,
+        "recall@3": 1.0,
+        "hit_rate@3": 1.0,
+        "mrr@3": 1.0,
+        "ndcg@3": 1.0,
+        "precision@5": 0.2,
+        "recall@5": 1.0,
+        "hit_rate@5": 1.0,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0
+      },
+      "latency_ms": 2922.46,
+      "latency_breakdown_ms": {
+        "qdrant_latency_ms": 63.03,
+        "opensearch_latency_ms": 5.33,
+        "fusion_latency_ms": 0.06,
+        "reranker_latency_ms": 2853.92
+      },
+      "retrieval_mode": "hybrid",
+      "degraded": false,
+      "degraded_reason": null,
+      "ranked_results": [
+        {
+          "rank": 1,
+          "doc_id": "e973de4c0e5f48c3805b77cea5ab28c9",
+          "chunk_id": "e973de4c0e5f48c3805b77cea5ab28c9_chunk_7a4c1ec14f8ac425a3cb3547",
+          "source": "整车制造过程_标准化管理手册_燃油密封系统_1.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9805399179458618,
+          "rrf_score": 0.03225806451612903,
+          "rerank_score": 0.9805399179458618,
+          "relevant": true
+        },
+        {
+          "rank": 2,
+          "doc_id": "e973de4c0e5f48c3805b77cea5ab28c9",
+          "chunk_id": "e973de4c0e5f48c3805b77cea5ab28c9_chunk_650999b9c8c1fefeb54f8235",
+          "source": "整车制造过程_标准化管理手册_燃油密封系统_1.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9775795340538025,
+          "rrf_score": 0.029726775956284153,
+          "rerank_score": 0.9775795340538025,
+          "relevant": true
+        },
+        {
+          "rank": 3,
+          "doc_id": "e973de4c0e5f48c3805b77cea5ab28c9",
+          "chunk_id": "e973de4c0e5f48c3805b77cea5ab28c9_chunk_12899b6fdc6c7782b8bf10f0",
+          "source": "整车制造过程_标准化管理手册_燃油密封系统_1.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword",
+          "score": 0.9681757688522339,
+          "rrf_score": 0.014705882352941176,
+          "rerank_score": 0.9681757688522339,
+          "relevant": true
+        },
+        {
+          "rank": 4,
+          "doc_id": "e973de4c0e5f48c3805b77cea5ab28c9",
+          "chunk_id": "e973de4c0e5f48c3805b77cea5ab28c9_chunk_e35f0698b8e413b39a2c8ce5",
+          "source": "整车制造过程_标准化管理手册_燃油密封系统_1.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9552247524261475,
+          "rrf_score": 0.028371628371628373,
+          "rerank_score": 0.9552247524261475,
+          "relevant": true
+        },
+        {
+          "rank": 5,
+          "doc_id": "e973de4c0e5f48c3805b77cea5ab28c9",
+          "chunk_id": "e973de4c0e5f48c3805b77cea5ab28c9_chunk_b9de3def65274bfb1ae185ac",
+          "source": "整车制造过程_标准化管理手册_燃油密封系统_1.1.pdf",
+          "doc_type": "标准作业文档",
+          "retrieval_source": "keyword+vector",
+          "score": 0.9075315594673157,
+          "rrf_score": 0.027046783625730993,
+          "rerank_score": 0.9075315594673157,
+          "relevant": true
+        }
+      ],
+      "error_type": null,
+      "error_message": null
+    }
+  ],
+  "report_path": "data/eval/ragas_grounding_retrieval_report_retrieval_20260814T072828Z_27f9722b.json"
+}

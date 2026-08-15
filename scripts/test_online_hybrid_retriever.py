@@ -46,6 +46,20 @@ class _KeywordBackend:
             }
         ]
 
+    def get_adjacent_chunks(self, seeds, *, window=1):
+        self.neighbor_seeds = seeds
+        self.neighbor_window = window
+        return [
+            {
+                "chunk_id": "neighbor-1",
+                "doc_id": seeds[0].get("doc_id"),
+                "chunk_index": 2,
+                "text": "adjacent evidence",
+                "source": "quality.md",
+                "score": 1.0,
+            }
+        ]
+
 
 def main() -> None:
     provider = MockEmbeddingProvider(dimension=16)
@@ -86,6 +100,49 @@ def main() -> None:
     assert filtered["metadata"]["filters_applied"] == {
         "doc_types": ["FMEA"]
     }
+
+    neighbor_vector = _VectorBackend(provider)
+    neighbor_vector.search = lambda query, top_k=5, filters=None: [
+        {
+            "chunk_id": "seed-1",
+            "doc_id": "doc-1",
+            "chunk_index": 1,
+            "text": "chapter overview",
+            "source": "quality.md",
+            "score": 0.9,
+            "retrieval_source": "vector",
+        },
+        {
+            "chunk_id": "seed-2",
+            "doc_id": "doc-2",
+            "chunk_index": 5,
+            "text": "other evidence",
+            "source": "other.md",
+            "score": 0.8,
+            "retrieval_source": "vector",
+        },
+    ][:top_k]
+    neighbor_keyword = _KeywordBackend()
+    expanded = OnlineHybridRetriever(
+        neighbor_vector,
+        neighbor_keyword,
+        use_reranker=False,
+        neighbor_expansion_enabled=True,
+        neighbor_seed_k=1,
+    ).retrieve("quality", top_k=2)
+    assert [item["chunk_id"] for item in expanded["contexts"]] == [
+        "seed-1",
+        "neighbor-1",
+    ]
+    assert expanded["contexts"][1]["final_score_type"] == "adjacent_context"
+    assert expanded["metadata"]["neighbor_added_count"] == 1
+    assert OnlineHybridRetriever._metadata_query_overlap(
+        "车身尺寸管理输入",
+        {"source": "整车制造过程_标准化管理手册_车身尺寸模块_2022.pdf"},
+    ) > OnlineHybridRetriever._metadata_query_overlap(
+        "车身尺寸管理输入",
+        {"source": "整车制造过程_标准化管理手册_扭矩_2.1.pdf"},
+    )
 
     class _FailingReranker:
         def rerank(self, **kwargs):

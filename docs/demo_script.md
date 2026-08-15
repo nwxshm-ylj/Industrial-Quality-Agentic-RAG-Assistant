@@ -73,7 +73,7 @@ curl.exe http://localhost:18000/health/ready
 
 展示：
 
-- intent 为 fault_diagnosis；
+- intent 为 rag，query_features.diagnosis_required 为 true；
 - Query Rewriter 的独立检索问题；
 - Qdrant + OpenSearch 双路命中；
 - RRF/Reranker 分数；
@@ -98,16 +98,16 @@ curl.exe http://localhost:18000/health/ready
 - episodic_memory_count；
 - memory_degraded 和 degraded_components。
 
-## 7. Rule Tool
+## 7. 标准与规则知识检索
 
-提问一个 `data/rules/industrial_rules.yaml` 中存在的 PR 编码或故障规则。
+提问知识库文档中的质量标准、配置要求或判定规则。
 
 验收点：
 
-- intent 为 rule_query；
-- 规则命中后不进入文档检索；
-- citation 指向 industrial_rules.yaml；
-- 未命中规则时自动回退 Query Rewriter 与 RAG。
+- intent 为 rag；
+- 规则问题与标准文档统一进入 Hybrid Retrieval；
+- citation 指向实际上传的标准作业文档；
+- Evidence Judge 对规则证据执行与普通知识问答一致的门禁。
 
 ## 8. SQL Tool
 
@@ -121,15 +121,15 @@ curl.exe http://localhost:18000/health/ready
 
 安全点：只允许 SELECT、白名单表、禁止危险关键字、LIMIT 自动补齐且最大 100。
 
-## 9. Case Retriever 与知识图谱
+## 9. 统一知识检索与案例追溯
 
 提问：
 
 ```text
-查询历史轮毂误识别案例及相关根因和措施。
+查询与轮毂误识别相关的 LessonLearn、制造标准、风险和处理措施。
 ```
 
-展示 PostgreSQL quality_cases 结果；启用 Neo4j 时展示补充的实体关系路径。说明图谱是案例证据增强，不替代文档检索。
+展示 Qdrant 与 OpenSearch 的统一检索证据，以及 Neo4j 补充的“质量实体—Chunk—文档”关系路径。说明一级 intent 仍为 `rag`，追溯能力由 `query_features.traceability_required` 激活，不再进入独立 Case 节点。
 
 ## 10. 流式响应与节点进度
 

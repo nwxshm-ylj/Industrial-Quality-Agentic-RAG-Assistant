@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 
 import type { ChatTurn } from "../../stores/chatStore";
 import { FeedbackControl } from "./FeedbackControl";
+import { normalizeAnswerMarkdown } from "./markdown";
 import { formatLatency, getIntent, intentLabels, shortenId } from "./presentation";
 
 interface ConversationTurnProps {
@@ -28,6 +29,13 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
         <div className="message-avatar">你</div>
         <div className="message-bubble message-bubble--user">
           <Typography.Paragraph>{turn.question}</Typography.Paragraph>
+          {turn.images && turn.images.length > 0 && (
+            <div className="message-bubble__images" aria-label="本轮查询图片">
+              {turn.images.map((image) => (
+                <img key={image.id} src={image.dataUrl} alt={image.name} title={image.name} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -71,7 +79,9 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
               )}
               {turn.streamedAnswer ? (
                 <div className="answer-markdown answer-markdown--streaming">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{turn.streamedAnswer}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {normalizeAnswerMarkdown(turn.streamedAnswer)}
+                  </ReactMarkdown>
                   <span className="streaming-cursor" aria-hidden="true" />
                 </div>
               ) : (
@@ -92,7 +102,9 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
           {turn.status === "completed" && response && (
             <>
               <div className="answer-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{response.answer || "暂无回答"}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {normalizeAnswerMarkdown(response.answer || "暂无回答")}
+                </ReactMarkdown>
               </div>
               <div className="answer-meta">
                 <Tag bordered={false}>{intentLabels[intent] || intent}</Tag>

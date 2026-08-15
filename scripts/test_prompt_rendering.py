@@ -35,6 +35,8 @@ def main() -> None:
             "memory_text": "无历史对话。",
             "question": "轮毂识别异常可能是什么原因？",
             "context_text": "摄像头污染可能导致识别置信度下降。",
+            "intent": "rag",
+            "evidence_text": "证据是否通过门禁：是",
         },
     )
     assert "摄像头污染" in answer_prompt.messages[1].content

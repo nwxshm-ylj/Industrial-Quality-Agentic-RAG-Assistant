@@ -18,10 +18,94 @@ export type FeedbackResponse = components["schemas"]["FeedbackResponse"];
 export type FeedbackItem = components["schemas"]["FeedbackItem"];
 export type FeedbackStatsResponse = components["schemas"]["FeedbackStatsResponse"];
 export type FeedbackRating = FeedbackCreateRequest["rating"];
-export type EvalRunInfo = components["schemas"]["EvalRunInfo"];
-export type EvalRunResponse = components["schemas"]["EvalRunResponse"];
-export type EvalRunListResponse = components["schemas"]["EvalRunListResponse"];
-export type EvalItemInfo = components["schemas"]["EvalItemInfo"];
+type GeneratedEvalRunInfo = components["schemas"]["EvalRunInfo"];
+type GeneratedEvalItemInfo = components["schemas"]["EvalItemInfo"];
+
+export interface GenerationEvalMetrics extends Record<string, number> {
+  overall_pass_rate: number;
+  citation_validation_pass_rate: number;
+  avg_citation_coverage: number;
+  semantic_validation_coverage_rate: number;
+  semantic_support_pass_rate: number;
+  avg_semantic_support_rate: number;
+  repair_trigger_rate: number;
+  repair_success_rate: number;
+  llm_repair_selection_rate: number;
+  deterministic_prune_selection_rate: number;
+  direct_finalize_selection_rate: number;
+  repair_avoidance_rate: number;
+  avg_latency_llm_repair_ms: number;
+  avg_latency_without_llm_repair_ms: number;
+  deterministic_citation_pruning_rate: number;
+  final_refusal_rate: number;
+  abstention_accuracy: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+}
+
+export type EvalItemInfo = GeneratedEvalItemInfo & {
+  category?: string | null;
+  answerable?: boolean | null;
+  must_cite?: boolean | null;
+  should_abstain?: boolean | null;
+  answer_abstained?: boolean | null;
+  abstention_ok?: boolean | null;
+  citation_contract_ok?: boolean | null;
+  citation_coverage?: number | null;
+  semantic_support_checked?: boolean;
+  semantic_support_rate?: number | null;
+  semantic_support_ok?: boolean | null;
+  semantic_validation_degraded?: boolean;
+  validation_action?: string | null;
+  generation_retry_count?: number;
+  repair_triggered?: boolean;
+  repair_avoided?: boolean;
+  repair_success?: boolean;
+  citation_pruned?: boolean;
+    failure_category?: string | null;
+    failure_tags?: string[];
+    evidence_enough?: boolean | null;
+    evidence_confidence?: number | null;
+    evidence_threshold?: number | null;
+    evidence_reasons?: string[];
+    missing_aspects?: string[];
+    abstain_reason?: string | null;
+    answer_validation_history?: Array<Record<string, unknown>>;
+  quality_checks?: Record<string, boolean>;
+};
+
+  export type EvalRunInfo = GeneratedEvalRunInfo & {
+    generation_metrics?: Partial<GenerationEvalMetrics>;
+    failure_analysis?: {
+      failed_count?: number;
+      passed_count?: number;
+      false_refusal_count?: number;
+      false_refusal_rate?: number;
+      knowledge_gap_refusal_accuracy?: number;
+      failure_categories?: Record<string, number>;
+      failure_tags?: Record<string, number>;
+      evidence_threshold_sweep?: Array<{
+        threshold: number;
+        sample_count: number;
+        decision_accuracy: number;
+        false_refusal_rate: number;
+        unsafe_answer_rate: number;
+      }>;
+    };
+  prompt_release?: Record<string, unknown> | null;
+  evaluation_fingerprint?: Record<string, unknown> | null;
+};
+
+export type EvalRunResponse = EvalRunInfo & { items: EvalItemInfo[] };
+export interface EvalRunListResponse {
+  runs: EvalRunInfo[];
+  total: number;
+}
+
+export interface GenerationEvalRunRequest {
+  max_questions?: number | null;
+  question_ids?: string[] | null;
+}
 export type UsageOverviewResponse = components["schemas"]["UsageOverviewResponse"];
 export type UsageTimeseriesItem = components["schemas"]["UsageTimeseriesItem"];
 export type UsageTimeseriesResponse = components["schemas"]["UsageTimeseriesResponse"];
@@ -61,6 +145,13 @@ export interface ChatTokenEvent {
   request_id: string;
   session_id: string;
   delta: string;
+}
+
+export interface ChatAnswerReplaceEvent {
+  sequence: number;
+  request_id: string;
+  session_id: string;
+  answer: string;
 }
 
 export interface ChatStreamErrorEvent {
@@ -131,6 +222,11 @@ export interface ChatMetadata extends Record<string, unknown> {
   intent?: string | null;
   evidence_score?: number | null;
   evidence_enough?: boolean | null;
+  generation_retry_count?: number | null;
+  generation_repair_error?: string | null;
+  generation_quality_passed?: boolean | null;
+  answer_validation?: Record<string, unknown> | null;
+  answer_structure?: Record<string, unknown> | null;
   retry_count?: number | null;
   total_latency_ms?: number | null;
   retrieval_mode?: string | null;

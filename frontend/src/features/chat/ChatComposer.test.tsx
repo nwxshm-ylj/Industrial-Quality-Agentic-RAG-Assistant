@@ -10,7 +10,10 @@ describe("ChatComposer", () => {
       <ChatComposer
         value="优先排查哪个？"
         loading={false}
+        images={[]}
         onChange={vi.fn()}
+        onImagesChange={vi.fn()}
+        onImageError={vi.fn()}
         onSubmit={onSubmit}
       />,
     );
@@ -29,7 +32,10 @@ describe("ChatComposer", () => {
       <ChatComposer
         value="问题"
         loading
+        images={[]}
         onChange={vi.fn()}
+        onImagesChange={vi.fn()}
+        onImageError={vi.fn()}
         onSubmit={onSubmit}
       />,
     );

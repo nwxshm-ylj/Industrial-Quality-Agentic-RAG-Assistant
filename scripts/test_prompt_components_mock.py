@@ -42,7 +42,7 @@ def main() -> None:
     rewriter_module = importlib.import_module(
         "app.graph.nodes.query_rewriter_node"
     )
-    intent_module.llm = FakeChatModel("fault_diagnosis")
+    intent_module.llm = FakeChatModel("rag")
     rewriter_module.llm = FakeChatModel("轮毂 视觉识别 异常 摄像头 OCR 排查")
 
     token = start_request_context("prompt-components-mock")
@@ -53,11 +53,12 @@ def main() -> None:
                 "request_id": "prompt-components-mock",
                 "session_id": "prompt-components-session",
                 "memory_messages": [],
-                "intent": "doc_qa",
+                "intent": "rag",
                 "retry_count": 0,
             }
         )
-        assert intent_result["intent"] == "fault_diagnosis"
+        assert intent_result["intent"] == "rag"
+        assert intent_result["query_features"]["diagnosis_required"] is True
 
         rewrite_result = rewriter_module.query_rewriter_node(
             {
@@ -70,7 +71,8 @@ def main() -> None:
                         "content": "轮毂识别异常可能是什么原因？",
                     }
                 ],
-                "intent": "fault_diagnosis",
+                "intent": "rag",
+                "query_features": intent_result["query_features"],
                 "retry_count": 0,
             }
         )
@@ -91,6 +93,20 @@ def main() -> None:
             memory_messages=[],
         )
         assert "摄像头" in answer
+        generator.llm = FakeChatModel("优先检查摄像头污染【资料1】。")
+        repaired = generator.repair_answer(
+            question="那优先排查哪个？",
+            draft_answer="优先检查摄像头污染。",
+            contexts=[
+                {
+                    "citation_label": "资料1",
+                    "source": "wheel.md",
+                    "text": "识别异常时优先检查摄像头污染。",
+                }
+            ],
+            validation={"passed": False, "failure_reasons": ["no_valid_citations"]},
+        )
+        assert "【资料1】" in repaired
 
         sql_tool = IndustrialSQLTool()
         sql_tool.llm = FakeChatModel(
@@ -103,7 +119,7 @@ def main() -> None:
 
         context = get_request_context()
         assert context is not None
-        assert len(context.ai_events) == 4
+        assert len(context.ai_events) == 5
         prompt_ids = {
             event.metadata.get("prompt_id")
             for event in context.ai_events
@@ -112,10 +128,20 @@ def main() -> None:
             "industrial.intent_router",
             "industrial.query_rewriter.initial",
             "industrial.answer_generator",
+            "industrial.answer_repair",
             "industrial.sql_generator",
         }
+        expected_versions = {
+            "industrial.intent_router": "1.1.0",
+            "industrial.query_rewriter.initial": "1.1.0",
+            "industrial.answer_generator": "1.2.0",
+            "industrial.answer_repair": "1.0.0",
+            "industrial.sql_generator": "1.0.0",
+        }
         for event in context.ai_events:
-            assert event.metadata.get("prompt_version") == "1.0.0"
+            assert event.metadata.get("prompt_version") == expected_versions[
+                event.metadata.get("prompt_id")
+            ]
             assert event.metadata.get("prompt_release")
 
         print("Prompt component mock test passed")

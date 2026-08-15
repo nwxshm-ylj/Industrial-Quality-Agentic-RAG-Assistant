@@ -34,7 +34,6 @@ request_id、session_id、username 属于高基数字段，不应作为 Promethe
 - evidence_judge；
 - rule_tool；
 - sql_tool；
-- case_retriever；
 - generate；
 - save_memory；
 - graph_chat。

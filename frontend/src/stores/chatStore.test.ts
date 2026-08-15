@@ -17,8 +17,15 @@ describe("chatStore", () => {
   });
 
   it("tracks a pending turn and completes it with the backend session", () => {
-    const turnId = useChatStore.getState().addPendingTurn("第一问");
+    const turnId = useChatStore.getState().addPendingTurn("第一问", [
+      {
+        id: "image-1",
+        name: "defect.png",
+        dataUrl: "data:image/png;base64,AAAA",
+      },
+    ]);
     expect(useChatStore.getState().turns[0].status).toBe("pending");
+    expect(useChatStore.getState().turns[0].images?.[0].name).toBe("defect.png");
 
     useChatStore.getState().completeTurn(turnId, response);
 
@@ -46,12 +53,13 @@ describe("chatStore", () => {
     });
     useChatStore.getState().appendTurnToken(turnId, "优先");
     useChatStore.getState().appendTurnToken(turnId, "检查相机");
+    useChatStore.getState().replaceTurnAnswer(turnId, "优先检查相机【资料1】。");
 
     expect(useChatStore.getState().turns[0]).toMatchObject({
       status: "streaming",
       requestId: "request-stream",
       progress: 38,
-      streamedAnswer: "优先检查相机",
+      streamedAnswer: "优先检查相机【资料1】。",
       currentStage: { node_name: "retrieve" },
     });
   });

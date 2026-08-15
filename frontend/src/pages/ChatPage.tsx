@@ -12,6 +12,7 @@ import { chatApi } from "../api/chat";
 import { getApiErrorMessage } from "../api/client";
 import type { ChatRequest } from "../api/types";
 import { ChatComposer } from "../features/chat/ChatComposer";
+import type { ChatImageAttachment } from "../features/chat/imageAttachments";
 import { ConversationTurn } from "../features/chat/ConversationTurn";
 import { EvidencePanel } from "../features/chat/EvidencePanel";
 import { shortenId } from "../features/chat/presentation";
@@ -47,6 +48,7 @@ const exampleQuestions = [
 export function ChatPage() {
   const { message, modal } = AntdApp.useApp();
   const [draft, setDraft] = useState("");
+  const [images, setImages] = useState<ChatImageAttachment[]>([]);
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -62,6 +64,7 @@ export function ChatPage() {
     acceptStreamingTurn,
     updateTurnProgress,
     appendTurnToken,
+    replaceTurnAnswer,
     completeTurn,
     failTurn,
     startNewConversation,
@@ -90,9 +93,14 @@ export function ChatPage() {
       return;
     }
 
-    const turnId = addPendingTurn(question);
+    const submittedImages = images.map((image) => image.dataUrl);
+    const turnId = addPendingTurn(
+      question,
+      images.map(({ id, name, dataUrl }) => ({ id, name, dataUrl })),
+    );
     setSelectedTurnId(turnId);
     setDraft("");
+    setImages([]);
     setIsStreaming(true);
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -114,6 +122,9 @@ export function ChatPage() {
         question,
         top_k: topK,
         session_id: sessionId,
+        ...(submittedImages.length > 0
+          ? { multimodal_query: { images: submittedImages } }
+          : {}),
       };
       const response = await chatApi.askStream(
         request,
@@ -125,6 +136,10 @@ export function ChatPage() {
             if (!tokenFlushTimer) {
               tokenFlushTimer = setTimeout(flushTokenBuffer, 40);
             }
+          },
+          onAnswerReplace: (event) => {
+            flushTokenBuffer();
+            replaceTurnAnswer(turnId, event.answer);
           },
         },
         controller.signal,
@@ -156,6 +171,7 @@ export function ChatPage() {
       startNewConversation();
       setSelectedTurnId(null);
       setDraft("");
+      setImages([]);
       return;
     }
 
@@ -168,6 +184,7 @@ export function ChatPage() {
         startNewConversation();
         setSelectedTurnId(null);
         setDraft("");
+        setImages([]);
       },
     });
   };
@@ -283,7 +300,10 @@ export function ChatPage() {
         <ChatComposer
           value={draft}
           loading={isStreaming}
+          images={images}
           onChange={setDraft}
+          onImagesChange={setImages}
+          onImageError={(errorMessage) => message.error(errorMessage)}
           onSubmit={handleSubmit}
         />
       </main>

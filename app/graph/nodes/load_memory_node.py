@@ -10,6 +10,16 @@ conversation_memory = ConversationMemory()
 
 @observe_node("load_memory")
 def load_memory_node(state: IndustrialRAGState) -> dict:
+    if not state.get("memory_enabled", True):
+        return {
+            "memory_messages": [],
+            "memory_metadata": {
+                "memory_mode": "disabled_for_evaluation",
+                "recent_memory_count": 0,
+                "episodic_memory_count": 0,
+                "memory_degraded": False,
+            },
+        }
     session_id = state.get("session_id", "default") or "default"
     if settings.layered_memory_enabled:
         user = state.get("user") or {}

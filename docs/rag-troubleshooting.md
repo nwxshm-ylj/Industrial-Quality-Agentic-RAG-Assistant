@@ -248,19 +248,17 @@ $response.case_result
 
 | 问题类型 | 预期 intent | 预期路径 |
 |---|---|---|
-| 文档知识问答 | `doc_qa` | Query Rewrite → Retrieve |
-| 异常原因与排查 | `fault_diagnosis` | Query Rewrite → Retrieve |
-| 质量规则查询 | `rule_query` | Rule Tool，未命中再 RAG |
-| 统计、设备、告警数据查询 | `sql_analysis` | SQL Tool |
-| 历史案例 | `case_search` | Case Retriever |
+| 文档、诊断、标准规则 | `rag` | Query Rewrite → Retrieve → Evidence Judge |
+| 统计、设备、告警记录查询 | `sql` | SQL Tool |
+| 历史案例与风险追溯 | `rag` + `query_features.traceability_required=true` | Unified Hybrid Retriever + Neo4j enrichment |
 | 普通交流 | `general` | Generate |
 
 典型判断：
 
-- 问设备告警却进入 `doc_qa`：Intent Router 问题；
+- 文档标准数值问题进入 `sql`：检查 SQL 实体与操作双重门禁；
 - Intent 正确但 rewritten_query 丢失设备型号：Query Rewrite 问题；
 - viewer 访问 SQL 分析返回 403：权限行为，不是 RAG 故障；
-- Rule Tool 命中时没有执行向量检索：符合工作流设计。
+- 追溯问题没有 Neo4j 增强：检查 metadata.query_features.traceability_required。
 
 检查最近意图分布：
 
@@ -984,3 +982,32 @@ docker compose exec api python -m scripts.evaluate_retrieval --top-k 5 --k-value
 8. 记录 Prompt、Embedding、索引、Parser 和 Chunk 版本；
 9. 不把 `evidence_score` 当成事实正确率；
 10. 不把返回数量当成 Recall。
+
+## 24. 错误拒答专项诊断
+
+先确认环境一致，再判断阈值。不要看到拒答就直接降低 `EVIDENCE_CONFIDENCE_THRESHOLD`。
+
+```powershell
+curl.exe http://localhost:8000/health/ready
+
+docker compose exec api python -m scripts.diagnose_retrieval_evidence `
+  --question-id STD005 `
+  --output data/eval/diagnostic_STD005.json
+```
+
+诊断报告会展示：
+
+- 当前 Embedding provider/model/dimension/index version；
+- Qdrant 物理 Collection、Alias 及实际目标；
+- 目标来源在 Vector、Keyword、最终融合结果中的排名；
+- Evidence Judge 的 confidence、reasons、missing_aspects 和 abstain_reason；
+- 各阶段候选的来源、chunk、分数和文本预览。
+
+典型根因与处理顺序：
+
+1. Alias 指向不同模型的集合：先修环境，禁止调阈值；
+2. Vector 与 Keyword 均未命中：检查解析、chunk、入库和评测标注；
+3. 前两路命中但融合后丢失：检查 RRF、候选数和邻接扩展；
+4. 正确证据进入最终上下文但被拒答：检查 missing_aspects、覆盖率和阈值；
+5. 回答正文已经明确“资料未提供”，但 metadata 未标记拒答：检查语义拒答分类；
+6. 问题明确指向“未上传/未收录”的目标：应在 Evidence Judge 确定性拒答，不能用相似文档补齐不存在的事实。

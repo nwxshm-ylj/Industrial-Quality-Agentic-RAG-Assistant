@@ -13,7 +13,11 @@ const DOCUMENT_OPERATION_TIMEOUT_MS = 300_000;
 
 export interface UploadDocumentInput {
   file: File;
-  docType?: string;
+  docType:
+    | "LESSON_LEARNED"
+    | "STANDARD_WORK_DOCUMENT"
+    | "PFMEA"
+    | "AFTERSALES_DOCUMENT";
   version: string;
   onProgress?: (percent: number) => void;
 }
@@ -36,9 +40,7 @@ export const documentsApi = {
   async upload(input: UploadDocumentInput): Promise<DocumentUploadResponse> {
     const formData = new FormData();
     formData.append("file", input.file, input.file.name);
-    if (input.docType?.trim()) {
-      formData.append("doc_type", input.docType.trim());
-    }
+    formData.append("doc_type", input.docType);
     formData.append("version", input.version.trim() || "v1");
 
     const response = await apiClient.post<DocumentUploadResponse>(

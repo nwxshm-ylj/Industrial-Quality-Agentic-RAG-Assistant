@@ -15,6 +15,7 @@ from app.schemas.document import (
     DocumentInfo,
     DocumentListResponse,
     DocumentReindexResponse,
+    DocumentType,
     DocumentUploadResponse,
 )
 from app.services.audit_service import AuditService
@@ -33,7 +34,7 @@ audit_service = AuditService()
 async def upload_document(
     request: Request,
     file: UploadFile = File(...),
-    doc_type: str | None = Form(default=None),
+    doc_type: DocumentType = Form(...),
     version: str = Form(default="v1"),
     current_user: dict = Depends(require_roles("admin", "engineer")),
 ):
@@ -69,7 +70,7 @@ async def upload_document(
         result = document_service.upload_and_index_document(
             file_bytes=file_bytes,
             original_filename=file.filename,
-            doc_type=doc_type,
+            doc_type=doc_type.value,
             version=version,
         )
         audit_service.log_action(

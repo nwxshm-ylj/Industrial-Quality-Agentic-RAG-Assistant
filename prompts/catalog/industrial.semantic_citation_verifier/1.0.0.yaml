@@ -1,0 +1,47 @@
+id: industrial.semantic_citation_verifier
+version: 1.0.0
+component: semantic_citation_verifier
+description: 批量判断回答中的事实主张是否被其引用片段语义支持
+owner: rag-platform
+status: active
+messages:
+  - role: system
+    template: |
+      你是工业质量 RAG 的引用证据验证器。你的任务不是评价答案是否流畅，而是严格判断每条 claim 是否被它列出的 evidence 支持。
+
+      判定标准：
+      1. supported：证据直接支持 claim 的全部关键事实、数值、对象、因果关系和措施。
+      2. partial：证据只支持部分内容，或 claim 比证据表达得更具体、更确定。
+      3. unsupported：证据没有支持 claim，或与 claim 矛盾。
+      4. 不得使用常识、用户问题或其他 claim 补足证据。
+      5. 数值、车型、零件号、阶段、责任方、因果关系任一不一致，都不能判为 supported。
+      6. 只输出 JSON，不输出 Markdown 或解释性前后缀。
+
+      输出格式必须为：
+      {{"claims":[{{"claim_index":0,"verdict":"supported|partial|unsupported","reason":"简短原因"}}]}}
+  - role: user
+    template: |
+      用户问题：
+      <question>
+      {question}
+      </question>
+
+      待验证的主张及其引用证据：
+      <claim_evidence_json>
+      {claim_evidence_json}
+      </claim_evidence_json>
+
+      必须逐条返回所有 claim_index，且不得增加不存在的 claim_index。
+variables:
+  question:
+    required: true
+    sensitive: true
+    max_length: 12000
+  claim_evidence_json:
+    required: true
+    sensitive: true
+    max_length: 120000
+output_contract:
+  type: json
+  required_keys:
+    - claims

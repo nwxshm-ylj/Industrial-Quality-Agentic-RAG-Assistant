@@ -31,6 +31,7 @@ import { EvaluationDetailDrawer } from "../features/evaluation/EvaluationDetailD
 import {
   formatMetric,
   formatRate,
+  getGenerationMetric,
   getRetrievalK,
   getRetrievalLatency,
   getRetrievalMetric,
@@ -50,6 +51,7 @@ export function EvaluationPage() {
   const queryClient = useQueryClient();
   const [ratingFilter, setRatingFilter] = useState<FeedbackRating | "all">("all");
   const [retrievalTopK, setRetrievalTopK] = useState(5);
+  const [generationMaxQuestions, setGenerationMaxQuestions] = useState(10);
   const [selectedRun, setSelectedRun] = useState<SelectedRun>(null);
 
   const feedbackStats = useQuery({ queryKey: ["feedback", "stats"], queryFn: feedbackApi.stats });
@@ -82,7 +84,11 @@ export function EvaluationPage() {
   });
 
   const generationMutation = useMutation({
-    mutationFn: evaluationApi.run,
+    mutationFn: () => evaluationApi.run(
+      generationMaxQuestions > 0
+        ? { max_questions: generationMaxQuestions }
+        : undefined,
+    ),
     onSuccess: async (run) => {
       message.success(`评估完成：${run.run_id}`);
       await queryClient.invalidateQueries({ queryKey: ["evaluation", "generation"] });
@@ -104,7 +110,7 @@ export function EvaluationPage() {
   const confirmGenerationRun = () => {
     modal.confirm({
       title: "运行生成式 RAG 评估？",
-      content: "该任务会读取评估集并调用真实 LangGraph/LLM，可能持续数分钟并产生模型用量。",
+      content: `该任务将运行 ${generationMaxQuestions || "全部 44"} 条真实评测问题，调用 LangGraph、检索和答案模型，可能持续数分钟并产生模型用量。`,
       okText: "确认运行",
       cancelText: "取消",
       onOk: () => generationMutation.mutateAsync(),
@@ -136,6 +142,10 @@ export function EvaluationPage() {
     { title: "Source", dataIndex: "source_hit_rate", width: 90, render: formatRate },
     { title: "Keyword", dataIndex: "answer_keyword_hit_rate", width: 90, render: formatRate },
     { title: "Memory", dataIndex: "memory_followup_success_rate", width: 90, render: formatRate },
+    { title: "Citation", key: "citation", width: 90, render: (_, run) => formatRate(getGenerationMetric(run, "citation_validation_pass_rate")) },
+    { title: "Repair", key: "repair", width: 90, render: (_, run) => formatRate(getGenerationMetric(run, "repair_success_rate")) },
+    { title: "Abstain", key: "abstain", width: 90, render: (_, run) => formatRate(getGenerationMetric(run, "abstention_accuracy")) },
+    { title: "P95", key: "p95", width: 100, render: (_, run) => `${getGenerationMetric(run, "p95_latency_ms").toFixed(0)} ms` },
     { title: "Avg latency", dataIndex: "avg_latency_ms", width: 105, render: (value) => `${Number(value || 0).toFixed(0)} ms` },
     { title: "详情", key: "details", width: 70, fixed: "right", render: (_, run) => <Button type="link" size="small" onClick={() => setSelectedRun({ kind: "generation", runId: run.run_id })}>查看</Button> },
   ];
@@ -178,13 +188,19 @@ export function EvaluationPage() {
         </Card>
 
         <Card className="latest-evaluation" bordered={false}>
-          <div className="eval-card-heading"><div><Typography.Text className="panel-kicker">LATEST GENERATION RUN</Typography.Text><Typography.Title level={4}>生成质量指标</Typography.Title></div><Button type="primary" loading={generationMutation.isPending} onClick={confirmGenerationRun}>运行评估</Button></div>
+          <div className="eval-card-heading"><div><Typography.Text className="panel-kicker">LATEST GENERATION RUN</Typography.Text><Typography.Title level={4}>G3.1 生成可信度验收</Typography.Title></div><Space><Select value={generationMaxQuestions} onChange={setGenerationMaxQuestions} options={[{ label: "快速 5 题", value: 5 }, { label: "标准 10 题", value: 10 }, { label: "完整 44 题", value: 0 }]} /><Button type="primary" loading={generationMutation.isPending} onClick={confirmGenerationRun}>运行评估</Button></Space></div>
           {latestGeneration ? (
             <div className="latest-evaluation__metrics">
-              <span><b>{formatRate(latestGeneration.intent_accuracy)}</b><small>Intent accuracy</small></span>
-              <span><b>{formatRate(latestGeneration.source_hit_rate)}</b><small>Source hit</small></span>
-              <span><b>{formatRate(latestGeneration.answer_keyword_hit_rate)}</b><small>Keyword hit</small></span>
-              <span><b>{formatRate(latestGeneration.memory_followup_success_rate)}</b><small>Memory follow-up</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "overall_pass_rate"))}</b><small>Overall pass</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "citation_validation_pass_rate"))}</b><small>Citation pass</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "avg_citation_coverage"))}</b><small>Citation coverage</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "repair_trigger_rate"))}</b><small>Repair trigger</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "repair_avoidance_rate"))}</b><small>Repair avoided</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "repair_success_rate"))}</b><small>Repair success</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "abstention_accuracy"))}</b><small>Abstention accuracy</small></span>
+              <span><b>{formatRate(latestGeneration.failure_analysis?.false_refusal_rate || 0)}</b><small>False refusal</small></span>
+              <span><b>{formatRate(getGenerationMetric(latestGeneration, "deterministic_citation_pruning_rate"))}</b><small>Citation pruning</small></span>
+              <span><b>{getGenerationMetric(latestGeneration, "p95_latency_ms").toFixed(0)} ms</b><small>End-to-end P95</small></span>
             </div>
           ) : <Alert type="info" showIcon message="尚无生成式评估记录" />}
         </Card>
@@ -197,7 +213,7 @@ export function EvaluationPage() {
 
       <Card className="evaluation-table-card" bordered={false}>
         <div className="eval-card-heading"><div><Typography.Text className="panel-kicker">GENERATION RUNS</Typography.Text><Typography.Title level={4}>生成式评估历史</Typography.Title></div><Button onClick={() => generationRuns.refetch()}>刷新</Button></div>
-        <Table rowKey="run_id" columns={generationColumns} dataSource={generationRuns.data?.runs || []} loading={generationRuns.isLoading} scroll={{ x: 1050 }} pagination={{ pageSize: 6 }} />
+        <Table rowKey="run_id" columns={generationColumns} dataSource={generationRuns.data?.runs || []} loading={generationRuns.isLoading} scroll={{ x: 1450 }} pagination={{ pageSize: 6 }} />
       </Card>
     </div>
   );

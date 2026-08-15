@@ -32,20 +32,34 @@ def main() -> None:
         [
             {
                 "id": "mock-1",
-                "question": "轮毂识别异常如何排查？",
-                "reference_answer": "检查曝光、光源和PR配置。",
+                "question": "如何检查设备异常？",
+                "reference_answer": "根据设备手册执行点检。",
+                "expected_doc_ids": ["doc-1"],
+                "expected_chunk_ids": ["chunk-1"],
+                "reference_contexts": ["设备手册要求执行点检。"],
             },
             {
                 "id": "mock-2",
-                "question": "OCR失败如何排查？",
-                "reference_answer": "检查打印质量、坐标和OCR模板。",
+                "question": "如何处理质量报警？",
+                "reference_answer": "根据质量标准执行排查。",
             },
         ],
         result_provider=lambda question: {
             "answer": f"针对{question}，请根据标准流程检查。",
             "contexts": [
-                {"text": "标准要求检查曝光、光源、打印质量和模板。"}
+                {
+                    "doc_id": "doc-1",
+                    "chunk_id": "chunk-1",
+                    "source": "mock.pdf",
+                    "text": "标准要求检查设备状态并保留记录。",
+                }
             ],
+            "citations": [{"doc_id": "doc-1", "chunk_id": "chunk-1"}],
+            "intent": "rag",
+            "rewritten_query": question,
+            "evidence_score": 0.9,
+            "evidence_enough": True,
+            "metadata": {"retrieval_mode": "mock"},
         },
         run_id="ragas_mock",
         dataset_name="mock.json",
@@ -57,6 +71,11 @@ def main() -> None:
     assert set(report["metrics"]) == set(RAGAS_METRIC_NAMES)
     assert report["metrics"]["faithfulness"] == 0.95
     assert all(item["status"] == "success" for item in report["items"])
+    first_item = report["items"][0]
+    assert first_item["retrieved_contexts"][0]["doc_id"] == "doc-1"
+    assert first_item["expected_doc_ids"] == ["doc-1"]
+    assert first_item["intent"] == "rag"
+    assert first_item["evidence_enough"] is True
     print("RAGAS semantic evaluation adapter tests passed without paid APIs")
 
 

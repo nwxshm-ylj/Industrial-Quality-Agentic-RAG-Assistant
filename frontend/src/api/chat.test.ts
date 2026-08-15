@@ -19,6 +19,9 @@ describe("chatApi", () => {
       question: "轮毂识别异常可能是什么原因？",
       top_k: 5,
       session_id: "session-1",
+      multimodal_query: {
+        images: ["data:image/png;base64,AAAA"],
+      },
     })).resolves.toEqual(response);
 
     expect(post).toHaveBeenCalledWith(
@@ -27,6 +30,9 @@ describe("chatApi", () => {
         question: "轮毂识别异常可能是什么原因？",
         top_k: 5,
         session_id: "session-1",
+        multimodal_query: {
+          images: ["data:image/png;base64,AAAA"],
+        },
       },
       { timeout: 180_000 },
     );
@@ -39,6 +45,7 @@ describe("chatApi", () => {
       "\"session_id\":\"session-1\",\"sequence\":0,\"status\":\"accepted\"}\n\n",
       "event: progress\ndata: {\"node_name\":\"retrieve\",\"label\":\"执行混合检索\",\"status\":\"running\",\"progress\":38}\n\n",
       "event: token\ndata: {\"delta\":\"优先检查\"}\n\n",
+      "event: answer_replace\ndata: {\"answer\":\"优先检查【资料1】。\"}\n\n",
     ];
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -50,9 +57,13 @@ describe("chatApi", () => {
 
     await consumeSseStream(stream, (event) => events.push(event));
 
-    expect(events).toHaveLength(3);
+    expect(events).toHaveLength(4);
     expect(events[0]).toMatchObject({ event: "accepted", data: { request_id: "request-1" } });
     expect(events[1]).toMatchObject({ event: "progress", data: { node_name: "retrieve", progress: 38 } });
     expect(events[2]).toMatchObject({ event: "token", data: { delta: "优先检查" } });
+    expect(events[3]).toMatchObject({
+      event: "answer_replace",
+      data: { answer: "优先检查【资料1】。" },
+    });
   });
 });

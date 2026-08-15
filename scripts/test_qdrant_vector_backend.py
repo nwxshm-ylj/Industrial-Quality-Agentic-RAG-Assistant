@@ -128,6 +128,16 @@ class _WrongDimensionProvider(MockEmbeddingProvider):
         return [[0.0, 1.0] for _ in texts]
 
 
+class _CountingProvider(MockEmbeddingProvider):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.query_calls = 0
+
+    def embed_query(self, text):
+        self.query_calls += 1
+        return super().embed_query(text)
+
+
 def main() -> None:
     client = _FakeQdrantClient()
     provider = MockEmbeddingProvider(
@@ -226,6 +236,35 @@ def main() -> None:
         raise AssertionError("wrong vector dimensions must fail before Qdrant upsert")
     assert len(client.upserts) == before
     assert not hasattr(client, "delete_collection")
+
+    # Same dimensions do not make embeddings from different models compatible.
+    # The guard must fail before invoking the query embedding provider.
+    mismatch_provider = _CountingProvider(
+        dimension=4,
+        model_name="text-embedding-v4",
+        index_version="qwen-1024-v1",
+    )
+    mismatch_backend = QdrantVectorSearchBackend(
+        mismatch_provider,
+        collection_name="industrial_docs_qwen_1024_v1",
+        collection_alias="industrial_docs_active",
+        client=client,
+        models_module=_Models,
+    )
+    client.collections["industrial_docs_bge_m3_1024_v1"] = 4
+    client.aliases = [
+        SimpleNamespace(
+            alias_name="industrial_docs_active",
+            collection_name="industrial_docs_bge_m3_1024_v1",
+        )
+    ]
+    try:
+        mismatch_backend.search("quality", top_k=3)
+    except Exception as exc:
+        assert "Refusing cross-model search" in str(exc)
+    else:
+        raise AssertionError("cross-model alias search must fail fast")
+    assert mismatch_provider.query_calls == 0
     print("Qdrant vector backend tests passed with MockEmbeddingProvider")
 
 

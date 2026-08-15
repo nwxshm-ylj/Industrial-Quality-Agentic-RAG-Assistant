@@ -64,7 +64,7 @@ def main() -> None:
             uploaded = service.upload_and_index_document(
                 file_bytes=temporary_file.read_bytes(),
                 original_filename=temporary_file.name,
-                doc_type="TEST",
+                doc_type="STANDARD_WORK_DOCUMENT",
                 version="test-v1",
             )
 

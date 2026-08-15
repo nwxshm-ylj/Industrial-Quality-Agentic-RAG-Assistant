@@ -144,7 +144,7 @@ function DetailsTab({ response }: { response: ChatResponse }) {
   const collapseItems: CollapseProps["items"] = [
     response.rule_result && { key: "rule", label: "Rule Tool", children: jsonBlock(response.rule_result) },
     response.sql_result && { key: "sql", label: "SQL Tool", children: jsonBlock(response.sql_result) },
-    response.case_result && { key: "case", label: "Case Retriever", children: jsonBlock(response.case_result) },
+    response.case_result && { key: "case", label: "案例追溯摘要", children: jsonBlock(response.case_result) },
     response.contexts?.length && { key: "contexts", label: `检索上下文 (${response.contexts.length})`, children: jsonBlock(response.contexts) },
     response.metadata?.prompt_versions && { key: "prompts", label: "Prompt 版本", children: jsonBlock({
       release: response.metadata.prompt_release,

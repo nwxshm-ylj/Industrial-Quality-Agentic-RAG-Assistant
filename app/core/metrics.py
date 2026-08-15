@@ -183,6 +183,31 @@ RETRIEVAL_EVALUATION_LATENCY = _gauge(
     "Latest retrieval-only evaluation latency percentile in milliseconds",
     ("quantile",),
 )
+GENERATION_EVALUATION_RUNS = _counter(
+    "industrial_rag_generation_evaluation_runs_total",
+    "Generation quality evaluation runs",
+    ("status",),
+)
+GENERATION_EVALUATION_SCORE = _gauge(
+    "industrial_rag_generation_evaluation_score",
+    "Latest generation quality evaluation score",
+    ("metric",),
+)
+GENERATION_EVALUATION_LATENCY = _gauge(
+    "industrial_rag_generation_evaluation_latency_ms",
+    "Latest generation quality evaluation latency in milliseconds",
+    ("quantile",),
+)
+ANSWER_VALIDATIONS = _counter(
+    "industrial_rag_answer_validations_total",
+    "Answer citation-contract validation outcomes",
+    ("intent", "status"),
+)
+ANSWER_CITATION_COVERAGE = _histogram(
+    "industrial_rag_answer_citation_coverage_ratio",
+    "Citation coverage ratio observed by the deterministic answer validator",
+    ("intent",),
+)
 
 
 def _safe_label(value: str | None, default: str = "unknown") -> str:
@@ -376,6 +401,55 @@ def record_retrieval_evaluation(
                     RETRIEVAL_EVALUATION_LATENCY.labels(quantile).set(
                         max(float(value), 0.0)
                     )
+
+
+def record_generation_evaluation(
+    *,
+    status: str,
+    metrics: dict[str, float] | None = None,
+) -> None:
+    if GENERATION_EVALUATION_RUNS:
+        GENERATION_EVALUATION_RUNS.labels(_safe_label(status)).inc()
+    if status != "completed" or not metrics:
+        return
+    if GENERATION_EVALUATION_SCORE:
+        GENERATION_EVALUATION_SCORE.clear()
+        for name in (
+            "overall_pass_rate",
+            "citation_validation_pass_rate",
+            "avg_citation_coverage",
+            "repair_trigger_rate",
+            "repair_success_rate",
+            "deterministic_citation_pruning_rate",
+            "final_refusal_rate",
+            "abstention_accuracy",
+        ):
+            value = metrics.get(name)
+            if value is not None:
+                GENERATION_EVALUATION_SCORE.labels(name).set(float(value))
+    if GENERATION_EVALUATION_LATENCY:
+        GENERATION_EVALUATION_LATENCY.clear()
+        for quantile, key in (("avg", "avg_latency_ms"), ("p95", "p95_latency_ms")):
+            value = metrics.get(key)
+            if value is not None:
+                GENERATION_EVALUATION_LATENCY.labels(quantile).set(
+                    max(float(value), 0.0)
+                )
+
+
+def record_answer_validation(
+    *, intent: str | None, passed: bool, citation_coverage: float
+) -> None:
+    intent_label = _safe_label(intent)
+    if ANSWER_VALIDATIONS:
+        ANSWER_VALIDATIONS.labels(
+            intent_label,
+            "passed" if passed else "rejected",
+        ).inc()
+    if ANSWER_CITATION_COVERAGE:
+        ANSWER_CITATION_COVERAGE.labels(intent_label).observe(
+            min(1.0, max(float(citation_coverage), 0.0))
+        )
 
 
 def render_metrics() -> tuple[bytes, str]:

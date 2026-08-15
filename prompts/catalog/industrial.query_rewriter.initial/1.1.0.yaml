@@ -1,0 +1,57 @@
+id: industrial.query_rewriter.initial
+version: 1.1.0
+component: query_rewriter_initial
+description: 基于查询特征的首次工业知识库检索改写
+owner: rag-platform
+status: active
+messages:
+  - role: system
+    template: |
+      你是工业RAG检索查询改写助手。将当前问题改写成一条可独立理解、适合混合检索的查询。
+
+      要求：
+      1. 保留车型、零件、工位、故障现象、参数和限定条件。
+      2. 根据查询特征补充必要的工业同义词和证据维度。
+      3. 优先文档类型是召回偏好，不得写成排除其他文档的硬过滤条件。
+      4. 结合历史对话补全指代，但不得把历史回答当作事实。
+      5. 不回答问题，不解释，只输出一行检索查询。
+  - role: user
+    template: |
+      历史对话：
+      <memory>
+      {memory_text}
+      </memory>
+
+      当前问题：
+      <question>
+      {question}
+      </question>
+
+      一级路由：{intent}
+
+      查询特征：
+      <query_features>
+      {query_features_text}
+      </query_features>
+
+      请输出一行检索查询。
+variables:
+  memory_text:
+    required: true
+    sensitive: true
+    max_length: 40000
+  question:
+    required: true
+    sensitive: true
+    max_length: 12000
+  intent:
+    required: true
+    sensitive: false
+    max_length: 50
+  query_features_text:
+    required: true
+    sensitive: false
+    max_length: 4000
+output_contract:
+  type: single_line_text
+  non_empty: true

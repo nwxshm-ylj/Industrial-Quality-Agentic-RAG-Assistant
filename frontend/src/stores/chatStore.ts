@@ -12,6 +12,12 @@ const MAX_PERSISTED_TURNS = 30;
 
 export type ChatTurnStatus = "pending" | "streaming" | "completed" | "error";
 
+export interface ChatTurnImage {
+  id: string;
+  name: string;
+  dataUrl: string;
+}
+
 export interface ChatTurn {
   id: string;
   question: string;
@@ -24,6 +30,7 @@ export interface ChatTurn {
   progressEvents?: ChatProgressEvent[];
   response?: ChatResponse;
   errorMessage?: string;
+  images?: ChatTurnImage[];
 }
 
 interface ChatState {
@@ -34,10 +41,11 @@ interface ChatState {
   feedbackRatings: Record<string, FeedbackRating>;
   ensureOwner: (username: string) => void;
   setTopK: (topK: number) => void;
-  addPendingTurn: (question: string) => string;
+  addPendingTurn: (question: string, images?: ChatTurnImage[]) => string;
   acceptStreamingTurn: (turnId: string, event: ChatAcceptedEvent) => void;
   updateTurnProgress: (turnId: string, event: ChatProgressEvent) => void;
   appendTurnToken: (turnId: string, delta: string) => void;
+  replaceTurnAnswer: (turnId: string, answer: string) => void;
   completeTurn: (turnId: string, response: ChatResponse) => void;
   failTurn: (turnId: string, errorMessage: string) => void;
   markFeedback: (requestKey: string, rating: FeedbackRating) => void;
@@ -76,7 +84,7 @@ export const useChatStore = create<ChatState>()(
         });
       },
       setTopK: (topK) => set({ topK: Math.min(10, Math.max(1, topK)) }),
-      addPendingTurn: (question) => {
+      addPendingTurn: (question, images = []) => {
         const turnId = createId("turn");
         const turn: ChatTurn = {
           id: turnId,
@@ -86,6 +94,7 @@ export const useChatStore = create<ChatState>()(
           streamedAnswer: "",
           progress: 0,
           progressEvents: [],
+          images,
         };
         set((state) => ({
           turns: [...state.turns, turn].slice(-MAX_PERSISTED_TURNS),
@@ -135,6 +144,15 @@ export const useChatStore = create<ChatState>()(
                   status: "streaming",
                   streamedAnswer: `${turn.streamedAnswer || ""}${delta}`,
                 }
+              : turn
+          )),
+        }));
+      },
+      replaceTurnAnswer: (turnId, answer) => {
+        set((state) => ({
+          turns: state.turns.map((turn) => (
+            turn.id === turnId
+              ? { ...turn, status: "streaming", streamedAnswer: answer }
               : turn
           )),
         }));
@@ -191,7 +209,9 @@ export const useChatStore = create<ChatState>()(
         ownerUsername,
         sessionId,
         topK,
-        turns,
+        // Data-URI previews are intentionally session-memory only. Persisting
+        // them can exceed browser storage quotas after several image queries.
+        turns: turns.map(({ images: _images, ...turn }) => turn),
         feedbackRatings,
       }),
     },

@@ -17,6 +17,13 @@ AUTH_LOGIN_URL = f"{API_ROOT_URL}/api/v1/auth/login"
 FEEDBACK_API_URL = f"{API_ROOT_URL}/api/v1/feedback"
 EVALUATION_API_URL = f"{API_ROOT_URL}/api/v1/evaluation"
 
+DOCUMENT_TYPE_OPTIONS = {
+    "LessonLearn": "LESSON_LEARNED",
+    "标准作业文档": "STANDARD_WORK_DOCUMENT",
+    "PFMEA": "PFMEA",
+    "售后文档": "AFTERSALES_DOCUMENT",
+}
+
 EVAL_REPORT_PATH = Path("data/eval/eval_report.json")
 
 
@@ -64,7 +71,7 @@ def call_graph_chat(
 
 def upload_knowledge_document(
     uploaded_file: Any,
-    doc_type: str | None,
+    doc_type: str,
     version: str,
     access_token: str,
 ) -> dict[str, Any]:
@@ -78,7 +85,7 @@ def upload_knowledge_document(
             )
         },
         data={
-            "doc_type": doc_type or "",
+            "doc_type": doc_type,
             "version": version,
         },
         headers=_auth_headers(access_token),
@@ -349,7 +356,7 @@ def render_tool_results(data: dict[str, Any]) -> None:
     ])
 
     if not has_tool_result:
-        st.info("当前问题未触发 Rule / SQL / Case Tool。")
+        st.info("当前问题未触发 Rule / SQL 工具或案例追溯增强。")
         return
 
     if rule_result:
@@ -376,7 +383,7 @@ def render_tool_results(data: dict[str, Any]) -> None:
                 st.info("SQL 查询无结果。")
 
     if case_result:
-        with st.expander("Case Retriever Result", expanded=True):
+        with st.expander("案例追溯摘要", expanded=True):
             rows = case_result.get("rows") or []
 
             st.write("defect_type:", case_result.get("defect_type"))
@@ -739,10 +746,12 @@ def render_knowledge_base_management(
             key="kb_upload_file",
         )
         upload_col1, upload_col2 = st.columns(2)
-        doc_type = upload_col1.text_input(
-            "文档类型（可选）",
+        selected_doc_type_label = upload_col1.selectbox(
+            "文档标签（必选）",
+            options=list(DOCUMENT_TYPE_OPTIONS),
+            index=None,
             key="kb_doc_type",
-            placeholder="例如 FMEA / SOP / RULE",
+            placeholder="请选择文档标签",
         )
         version = upload_col2.text_input(
             "版本",
@@ -753,12 +762,16 @@ def render_knowledge_base_management(
         if st.button("上传并入库", key="kb_upload_button"):
             if uploaded_file is None:
                 st.warning("请选择要上传的文档。")
+            elif selected_doc_type_label is None:
+                st.warning("请选择 LessonLearn、标准作业文档、PFMEA 或售后文档。")
             else:
                 try:
                     with st.spinner("正在解析并建立索引..."):
                         result = upload_knowledge_document(
                             uploaded_file=uploaded_file,
-                            doc_type=doc_type.strip() or None,
+                            doc_type=DOCUMENT_TYPE_OPTIONS[
+                                selected_doc_type_label
+                            ],
                             version=version.strip() or "v1",
                             access_token=access_token,
                         )

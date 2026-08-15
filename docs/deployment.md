@@ -190,10 +190,10 @@ readiness 不调用真实 Embedding 推理，也不会触发收费 API。
 
 ## 8. 初始化可选数据
 
-同步质量案例到 Neo4j：
+为已有索引文档补建 Neo4j 追溯图：
 
 ```powershell
-docker compose exec api python -m scripts.sync_quality_case_graph
+docker compose exec api python -m scripts.backfill_document_graph
 ```
 
 多模态索引迁移与 Alias 激活应使用独立脚本，并在非空验证后执行：
@@ -280,3 +280,33 @@ docker compose logs --tail 200 deepdoc-runtime
 - 使用数据库迁移工具替代样例初始化脚本；
 - 配置备份、恢复、日志脱敏、数据保留和告警规则；
 - 发布前记录当前 Qdrant Alias 目标，准备回滚到旧 Collection。
+
+## 13. G3.3 Embedding 与索引环境冻结
+
+文本查询向量必须与文档向量来自同一模型和版本。1024 维只说明数组长度一致，不能证明 Qwen 与 BGE-M3 位于同一语义空间。本项目当前权威文本索引冻结为：
+
+```dotenv
+EMBEDDING_PROVIDER=local
+LOCAL_EMBEDDING_MODEL_NAME=BAAI/bge-m3
+LOCAL_EMBEDDING_MODEL_PATH=/app/data/models/bge-m3
+LOCAL_EMBEDDING_DIMENSION=1024
+EMBEDDING_INDEX_VERSION=bge-m3-1024-v1
+QDRANT_COLLECTION=industrial_docs_bge_m3_1024_v1
+QDRANT_COLLECTION_ALIAS=industrial_docs_active
+```
+
+从 Git worktree 启动时，可用 `DATA_HOST_PATH` 复用主仓库中的模型和上传文档；`data/eval` 仍从当前分支单独挂载，避免旧评测集覆盖当前版本：
+
+```dotenv
+DATA_HOST_PATH=C:/cursor-projects/2-Industrial-RAG/data
+```
+
+可执行以下幂等命令更新已有环境文件，该命令不会打印密钥：
+
+```powershell
+python -m scripts.configure_local_embedding `
+  --env-file C:\cursor-projects\2-Industrial-RAG\.env.production `
+  --data-host-path C:\cursor-projects\2-Industrial-RAG\data
+```
+
+`/health/ready` 会校验 Alias 目标、物理 Collection 和向量维度。在线检索还会在生成 Query Embedding 前再次校验；不一致时直接失败，不会跨模型静默检索，也不会自动切换或删除 Alias/Collection。
