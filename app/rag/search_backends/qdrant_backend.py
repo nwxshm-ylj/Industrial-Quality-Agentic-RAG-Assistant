@@ -211,6 +211,11 @@ class QdrantVectorSearchBackend:
         filters: RetrievalFilter | None = None,
     ) -> list[dict]:
         try:
+            # A matching vector dimension is not sufficient: embeddings produced by
+            # different models occupy different semantic spaces.  Validate the
+            # stable alias before creating a (possibly paid) query embedding so a
+            # stale deployment cannot silently query an incompatible collection.
+            self.validate_search_target()
             vector = self.embedding_provider.embed_query(query)
             self._validate_vectors([vector], expected_count=1)
             response = self.client.query_points(
@@ -225,6 +230,43 @@ class QdrantVectorSearchBackend:
             raise
         except Exception as exc:
             raise VectorSearchError(f"Qdrant search failed: {exc}") from exc
+
+    def validate_search_target(self) -> str:
+        """Ensure the runtime alias targets the configured embedding collection."""
+
+        try:
+            target = self.get_alias_target()
+        except Exception as exc:
+            raise VectorSearchError(
+                f"Unable to resolve Qdrant alias {self.collection_alias}: {exc}"
+            ) from exc
+        if target is None:
+            raise VectorSearchError(
+                f"Qdrant alias {self.collection_alias} is not configured"
+            )
+        if target != self.collection_name:
+            log_business_event(
+                "qdrant_alias_target_mismatch",
+                status="failed",
+                error_message=(
+                    f"alias {self.collection_alias} targets {target}, "
+                    f"expected {self.collection_name}"
+                ),
+                qdrant_collection=self.collection_name,
+                qdrant_collection_alias=self.collection_alias,
+                qdrant_alias_target=target,
+                embedding_provider=self.embedding_provider.provider_name,
+                embedding_model=self.embedding_provider.model_name,
+                embedding_dimension=self.embedding_provider.dimension,
+                embedding_index_version=self.embedding_provider.index_version,
+            )
+            raise VectorSearchError(
+                "Qdrant alias/embedding index mismatch: "
+                f"{self.collection_alias} points to {target}, but runtime is "
+                f"configured for {self.collection_name}. Refusing cross-model search."
+            )
+        self._validate_collection_dimension(target)
+        return target
 
     def _build_search_filter(
         self,
@@ -244,6 +286,13 @@ class QdrantVectorSearchBackend:
             ("doc_type", filters.doc_types),
             ("version", filters.versions),
             ("source", filters.sources),
+            ("vehicle_models", filters.vehicle_models),
+            ("systems", filters.systems),
+            ("components", filters.components),
+            ("processes", filters.processes),
+            ("stations", filters.stations),
+            ("failure_modes", filters.failure_modes),
+            ("symptoms", filters.symptoms),
         ):
             if values:
                 conditions.append(
@@ -362,14 +411,17 @@ class QdrantVectorSearchBackend:
         return None
 
     def _validate_existing_dimension(self) -> None:
-        info = self.client.get_collection(self.collection_name)
+        self._validate_collection_dimension(self.collection_name)
+
+    def _validate_collection_dimension(self, collection_name: str) -> None:
+        info = self.client.get_collection(collection_name)
         vectors_config = info.config.params.vectors
         size = getattr(vectors_config, "size", None)
         if size is None and isinstance(vectors_config, dict):
             size = vectors_config.get("size")
         if size != self.embedding_provider.dimension:
             raise EmbeddingDimensionError(
-                f"Qdrant collection {self.collection_name} dimension mismatch: "
+                f"Qdrant collection {collection_name} dimension mismatch: "
                 f"expected {self.embedding_provider.dimension}, got {size}"
             )
 
@@ -399,6 +451,7 @@ class QdrantVectorSearchBackend:
             "doc_type": payload.get("doc_type", ""),
             "doc_id": payload.get("doc_id", ""),
             "chunk_id": payload.get("chunk_id", ""),
+            "chunk_index": payload.get("chunk_index"),
             "version": payload.get("version", ""),
             "section_type": payload.get("section_type"),
             "heading_path": payload.get("heading_path"),
@@ -409,6 +462,19 @@ class QdrantVectorSearchBackend:
             "asset_ids": payload.get("asset_ids", []),
             "parser_version": payload.get("parser_version"),
             "chunk_strategy": payload.get("chunk_strategy"),
+            "quality_entities": payload.get("quality_entities", {}),
+            "quality_entity_terms": payload.get("quality_entity_terms", []),
+            "vehicle_models": payload.get("vehicle_models", []),
+            "systems": payload.get("systems", []),
+            "components": payload.get("components", []),
+            "processes": payload.get("processes", []),
+            "stations": payload.get("stations", []),
+            "failure_modes": payload.get("failure_modes", []),
+            "symptoms": payload.get("symptoms", []),
+            "root_causes": payload.get("root_causes", []),
+            "process_parameters": payload.get("process_parameters", []),
+            "control_measures": payload.get("control_measures", []),
+            "corrective_actions": payload.get("corrective_actions", []),
             "score": float(point.score),
             "retrieval_source": "vector",
         }
@@ -432,6 +498,19 @@ _CHUNK_METADATA_FIELDS = (
     "element_ids",
     "asset_ids",
     "bboxes",
+    "quality_entities",
+    "quality_entity_terms",
+    "vehicle_models",
+    "systems",
+    "components",
+    "processes",
+    "stations",
+    "failure_modes",
+    "symptoms",
+    "root_causes",
+    "process_parameters",
+    "control_measures",
+    "corrective_actions",
 )
 
 

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -8,6 +8,13 @@ class RetrievalFilterRequest(BaseModel):
     doc_types: list[str] | None = Field(default=None, max_length=50)
     versions: list[str] | None = Field(default=None, max_length=50)
     sources: list[str] | None = Field(default=None, max_length=50)
+    vehicle_models: list[str] | None = Field(default=None, max_length=50)
+    systems: list[str] | None = Field(default=None, max_length=50)
+    components: list[str] | None = Field(default=None, max_length=50)
+    processes: list[str] | None = Field(default=None, max_length=50)
+    stations: list[str] | None = Field(default=None, max_length=50)
+    failure_modes: list[str] | None = Field(default=None, max_length=50)
+    symptoms: list[str] | None = Field(default=None, max_length=50)
 
 
 class MultimodalQueryRequest(BaseModel):
@@ -34,6 +41,10 @@ class MultimodalQueryRequest(BaseModel):
 class ChatRequest(BaseModel):
     question: str = Field(..., description="用户问题")
     top_k: int = Field(default=5, ge=1, le=10)
+    retrieval_mode: Literal["knowledge", "case_trace"] = Field(
+        default="knowledge",
+        description="User-selected answer mode; case_trace explicitly enables traceability",
+    )
     retrieval_filters: RetrievalFilterRequest | None = Field(
         default=None,
         description="Optional metadata filters applied inside retrieval backends",
@@ -66,6 +77,11 @@ class Citation(BaseModel):
     cross_modal_rrf_score: float | None = None
     text_hybrid_score: float | None = None
     multimodal_score: float | None = None
+    traceability_role: str | None = None
+    quality_entities: dict[str, Any] | None = None
+    evidence_bundle_id: str | None = None
+    evidence_chunk_ids: list[str] | None = None
+    evidence_chunk_count: int | None = None
 
 
 class ChatResponse(BaseModel):
@@ -79,6 +95,9 @@ class ChatResponse(BaseModel):
     metadata: dict[str, Any] | None = None
 
     intent: str | None = None
+    retrieval_mode: Literal["knowledge", "case_trace"] | None = None
+    task_mode: str | None = None
+    query_plan: dict[str, Any] | None = None
     rewritten_query: str | None = None
     evidence_score: float | None = None
     evidence_enough: bool | None = None

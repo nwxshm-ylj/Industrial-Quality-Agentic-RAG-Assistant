@@ -10,6 +10,8 @@ conversation_memory = ConversationMemory()
 
 @observe_node("save_memory")
 def save_memory_node(state: IndustrialRAGState) -> dict:
+    if not state.get("memory_enabled", True):
+        return {}
     session_id = state.get("session_id", "default") or "default"
     question = state.get("question", "")
     answer = state.get("answer", "")

@@ -15,6 +15,7 @@ from app.api.routes_documents import router as documents_router
 from app.api.routes_evaluation import router as evaluation_router
 from app.api.routes_feedback import router as feedback_router
 from app.api.routes_observability import router as observability_router
+from app.api.routes_diagnostics import router as diagnostics_router
 from app.core.logger import log_business_event
 from app.core.config import settings
 from app.core.metrics import (
@@ -227,8 +228,45 @@ def readiness_check():
         }
 
     try:
-        get_qdrant_client().get_collection(settings.qdrant_collection_alias)
-        checks["qdrant"] = {"status": "ready"}
+        qdrant_client = get_qdrant_client()
+        alias_target = None
+        for alias in qdrant_client.get_aliases().aliases:
+            if alias.alias_name == settings.qdrant_collection_alias:
+                alias_target = alias.collection_name
+                break
+        if alias_target is None:
+            raise RuntimeError(
+                f"Qdrant alias {settings.qdrant_collection_alias} is missing"
+            )
+        if alias_target != settings.qdrant_collection:
+            raise RuntimeError(
+                "Qdrant alias/embedding index mismatch: "
+                f"{settings.qdrant_collection_alias} points to {alias_target}, "
+                f"expected {settings.qdrant_collection}"
+            )
+        collection_info = qdrant_client.get_collection(alias_target)
+        vectors_config = collection_info.config.params.vectors
+        actual_dimension = getattr(vectors_config, "size", None)
+        if actual_dimension is None and isinstance(vectors_config, dict):
+            actual_dimension = vectors_config.get("size")
+        embedding_provider_name = settings.embedding_provider.strip().lower()
+        expected_dimension = (
+            settings.local_embedding_dimension
+            if embedding_provider_name in {"local", "bge_m3", "huggingface"}
+            else settings.qwen_embedding_dimension
+        )
+        if actual_dimension != expected_dimension:
+            raise RuntimeError(
+                f"Qdrant dimension mismatch: expected {expected_dimension}, "
+                f"got {actual_dimension}"
+            )
+        checks["qdrant"] = {
+            "status": "ready",
+            "alias": settings.qdrant_collection_alias,
+            "alias_target": alias_target,
+            "embedding_dimension": actual_dimension,
+            "embedding_index_version": settings.embedding_index_version,
+        }
     except Exception as exc:
         checks["qdrant"] = {
             "status": "unavailable",
@@ -405,6 +443,7 @@ app.include_router(documents_router)
 app.include_router(feedback_router)
 app.include_router(evaluation_router)
 app.include_router(observability_router)
+app.include_router(diagnostics_router)
 
 
 initialize_telemetry(app=app, engine=engine)

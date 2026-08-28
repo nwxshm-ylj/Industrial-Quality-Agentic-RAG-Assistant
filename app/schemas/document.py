@@ -1,6 +1,14 @@
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel
+
+
+class DocumentType(str, Enum):
+    LESSON_LEARNED = "LESSON_LEARNED"
+    STANDARD_WORK_DOCUMENT = "STANDARD_WORK_DOCUMENT"
+    PFMEA = "PFMEA"
+    AFTERSALES_DOCUMENT = "AFTERSALES_DOCUMENT"
 
 
 class DocumentInfo(BaseModel):

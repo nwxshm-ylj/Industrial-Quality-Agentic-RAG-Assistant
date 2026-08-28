@@ -323,6 +323,13 @@ class MultimodalQdrantSearchBackend:
                 ("doc_type", filters.doc_types),
                 ("version", filters.versions),
                 ("source", filters.sources),
+                ("vehicle_models", filters.vehicle_models),
+                ("systems", filters.systems),
+                ("components", filters.components),
+                ("processes", filters.processes),
+                ("stations", filters.stations),
+                ("failure_modes", filters.failure_modes),
+                ("symptoms", filters.symptoms),
             ):
                 if values:
                     conditions.append(

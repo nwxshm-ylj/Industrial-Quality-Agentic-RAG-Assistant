@@ -8,10 +8,16 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from app.core.logger import log_business_event
+from app.core.metrics import record_generation_evaluation
 from app.db.session import engine
+from app.evaluation.generation_analysis import (
+    analyze_generation_results,
+    classify_generation_result,
+)
 from app.prompting import get_prompt_registry
 from app.services.audit_service import AuditService
 from scripts.evaluate_system import (
+    build_evaluation_fingerprint,
     calculate_metrics,
     evaluate_one,
     load_eval_questions,
@@ -45,12 +51,49 @@ class EvaluationService:
     def _run_from_row(row: Any) -> dict:
         return dict(row)
 
+    def _load_report(self, report_path: str | None) -> dict[str, Any]:
+        if not report_path:
+            return {}
+        candidate = Path(report_path).resolve()
+        report_root = self.report_dir.resolve()
+        if candidate.parent != report_root or not candidate.is_file():
+            return {}
+        try:
+            loaded = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            return {}
+        return loaded if isinstance(loaded, dict) else {}
+
+    def _enrich_run(self, run: dict[str, Any]) -> dict[str, Any]:
+        report = self._load_report(run.get("report_path"))
+        metrics = report.get("metrics")
+        run["generation_metrics"] = metrics if isinstance(metrics, dict) else {}
+        prompt_release = report.get("prompt_release")
+        run["prompt_release"] = (
+            prompt_release if isinstance(prompt_release, dict) else None
+        )
+        fingerprint = report.get("evaluation_fingerprint")
+        run["evaluation_fingerprint"] = (
+            fingerprint if isinstance(fingerprint, dict) else None
+        )
+        failure_analysis = report.get("failure_analysis")
+        report_results = report.get("results")
+        if isinstance(report_results, list):
+            failure_analysis = analyze_generation_results(
+                [item for item in report_results if isinstance(item, dict)]
+            )
+        run["failure_analysis"] = (
+            failure_analysis if isinstance(failure_analysis, dict) else {}
+        )
+        return run
+
     def run_evaluation(
         self,
         username: str | None,
         role: str | None = None,
         request_id: str | None = None,
         max_questions: int | None = None,
+        question_ids: list[str] | None = None,
     ) -> dict:
         started_at = perf_counter()
         run_id = str(uuid4())
@@ -63,6 +106,7 @@ class EvaluationService:
             status="started",
             run_id=run_id,
         )
+        record_generation_evaluation(status="started")
 
         insert_run = text("""
             INSERT INTO rag_eval_runs (
@@ -83,6 +127,17 @@ class EvaluationService:
         results: list[dict[str, Any]] = []
         try:
             questions = load_eval_questions()
+            if question_ids:
+                requested = {str(value).strip() for value in question_ids if value}
+                questions = [
+                    item for item in questions if str(item.get("id")) in requested
+                ]
+                found = {str(item.get("id")) for item in questions}
+                missing_ids = sorted(requested - found)
+                if missing_ids:
+                    raise ValueError(
+                        f"评估问题 ID 不存在: {', '.join(missing_ids)}"
+                    )
             if max_questions is not None:
                 if max_questions < 1:
                     raise ValueError("max_questions 必须大于 0")
@@ -124,7 +179,7 @@ class EvaluationService:
                             "run_id": run_id,
                             "question_id": str(item.get("id") or ""),
                             "question": item["question"],
-                            "expected_intent": item.get("expected_intent"),
+                            "expected_intent": evaluated.get("expected_intent"),
                             "actual_intent": evaluated.get("actual_intent"),
                             "expected_keywords": json.dumps(
                                 expected_keywords,
@@ -158,6 +213,7 @@ class EvaluationService:
                 )
 
             metrics = calculate_metrics(results)
+            failure_analysis = analyze_generation_results(results)
             summary = {
                 "intent_accuracy": float(metrics.get("intent_accuracy", 0.0)),
                 "source_hit_rate": float(
@@ -184,7 +240,9 @@ class EvaluationService:
                 "username": username,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "prompt_release": get_prompt_registry().release_metadata(),
+                "evaluation_fingerprint": build_evaluation_fingerprint(),
                 "metrics": {**metrics, **summary},
+                "failure_analysis": failure_analysis,
                 "results": results,
             }
             self.report_dir.mkdir(parents=True, exist_ok=True)
@@ -240,6 +298,14 @@ class EvaluationService:
                 total_questions=len(results),
                 **summary,
             )
+            record_generation_evaluation(
+                status="completed",
+                metrics={
+                    key: float(value)
+                    for key, value in metrics.items()
+                    if isinstance(value, (int, float))
+                },
+            )
             result = self.get_eval_run(run_id)
             if result is None:
                 raise RuntimeError("评估已完成但无法读取运行记录")
@@ -282,6 +348,7 @@ class EvaluationService:
                 error_message=str(exc),
                 run_id=run_id,
             )
+            record_generation_evaluation(status="failed")
             raise RuntimeError(f"RAG 评估失败: {exc}") from exc
 
     def list_eval_runs(
@@ -320,7 +387,7 @@ class EvaluationService:
             status="success",
             detail=f"list_count={len(rows)}",
         )
-        return [self._run_from_row(row) for row in rows]
+        return [self._enrich_run(self._run_from_row(row)) for row in rows]
 
     def get_eval_run(
         self,
@@ -362,7 +429,13 @@ class EvaluationService:
                 {"run_id": run_id},
             ).mappings().all()
 
-        result = self._run_from_row(run_row)
+        result = self._enrich_run(self._run_from_row(run_row))
+        report = self._load_report(result.get("report_path"))
+        report_items = {
+            str(item.get("id")): item
+            for item in report.get("results", [])
+            if isinstance(item, dict) and item.get("id") is not None
+        }
         items = []
         for row in item_rows:
             item = dict(row)
@@ -372,6 +445,46 @@ class EvaluationService:
             item["expected_sources"] = self._parse_json_list(
                 item.get("expected_sources")
             )
+            report_item = report_items.get(str(item.get("question_id")), {})
+            if report_item and "failure_category" not in report_item:
+                report_item = {
+                    **report_item,
+                    **classify_generation_result(report_item),
+                }
+            for key in (
+                "category",
+                "answerable",
+                "must_cite",
+                "should_abstain",
+                "answer_abstained",
+                "abstention_ok",
+                "citation_contract_ok",
+                "citation_coverage",
+                "semantic_support_checked",
+                "semantic_support_rate",
+                "semantic_support_ok",
+                "semantic_validation_degraded",
+                "answer_validation",
+                "validation_action",
+                "generation_retry_count",
+                "repair_triggered",
+                "repair_avoided",
+                "repair_success",
+                "forbidden_claims_ok",
+                "quality_checks",
+                "failure_category",
+                "failure_tags",
+                "evidence_enough",
+                "evidence_confidence",
+                "evidence_threshold",
+                "evidence_reasons",
+                "missing_aspects",
+                "abstain_reason",
+                "answer_validation_history",
+                "citation_pruned",
+            ):
+                if key in report_item:
+                    item[key] = report_item[key]
             items.append(item)
         result["items"] = items
 

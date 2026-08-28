@@ -81,3 +81,9 @@ def add_retrieval_usage_event(event: RetrievalUsageEvent) -> None:
     if context is not None:
         context.retrieval_events.append(event)
 
+
+def add_workflow_event(event: dict[str, Any]) -> None:
+    context = get_request_context()
+    if context is not None:
+        context.workflow_events.append(dict(event))
+

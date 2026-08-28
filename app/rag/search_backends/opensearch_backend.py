@@ -194,6 +194,13 @@ class OpenSearchKeywordBackend:
                     ("doc_type", filters.doc_types),
                     ("version", filters.versions),
                     ("source.keyword", filters.sources),
+                    ("vehicle_models", filters.vehicle_models),
+                    ("systems", filters.systems),
+                    ("components", filters.components),
+                    ("processes", filters.processes),
+                    ("stations", filters.stations),
+                    ("failure_modes", filters.failure_modes),
+                    ("symptoms", filters.symptoms),
                 ):
                     if values:
                         search_filters.append({"terms": {key: list(values)}})
@@ -211,6 +218,7 @@ class OpenSearchKeywordBackend:
                                             "text^3",
                                             "text.exact^2",
                                             "heading_path^2.5",
+                                            "quality_entity_terms^4",
                                             "source",
                                             "doc_type",
                                         ],
@@ -226,6 +234,75 @@ class OpenSearchKeywordBackend:
             return [self._to_result(hit) for hit in response["hits"]["hits"]]
         except Exception as exc:
             raise KeywordSearchError(f"OpenSearch search failed: {exc}") from exc
+
+    def get_adjacent_chunks(
+        self,
+        seeds: list[dict[str, Any]],
+        *,
+        window: int = 1,
+    ) -> list[dict]:
+        """Fetch neighboring chunks for ranked seeds with one OpenSearch call."""
+        if window <= 0:
+            return []
+        valid_seeds = [
+            seed
+            for seed in seeds
+            if seed.get("doc_id") and isinstance(seed.get("chunk_index"), int)
+        ]
+        if not valid_seeds:
+            return []
+
+        seed_ids = [
+            str(seed.get("chunk_id"))
+            for seed in valid_seeds
+            if seed.get("chunk_id")
+        ]
+        should = []
+        for seed in valid_seeds:
+            chunk_index = int(seed["chunk_index"])
+            should.append(
+                {
+                    "bool": {
+                        "filter": [
+                            {"term": {"doc_id": str(seed["doc_id"])}},
+                            {
+                                "range": {
+                                    "chunk_index": {
+                                        "gte": max(0, chunk_index - window),
+                                        "lte": chunk_index + window,
+                                    }
+                                }
+                            },
+                        ]
+                    }
+                }
+            )
+        try:
+            response = self.client.search(
+                index=self.index_name,
+                body={
+                    "size": len(valid_seeds) * window * 2,
+                    "query": {
+                        "bool": {
+                            "filter": [
+                                {"term": {"index_status": "indexed"}}
+                            ],
+                            "should": should,
+                            "minimum_should_match": 1,
+                            "must_not": (
+                                [{"terms": {"chunk_id": seed_ids}}]
+                                if seed_ids
+                                else []
+                            ),
+                        }
+                    },
+                },
+            )
+            return [self._to_result(hit) for hit in response["hits"]["hits"]]
+        except Exception as exc:
+            raise KeywordSearchError(
+                f"OpenSearch adjacent chunk lookup failed: {exc}"
+            ) from exc
 
     def count_indexed(self) -> int:
         try:
@@ -349,6 +426,7 @@ class OpenSearchKeywordBackend:
             "doc_type": source.get("doc_type", ""),
             "doc_id": source.get("doc_id", ""),
             "chunk_id": source.get("chunk_id", ""),
+            "chunk_index": source.get("chunk_index"),
             "version": source.get("version", ""),
             "section_type": source.get("section_type"),
             "heading_path": source.get("heading_path"),
@@ -359,6 +437,19 @@ class OpenSearchKeywordBackend:
             "asset_ids": source.get("asset_ids", []),
             "parser_version": source.get("parser_version"),
             "chunk_strategy": source.get("chunk_strategy"),
+            "quality_entities": source.get("quality_entities", {}),
+            "quality_entity_terms": source.get("quality_entity_terms", []),
+            "vehicle_models": source.get("vehicle_models", []),
+            "systems": source.get("systems", []),
+            "components": source.get("components", []),
+            "processes": source.get("processes", []),
+            "stations": source.get("stations", []),
+            "failure_modes": source.get("failure_modes", []),
+            "symptoms": source.get("symptoms", []),
+            "root_causes": source.get("root_causes", []),
+            "process_parameters": source.get("process_parameters", []),
+            "control_measures": source.get("control_measures", []),
+            "corrective_actions": source.get("corrective_actions", []),
             "score": float(hit.get("_score") or 0.0),
             "retrieval_source": "keyword",
         }
@@ -388,6 +479,24 @@ class OpenSearchKeywordBackend:
             "element_ids": {"type": "keyword"},
             "asset_ids": {"type": "keyword"},
             "bboxes": {"type": "object", "enabled": False},
+            "quality_entities": {"type": "object", "enabled": False},
+            "quality_entity_terms": {
+                "type": "text",
+                "analyzer": "industrial_ngram",
+                "search_analyzer": "standard",
+                "fields": {"keyword": {"type": "keyword"}},
+            },
+            "vehicle_models": {"type": "keyword"},
+            "systems": {"type": "keyword"},
+            "components": {"type": "keyword"},
+            "processes": {"type": "keyword"},
+            "stations": {"type": "keyword"},
+            "failure_modes": {"type": "keyword"},
+            "symptoms": {"type": "keyword"},
+            "root_causes": {"type": "keyword"},
+            "process_parameters": {"type": "keyword"},
+            "control_measures": {"type": "keyword"},
+            "corrective_actions": {"type": "keyword"},
         }
 
 

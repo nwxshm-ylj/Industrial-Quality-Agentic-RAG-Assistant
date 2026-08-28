@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from app.traceability.taxonomy import infer_document_type
+
 from app.rag.chunking.layout_chunker import LayoutChunker, LayoutChunkerConfig
 from app.rag.chunking.token_counter import TokenCounter
 
@@ -360,10 +362,4 @@ def _validate_chunk_settings(chunk_size: int, chunk_overlap: int) -> None:
 
 
 def infer_doc_type(filename: str) -> str:
-    if "fmea" in filename.lower():
-        return "FMEA"
-    if "sop" in filename.lower():
-        return "SOP"
-    if "rule" in filename.lower():
-        return "RULE"
-    return "GENERAL"
+    return infer_document_type(filename)

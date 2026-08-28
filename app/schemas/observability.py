@@ -88,3 +88,22 @@ class RequestUsageDetailsResponse(BaseModel):
     request: dict[str, Any]
     ai_events: list[dict[str, Any]] = Field(default_factory=list)
     retrieval_events: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class DiagnosticCheck(BaseModel):
+    code: str
+    status: str
+    title: str
+    detail: str
+    stage: str
+
+
+class RequestDiagnosticsResponse(BaseModel):
+    request_id: str | None = None
+    snapshot_available: bool
+    snapshot: dict[str, Any] | None = None
+    checks: list[DiagnosticCheck] = Field(default_factory=list)
+    request: dict[str, Any]
+    ai_events: list[dict[str, Any]] = Field(default_factory=list)
+    retrieval_events: list[dict[str, Any]] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)

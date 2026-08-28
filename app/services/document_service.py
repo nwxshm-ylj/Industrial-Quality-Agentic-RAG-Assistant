@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 import shutil
@@ -31,7 +32,9 @@ from app.rag.search_backends.multimodal_qdrant_backend import (
     MultimodalQdrantSearchBackend,
 )
 from app.rag.search_backends.qdrant_backend import QdrantVectorSearchBackend
-from app.rag.splitter import infer_doc_type, split_docs
+from app.rag.splitter import split_docs
+from app.traceability.entity_linker import QualityEntityLinker
+from app.traceability.taxonomy import normalize_upload_document_type
 
 
 DOCUMENT_STATUSES = {"uploaded", "indexed", "deleted", "failed"}
@@ -72,6 +75,7 @@ class DocumentService:
         self._multimodal_backend = multimodal_backend
         self._ocr_provider = ocr_provider
         self.assets_dir = self.uploads_dir / "assets"
+        self._entity_linker = QualityEntityLinker()
 
     @property
     def vector_backend(self) -> VectorSearchBackend:
@@ -149,9 +153,7 @@ class DocumentService:
 
             safe_filename, file_ext = self._sanitize_filename(original_filename)
             normalized_version = self._normalize_version(version)
-            effective_doc_type = self._normalize_doc_type(
-                doc_type or infer_doc_type(safe_filename)
-            )
+            effective_doc_type = self._normalize_doc_type(doc_type)
             content_hash = hashlib.sha256(file_bytes).hexdigest()
 
             duplicate = self._find_duplicate(content_hash)
@@ -325,6 +327,15 @@ class DocumentService:
                     index_operation_id=operation_id,
                 )
 
+            failed_stage = "knowledge_graph"
+            self._sync_document_graph(
+                doc_id=doc_id,
+                filename=safe_filename,
+                doc_type=effective_doc_type,
+                version=normalized_version,
+                chunks=chunks,
+            )
+
             failed_stage = "document_status"
             self._set_document_status(
                 doc_id=doc_id,
@@ -356,9 +367,11 @@ class DocumentService:
                     "opensearch",
                     "index_promotion",
                     "multimodal_qdrant",
+                    "knowledge_graph",
                     "document_status",
                 }:
                     self._delete_postgres_chunks(doc_id)
+                    self._delete_document_graph(doc_id, fail_open=True)
                 self._mark_document_failed(
                     doc_id,
                     failed_stage=failed_stage,
@@ -426,6 +439,9 @@ class DocumentService:
             if self._document_has_assets(doc_id):
                 failed_stage = "multimodal_qdrant_delete"
                 self.multimodal_backend.delete_by_doc_id(doc_id)
+
+            failed_stage = "knowledge_graph_delete"
+            self._delete_document_graph(doc_id)
 
             failed_stage = "postgres_delete"
             with engine.begin() as conn:
@@ -657,6 +673,15 @@ class DocumentService:
                 chunk_count=len(chunks),
             )
 
+            failed_stage = "knowledge_graph"
+            self._sync_document_graph(
+                doc_id=doc_id,
+                filename=document["filename"],
+                doc_type=document["doc_type"],
+                version=document["version"],
+                chunks=chunks,
+            )
+
             failed_stage = "document_status"
             self._set_document_status(doc_id, "indexed", len(chunks))
             self._log_event(
@@ -875,11 +900,60 @@ class DocumentService:
         stem = Path(safe_name).stem[:max_stem_length]
         return f"{stem}{file_ext}", file_ext
 
-    def _normalize_doc_type(self, doc_type: str) -> str:
-        normalized = doc_type.strip() or "GENERAL"
+    def _normalize_doc_type(self, doc_type: str | None) -> str:
+        normalized = normalize_upload_document_type(doc_type)
         if len(normalized) > 50:
             raise ValueError("doc_type 长度不能超过 50")
         return normalized
+
+    def _sync_document_graph(
+        self,
+        *,
+        doc_id: str,
+        filename: str,
+        doc_type: str,
+        version: str,
+        chunks: list[dict],
+    ) -> None:
+        if not settings.knowledge_graph_enabled:
+            return
+        from app.knowledge_graph.service import get_knowledge_graph_service
+
+        get_knowledge_graph_service().sync_document(
+            {
+                "doc_id": doc_id,
+                "filename": filename,
+                "doc_type": doc_type,
+                "version": version,
+            },
+            chunks,
+        )
+
+    def _delete_document_graph(
+        self,
+        doc_id: str,
+        *,
+        fail_open: bool = False,
+    ) -> None:
+        if not settings.knowledge_graph_enabled:
+            return
+        from app.knowledge_graph.service import get_knowledge_graph_service
+
+        try:
+            get_knowledge_graph_service().delete_document(doc_id)
+        except Exception:
+            if not fail_open:
+                raise
+            logger.exception(
+                "knowledge_graph_compensation_failed",
+                extra={
+                    "event_data": {
+                        "event": "knowledge_graph_compensation_failed",
+                        "doc_id": doc_id,
+                        "status": "failed",
+                    }
+                },
+            )
 
     def _normalize_version(self, version: str) -> str:
         normalized = (version or "v1").strip() or "v1"
@@ -988,6 +1062,16 @@ class DocumentService:
                 "doc_type": doc_type,
                 "version": version,
             })
+            quality_entities = self._entity_linker.link(
+                f"{source}\n{chunk['text']}"
+            )
+            chunk["metadata"]["quality_entities"] = quality_entities
+            chunk["metadata"]["quality_entity_terms"] = (
+                self._entity_linker.search_terms(quality_entities)
+            )
+            chunk["metadata"].update(
+                self._entity_linker.flatten(quality_entities)
+            )
         return chunks
 
     def _replace_chunks_in_postgres(
@@ -997,11 +1081,12 @@ class DocumentService:
     ) -> None:
         insert_query = text("""
             INSERT INTO document_chunks (
-                doc_id, chunk_id, chunk_index, text, doc_type, source, version
+                doc_id, chunk_id, chunk_index, text, doc_type, source, version,
+                metadata
             )
             VALUES (
                 :doc_id, :chunk_id, :chunk_index, :text,
-                :doc_type, :source, :version
+                :doc_type, :source, :version, CAST(:metadata AS JSONB)
             )
         """)
         rows = [
@@ -1013,6 +1098,11 @@ class DocumentService:
                 "doc_type": chunk["metadata"]["doc_type"],
                 "source": chunk["metadata"]["source"],
                 "version": chunk["metadata"]["version"],
+                "metadata": json.dumps(
+                    chunk["metadata"],
+                    ensure_ascii=False,
+                    default=str,
+                ),
             }
             for chunk in chunks
         ]
@@ -1217,6 +1307,10 @@ class DocumentService:
         status: str,
         chunk_count: int = 0,
         error_message: str | None = None,
+        parser_name: str | None = None,
+        parser_version: str | None = None,
+        multimodal_asset_count: int = 0,
+        ocr_element_count: int = 0,
         level: int = logging.INFO,
         exc_info: bool = False,
     ) -> None:
@@ -1245,6 +1339,10 @@ class DocumentService:
                     "version": version,
                     "status": status,
                     "chunk_count": chunk_count,
+                    "parser_name": parser_name,
+                    "parser_version": parser_version,
+                    "multimodal_asset_count": multimodal_asset_count,
+                    "ocr_element_count": ocr_element_count,
                     "latency_ms": round(latency_ms, 2),
                     "error_message": error_message,
                     "embedding_provider": provider_name,

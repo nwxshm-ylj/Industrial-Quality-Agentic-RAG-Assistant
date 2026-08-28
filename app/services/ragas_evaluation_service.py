@@ -15,6 +15,7 @@ from app.evaluation.ragas_evaluator import (
     SemanticMetricSuite,
     SemanticRAGEvaluator,
 )
+from app.evaluation.ragas_compat import install_ragas_langchain_compat
 from app.rag.graph_chain import IndustrialGraphRAGChain
 from app.services.audit_service import AuditService
 
@@ -28,6 +29,7 @@ def build_ragas_metric_suite() -> RagasMetricSuite:
         raise RuntimeError(
             "RAGAS evaluation is disabled. Set RAGAS_ENABLED=true explicitly."
         )
+    install_ragas_langchain_compat()
     try:
         from openai import AsyncOpenAI
         from ragas.embeddings import OpenAIEmbeddings
@@ -40,15 +42,21 @@ def build_ragas_metric_suite() -> RagasMetricSuite:
     judge_client = AsyncOpenAI(
         api_key=settings.llm_api_key,
         base_url=settings.llm_base_url,
+        timeout=settings.ragas_request_timeout_seconds,
+        max_retries=settings.ragas_max_retries,
     )
     embedding_client = AsyncOpenAI(
         api_key=settings.qwen_embedding_api_key or settings.llm_api_key,
         base_url=settings.llm_base_url,
+        timeout=settings.ragas_request_timeout_seconds,
+        max_retries=settings.ragas_max_retries,
     )
     judge_llm = llm_factory(
         settings.ragas_judge_model,
         provider="openai",
         client=judge_client,
+        max_tokens=settings.ragas_judge_max_tokens,
+        temperature=0,
         system_prompt=(
             "You evaluate an industrial quality RAG system. Score only from "
             "the supplied question, reference, response, and contexts."
@@ -93,6 +101,7 @@ class RagasEvaluationService:
         role: str,
         request_id: str | None,
         max_questions: int | None = None,
+        question_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         started_at = perf_counter()
         dataset_path = Path(settings.ragas_dataset_path)
@@ -101,15 +110,32 @@ class RagasEvaluationService:
             items = json.loads(dataset_path.read_text(encoding="utf-8"))
             if not isinstance(items, list):
                 raise ValueError("RAGAS evaluation dataset must be a JSON list")
+            if question_ids:
+                requested_ids = {str(value).strip() for value in question_ids}
+                if "" in requested_ids:
+                    raise ValueError("question_ids cannot contain empty values")
+                available_ids = {str(item.get("id") or "") for item in items}
+                unknown_ids = requested_ids - available_ids
+                if unknown_ids:
+                    raise ValueError(
+                        "Unknown RAGAS question_ids: "
+                        + ", ".join(sorted(unknown_ids))
+                    )
+                items = [
+                    item
+                    for item in items
+                    if str(item.get("id") or "") in requested_ids
+                ]
             evaluator = SemanticRAGEvaluator(self.metric_suite)
             report = evaluator.run(
                 items,
                 result_provider=lambda question: self.graph_chain.invoke(
                     question=question,
                     top_k=5,
-                    session_id=f"evaluation-{run_id}",
+                    session_id=f"evaluation-{run_id}-{uuid4().hex}",
                     request_id=str(uuid4()),
                     user={"username": username, "role": role},
+                    memory_enabled=False,
                 ),
                 run_id=run_id,
                 max_questions=max_questions,

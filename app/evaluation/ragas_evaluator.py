@@ -54,14 +54,15 @@ class RagasMetricSuite:
     ) -> None:
         try:
             from ragas.metrics.collections import (
+                AnswerRelevancy,
                 ContextPrecisionWithReference,
                 ContextRecall,
                 Faithfulness,
-                ResponseRelevancy,
             )
         except ImportError as exc:
             raise RuntimeError(
-                "RAGAS is not installed. Install the pinned project dependencies."
+                "RAGAS metric API is unavailable or incompatible with the "
+                "pinned project dependencies."
             ) from exc
 
         self.suite_version = suite_version
@@ -69,7 +70,7 @@ class RagasMetricSuite:
         self._metrics = {
             "context_precision": ContextPrecisionWithReference(llm=llm),
             "context_recall": ContextRecall(llm=llm),
-            "response_relevancy": ResponseRelevancy(
+            "response_relevancy": AnswerRelevancy(
                 llm=llm,
                 embeddings=embeddings,
             ),
@@ -102,6 +103,7 @@ class RagasMetricSuite:
                 "response": sample.response,
             },
             "faithfulness": {
+                "user_input": sample.user_input,
                 "response": sample.response,
                 "retrieved_contexts": sample.retrieved_contexts,
             },
@@ -220,11 +222,25 @@ class SemanticRAGEvaluator:
         started_at = perf_counter()
         try:
             graph_result = result_provider(question)
-            contexts = [
-                str(context.get("text") or "").strip()
-                for context in graph_result.get("contexts", [])
-                if str(context.get("text") or "").strip()
-            ]
+            retrieved_contexts = []
+            for context in graph_result.get("contexts", []):
+                context_text = str(context.get("text") or "").strip()
+                if not context_text:
+                    continue
+                retrieved_contexts.append(
+                    {
+                        "doc_id": context.get("doc_id"),
+                        "chunk_id": context.get("chunk_id"),
+                        "source": context.get("source"),
+                        "doc_type": context.get("doc_type"),
+                        "page_number": context.get("page_number"),
+                        "score": context.get("score"),
+                        "rerank_score": context.get("rerank_score"),
+                        "retrieval_source": context.get("retrieval_source"),
+                        "text": context_text,
+                    }
+                )
+            contexts = [context["text"] for context in retrieved_contexts]
             sample = SemanticEvaluationSample(
                 question_id=question_id,
                 user_input=question,
@@ -243,6 +259,16 @@ class SemanticRAGEvaluator:
                 "reference_answer": reference,
                 "response": sample.response,
                 "retrieved_context_count": len(contexts),
+                "retrieved_contexts": retrieved_contexts,
+                "citations": graph_result.get("citations", []),
+                "intent": graph_result.get("intent"),
+                "rewritten_query": graph_result.get("rewritten_query"),
+                "evidence_score": graph_result.get("evidence_score"),
+                "evidence_enough": graph_result.get("evidence_enough"),
+                "retrieval_metadata": graph_result.get("metadata", {}),
+                "expected_doc_ids": item.get("expected_doc_ids", []),
+                "expected_chunk_ids": item.get("expected_chunk_ids", []),
+                "reference_contexts": item.get("reference_contexts", []),
                 "metrics": metrics,
                 "latency_ms": round((perf_counter() - started_at) * 1000, 2),
                 "error_type": None,
@@ -275,6 +301,16 @@ class SemanticRAGEvaluator:
                 "reference_answer": reference,
                 "response": None,
                 "retrieved_context_count": 0,
+                "retrieved_contexts": [],
+                "citations": [],
+                "intent": None,
+                "rewritten_query": None,
+                "evidence_score": None,
+                "evidence_enough": None,
+                "retrieval_metadata": {},
+                "expected_doc_ids": item.get("expected_doc_ids", []),
+                "expected_chunk_ids": item.get("expected_chunk_ids", []),
+                "reference_contexts": item.get("reference_contexts", []),
                 "metrics": {name: 0.0 for name in RAGAS_METRIC_NAMES},
                 "latency_ms": latency_ms,
                 "error_type": type(exc).__name__,

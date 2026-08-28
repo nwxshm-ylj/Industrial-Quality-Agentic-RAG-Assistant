@@ -13,6 +13,7 @@ from app.core.metrics import record_usage_persist_failure
 from app.core.sensitive_filter import sanitize_telemetry_value
 from app.db.session import engine
 from app.observability.usage_models import RequestUsageContext
+from app.observability.request_diagnostics import build_diagnostics_response
 
 
 class UsageService:
@@ -294,6 +295,12 @@ class UsageService:
                 self._deserialize_row(dict(row)) for row in retrieval_events
             ],
         }
+
+    def get_request_diagnostics(self, request_id: str) -> dict[str, Any] | None:
+        details = self.get_request_details(request_id)
+        if details is None:
+            return None
+        return build_diagnostics_response(details)
 
     def cleanup_old_data(self, retention_days: int | None = None) -> dict[str, int]:
         days = (

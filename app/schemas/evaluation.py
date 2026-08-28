@@ -17,6 +17,36 @@ class EvalItemInfo(BaseModel):
     answer: str | None = None
     latency_ms: float | None = None
     passed: bool | None = None
+    category: str | None = None
+    answerable: bool | None = None
+    must_cite: bool | None = None
+    should_abstain: bool | None = None
+    answer_abstained: bool | None = None
+    abstention_ok: bool | None = None
+    citation_contract_ok: bool | None = None
+    citation_coverage: float | None = None
+    semantic_support_checked: bool = False
+    semantic_support_rate: float | None = None
+    semantic_support_ok: bool | None = None
+    semantic_validation_degraded: bool = False
+    answer_validation: dict = Field(default_factory=dict)
+    validation_action: str | None = None
+    generation_retry_count: int = 0
+    repair_triggered: bool = False
+    repair_avoided: bool = False
+    repair_success: bool = False
+    citation_pruned: bool = False
+    failure_category: str | None = None
+    failure_tags: list[str] = Field(default_factory=list)
+    evidence_enough: bool | None = None
+    evidence_confidence: float | None = None
+    evidence_threshold: float | None = None
+    evidence_reasons: list[str] = Field(default_factory=list)
+    missing_aspects: list[str] = Field(default_factory=list)
+    abstain_reason: str | None = None
+    answer_validation_history: list[dict] = Field(default_factory=list)
+    forbidden_claims_ok: bool | None = None
+    quality_checks: dict[str, bool] = Field(default_factory=dict)
     created_at: datetime
 
 
@@ -31,6 +61,10 @@ class EvalRunInfo(BaseModel):
     memory_followup_success_rate: float | None = None
     avg_latency_ms: float | None = None
     report_path: str | None = None
+    generation_metrics: dict[str, float] = Field(default_factory=dict)
+    failure_analysis: dict = Field(default_factory=dict)
+    prompt_release: dict | None = None
+    evaluation_fingerprint: dict | None = None
     created_at: datetime
 
 
@@ -41,6 +75,11 @@ class EvalRunResponse(EvalRunInfo):
 class EvalRunListResponse(BaseModel):
     runs: list[EvalRunInfo]
     total: int
+
+
+class GenerationEvalRunRequest(BaseModel):
+    max_questions: int | None = Field(default=None, ge=1, le=1000)
+    question_ids: list[str] | None = Field(default=None, max_length=100)
 
 
 class RetrievalEvalRunRequest(BaseModel):
@@ -86,6 +125,7 @@ class RetrievalEvalRunListResponse(BaseModel):
 
 class RagasEvalRunRequest(BaseModel):
     max_questions: int | None = Field(default=None, ge=1, le=1000)
+    question_ids: list[str] | None = Field(default=None, max_length=100)
 
 
 class RagasEvalRunSummary(BaseModel):

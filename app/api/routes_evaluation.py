@@ -4,6 +4,7 @@ from app.core.deps import get_request_id, require_roles
 from app.schemas.evaluation import (
     EvalRunListResponse,
     EvalRunResponse,
+    GenerationEvalRunRequest,
     RetrievalEvalRunListResponse,
     RetrievalEvalRunRequest,
     RetrievalEvalRunResponse,
@@ -27,6 +28,7 @@ ragas_evaluation_service = RagasEvaluationService()
 @router.post("/run", response_model=EvalRunResponse)
 def run_evaluation(
     request: Request,
+    payload: GenerationEvalRunRequest | None = None,
     current_user: dict = Depends(require_roles("admin", "engineer")),
 ):
     try:
@@ -34,6 +36,8 @@ def run_evaluation(
             username=current_user["username"],
             role=current_user["role"],
             request_id=get_request_id(request),
+            max_questions=payload.max_questions if payload else None,
+            question_ids=payload.question_ids if payload else None,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -172,6 +176,7 @@ def run_ragas_evaluation(
             role=current_user["role"],
             request_id=get_request_id(request),
             max_questions=payload.max_questions,
+            question_ids=payload.question_ids,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

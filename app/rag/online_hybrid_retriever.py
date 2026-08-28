@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from hashlib import sha256
+from pathlib import Path
 from time import perf_counter
 from typing import Any
 
@@ -20,6 +22,7 @@ from app.rag.search_backends.base import (
 )
 from app.rag.search_backends.opensearch_backend import OpenSearchKeywordBackend
 from app.rag.search_backends.qdrant_backend import QdrantVectorSearchBackend
+from app.observability.request_diagnostics import summarize_retrieval_candidates
 
 
 class OnlineHybridRetriever:
@@ -36,6 +39,10 @@ class OnlineHybridRetriever:
         use_reranker: bool = False,
         reranker: Any | None = None,
         reranker_fail_open: bool = True,
+        neighbor_expansion_enabled: bool = False,
+        neighbor_seed_k: int = 5,
+        neighbor_window: int = 1,
+        neighbor_max_per_seed: int = 1,
     ) -> None:
         if degraded_mode != "vector_only":
             raise ValueError(
@@ -55,6 +62,10 @@ class OnlineHybridRetriever:
         self.use_reranker = use_reranker
         self.reranker = reranker
         self.reranker_fail_open = reranker_fail_open
+        self.neighbor_expansion_enabled = neighbor_expansion_enabled
+        self.neighbor_seed_k = max(1, neighbor_seed_k)
+        self.neighbor_window = max(1, neighbor_window)
+        self.neighbor_max_per_seed = max(1, neighbor_max_per_seed)
 
         if self.use_reranker and self.reranker is None:
             try:
@@ -91,6 +102,10 @@ class OnlineHybridRetriever:
         keyword_latency_ms = 0.0
         fusion_latency_ms = 0.0
         reranker_latency_ms = 0.0
+        neighbor_expansion_latency_ms = 0.0
+        neighbor_expansion_degraded = False
+        neighbor_expansion_reason = None
+        neighbor_added_count = 0
         retrieval_filter = (
             filters
             if isinstance(filters, RetrievalFilter)
@@ -205,6 +220,30 @@ class OnlineHybridRetriever:
             else:
                 results = candidates[:top_k]
 
+            if self.neighbor_expansion_enabled and results:
+                neighbor_started_at = perf_counter()
+                try:
+                    results, neighbor_added_count = self._expand_neighbors(
+                        question,
+                        results,
+                        top_k=top_k,
+                    )
+                except KeywordSearchError as exc:
+                    neighbor_expansion_degraded = True
+                    neighbor_expansion_reason = str(exc)
+                    log_business_event(
+                        "neighbor_expansion_degraded",
+                        status="degraded",
+                        error_message=str(exc),
+                        degraded=True,
+                        degraded_reason=str(exc),
+                        retrieval_mode="hybrid_without_neighbor_expansion",
+                    )
+                finally:
+                    neighbor_expansion_latency_ms = (
+                        perf_counter() - neighbor_started_at
+                    ) * 1000
+
             total_latency_ms = (perf_counter() - started_at) * 1000
             retrieval_mode = "vector_only" if degraded else "hybrid"
             event = RetrievalUsageEvent(
@@ -241,6 +280,16 @@ class OnlineHybridRetriever:
                 metadata={
                     "query_hash": sha256(question.encode("utf-8")).hexdigest(),
                     "fusion_strategy": self.fusion_strategy,
+                    "rerank_candidate_limit": rerank_candidate_k,
+                    "rerank_candidate_count": len(candidates),
+                    "neighbor_expansion_enabled": self.neighbor_expansion_enabled,
+                    "neighbor_added_count": neighbor_added_count,
+                    "neighbor_expansion_degraded": neighbor_expansion_degraded,
+                    "neighbor_expansion_reason": neighbor_expansion_reason,
+                    "neighbor_expansion_latency_ms": round(
+                        neighbor_expansion_latency_ms,
+                        2,
+                    ),
                     "filters": (
                         retrieval_filter.as_dict() if retrieval_filter else {}
                     ),
@@ -256,6 +305,13 @@ class OnlineHybridRetriever:
 
             return {
                 "contexts": results,
+                "diagnostics": {
+                    "query_hash": sha256(question.encode("utf-8")).hexdigest(),
+                    "vector": summarize_retrieval_candidates(vector_results),
+                    "keyword": summarize_retrieval_candidates(keyword_results),
+                    "fused": summarize_retrieval_candidates(merged),
+                    "selected": summarize_retrieval_candidates(results),
+                },
                 "metadata": {
                     "degraded": degraded,
                     "degraded_reason": degraded_reason,
@@ -266,12 +322,21 @@ class OnlineHybridRetriever:
                     ),
                     "degraded_components": degraded_components,
                     "reranker_degraded": reranker_degraded,
+                    "rerank_candidate_limit": rerank_candidate_k,
+                    "rerank_candidate_count": len(candidates),
                     "vector_result_count": len(vector_results),
                     "keyword_result_count": len(keyword_results),
                     "qdrant_latency_ms": round(vector_latency_ms, 2),
                     "opensearch_latency_ms": round(keyword_latency_ms, 2),
                     "fusion_latency_ms": round(fusion_latency_ms, 2),
                     "reranker_latency_ms": round(reranker_latency_ms, 2),
+                    "neighbor_expansion_latency_ms": round(
+                        neighbor_expansion_latency_ms,
+                        2,
+                    ),
+                    "neighbor_added_count": neighbor_added_count,
+                    "neighbor_expansion_degraded": neighbor_expansion_degraded,
+                    "neighbor_expansion_reason": neighbor_expansion_reason,
                 },
             }
         except Exception as exc:
@@ -318,6 +383,114 @@ class OnlineHybridRetriever:
             )
             raise
 
+    def _expand_neighbors(
+        self,
+        question: str,
+        results: list[dict],
+        *,
+        top_k: int,
+    ) -> tuple[list[dict], int]:
+        fetch_neighbors = getattr(
+            self.keyword_backend,
+            "get_adjacent_chunks",
+            None,
+        )
+        if not callable(fetch_neighbors) or top_k <= 1:
+            return results[:top_k], 0
+
+        seed_pool_size = min(self.neighbor_seed_k, len(results))
+        seeds = results[:seed_pool_size]
+        neighbors = fetch_neighbors(seeds, window=self.neighbor_window)
+        neighbor_slots = min(max(1, top_k // 2), max(0, top_k - 1))
+        preserved_count = max(1, top_k - neighbor_slots)
+        selected = list(results[:preserved_count])
+        selected_ids = {
+            str(item.get("chunk_id") or "")
+            for item in selected
+            if item.get("chunk_id")
+        }
+        added = 0
+
+        ranked_seeds = sorted(
+            enumerate(seeds),
+            key=lambda pair: (
+                -self._metadata_query_overlap(question, pair[1]),
+                pair[0],
+            ),
+        )
+        for _, seed in ranked_seeds:
+            if added >= neighbor_slots:
+                break
+            seed_index = seed.get("chunk_index")
+            if not isinstance(seed_index, int):
+                continue
+            matching = [
+                item
+                for item in neighbors
+                if item.get("doc_id") == seed.get("doc_id")
+                and isinstance(item.get("chunk_index"), int)
+                and str(item.get("chunk_id") or "") not in selected_ids
+            ]
+            matching.sort(
+                key=lambda item: (
+                    0 if int(item["chunk_index"]) > seed_index else 1,
+                    abs(int(item["chunk_index"]) - seed_index),
+                )
+            )
+            for neighbor in matching[: self.neighbor_max_per_seed]:
+                enriched = {
+                    **neighbor,
+                    "retrieval_source": "adjacent",
+                    "adjacent_to_chunk_id": seed.get("chunk_id"),
+                    "adjacent_distance": abs(
+                        int(neighbor["chunk_index"]) - seed_index
+                    ),
+                    "score": float(seed.get("score") or 0.0) * 0.99,
+                    "evidence_signal_score": float(
+                        seed.get("evidence_signal_score")
+                        or seed.get("score")
+                        or 0.0
+                    )
+                    * 0.99,
+                    "final_score_type": "adjacent_context",
+                }
+                selected.append(enriched)
+                selected_ids.add(str(enriched.get("chunk_id") or ""))
+                added += 1
+                if added >= neighbor_slots:
+                    break
+
+        for item in results[preserved_count:]:
+            chunk_id = str(item.get("chunk_id") or "")
+            if chunk_id and chunk_id in selected_ids:
+                continue
+            selected.append(item)
+            if chunk_id:
+                selected_ids.add(chunk_id)
+            if len(selected) >= top_k:
+                break
+        return selected[:top_k], min(added, neighbor_slots)
+
+    @staticmethod
+    def _metadata_query_overlap(question: str, item: dict[str, Any]) -> int:
+        """Rank expansion seeds using transparent source/heading bigram overlap."""
+        source = Path(str(item.get("source") or "")).stem
+        heading = item.get("heading_path") or ""
+        if isinstance(heading, (list, tuple)):
+            heading = " ".join(str(value) for value in heading)
+        metadata_text = f"{source} {heading}"
+
+        def bigrams(value: str) -> set[str]:
+            normalized = re.sub(r"[^0-9a-z\u4e00-\u9fff]+", "", value.lower())
+            if len(normalized) < 2:
+                return {normalized} if normalized else set()
+            return {
+                normalized[index : index + 2]
+                for index in range(len(normalized) - 1)
+            }
+
+        return len(bigrams(question) & bigrams(metadata_text))
+
 
 @lru_cache(maxsize=1)
 def build_online_hybrid_retriever() -> OnlineHybridRetriever:
@@ -349,6 +522,10 @@ def build_online_hybrid_retriever() -> OnlineHybridRetriever:
         keyword_weight=settings.retrieval_keyword_weight,
         use_reranker=settings.use_reranker,
         reranker_fail_open=settings.reranker_fail_open,
+        neighbor_expansion_enabled=settings.retrieval_neighbor_expansion_enabled,
+        neighbor_seed_k=settings.retrieval_neighbor_seed_k,
+        neighbor_window=settings.retrieval_neighbor_window,
+        neighbor_max_per_seed=settings.retrieval_neighbor_max_per_seed,
     )
 
 

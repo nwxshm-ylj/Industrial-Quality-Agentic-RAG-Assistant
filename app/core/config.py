@@ -101,7 +101,21 @@ class Settings(BaseSettings):
     retrieval_rrf_k: int = 60
     retrieval_vector_weight: float = 0.65
     retrieval_keyword_weight: float = 0.35
+    retrieval_rerank_candidate_k: int = 12
+    retrieval_neighbor_expansion_enabled: bool = True
+    retrieval_neighbor_seed_k: int = 5
+    retrieval_neighbor_window: int = 1
+    retrieval_neighbor_max_per_seed: int = 1
     reranker_fail_open: bool = True
+    evidence_confidence_threshold: float = 0.55
+    generation_context_max_items: int = 5
+    generation_context_max_chars: int = 30000
+    generation_refusal_enabled: bool = True
+    generation_citation_coverage_threshold: float = 0.8
+    generation_repair_enabled: bool = False
+    generation_semantic_validation_enabled: bool = False
+    generation_semantic_support_threshold: float = 1.0
+    generation_semantic_validation_fail_open: bool = True
 
     llm_model: str = "qwen-plus"
     llm_provider: str = "qwen"
@@ -118,6 +132,9 @@ class Settings(BaseSettings):
     ragas_judge_model: str = "qwen-plus"
     ragas_embedding_model: str = "text-embedding-v4"
     ragas_dataset_path: str = "data/eval/ragas_eval_questions.json"
+    ragas_judge_max_tokens: int = 8192
+    ragas_request_timeout_seconds: float = 180.0
+    ragas_max_retries: int = 3
 
     database_url: str = "postgresql+psycopg2://rag_user:rag_password@localhost:5432/industrial_rag"
 

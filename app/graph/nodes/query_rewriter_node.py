@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
@@ -19,11 +21,9 @@ llm = ChatOpenAI(
 @observe_node("query_rewriter")
 def query_rewriter_node(state: IndustrialRAGState) -> dict:
     question = state["question"]
-    intent = state.get("intent", "doc_qa")
     retry_count = state.get("retry_count", 0)
     memory_text = _format_memory(state.get("memory_messages", []))
-
-    intent_hint = _get_intent_hint(intent)
+    feature_text = _format_query_features(state.get("query_features") or {})
 
     try:
         if retry_count == 0:
@@ -31,15 +31,20 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
             prompt_variables = {
                 "memory_text": memory_text,
                 "question": question,
-                "intent": intent,
-                "intent_hint": intent_hint,
+                "intent": "rag",
+                "query_features_text": feature_text,
             }
         else:
             prompt_component = "query_rewriter_retry"
             prompt_variables = {
                 "memory_text": memory_text,
                 "question": question,
-                "intent": intent,
+                "intent": "rag",
+                "query_features_text": feature_text,
+                "missing_aspects_text": "、".join(
+                    state.get("missing_aspects", [])
+                )
+                or "未明确识别",
             }
 
         rendered_prompt = get_prompt_registry().render(
@@ -54,12 +59,7 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
             model_name=settings.llm_model,
             prompt_reference=rendered_prompt.reference,
         )
-
-        rewritten_query = str(response.content).strip()
-
-        if not rewritten_query:
-            rewritten_query = question
-
+        rewritten_query = str(response.content).strip() or question
     except Exception as exc:
         log_business_event(
             "query_rewriter_model_fallback",
@@ -68,36 +68,36 @@ def query_rewriter_node(state: IndustrialRAGState) -> dict:
             status="failed",
             error_message=type(exc).__name__,
             prompt_component=(
-                "query_rewriter_initial"
-                if retry_count == 0
-                else "query_rewriter_retry"
+                "query_rewriter_initial" if retry_count == 0 else "query_rewriter_retry"
             ),
         )
         rewritten_query = question
 
-    return {
-        "rewritten_query": rewritten_query
-    }
+    return {"rewritten_query": rewritten_query}
 
 
 def _format_memory(memory_messages: list[dict]) -> str:
     if not memory_messages:
         return "无历史对话。"
-
     return "\n".join(
         f"{message.get('role', 'unknown')}: {message.get('content', '')}"
         for message in memory_messages
     )
 
 
-def _get_intent_hint(intent: str) -> str:
-    hints = {
-        "doc_qa": "优先检索设备手册、SOP、检验标准、FMEA等文档内容。",
-        "fault_diagnosis": "优先检索故障现象、可能原因、排查步骤、处理措施、FMEA、8D案例。",
-        "case_search": "优先检索历史质量案例、8D报告、相似故障、根因和措施。",
-        "rule_query": "优先检索PR规则、配置映射、字段校验规则、判定标准。",
-        "sql_analysis": "优先检索与结构化质量数据、报警记录、检测记录相关的字段说明。",
-        "general": "普通问题，不需要扩展工业检索词。"
-    }
-
-    return hints.get(intent, hints["doc_qa"])
+def _format_query_features(features: dict) -> str:
+    aspects = "、".join(features.get("requested_aspects", [])) or "未明确指定"
+    doc_types = "、".join(features.get("preferred_doc_types", [])) or "不限定"
+    anchors = "、".join(features.get("case_anchors", [])) or "未识别"
+    entities = features.get("entities") or {}
+    return "\n".join(
+        [
+            f"RAG内部任务模式：{features.get('task_mode', 'knowledge_lookup')}",
+            f"需要问题追溯：{'是' if features.get('traceability_required') else '否'}",
+            f"需要故障诊断：{'是' if features.get('diagnosis_required') else '否'}",
+            f"用户要求的证据维度：{aspects}",
+            f"优先文档类型（仅用于召回偏好，不是硬过滤）：{doc_types}",
+            f"案例锚点：{anchors}",
+            f"已识别实体：{entities}",
+        ]
+    )

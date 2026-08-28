@@ -7,12 +7,7 @@ from app.graph.nodes.intent_router_node import (
 )
 from app.graph.nodes.query_rewriter_node import query_rewriter_node
 from app.graph.nodes.retrieve_node import retrieve_node
-from app.graph.nodes.rule_tool_node import (
-    rule_tool_node,
-    route_after_rule_tool,
-)
 from app.graph.nodes.sql_tool_node import sql_tool_node
-from app.graph.nodes.case_retriever_node import case_retriever_node
 from app.graph.nodes.evidence_judge_node import (
     evidence_judge_node,
     route_after_evidence_judge,
@@ -20,6 +15,9 @@ from app.graph.nodes.evidence_judge_node import (
 from app.graph.nodes.generate_node import generate_node
 from app.graph.nodes.load_memory_node import load_memory_node
 from app.graph.nodes.save_memory_node import save_memory_node
+from app.graph.nodes.context_builder_node import context_builder_node
+from app.graph.nodes.answer_verifier_node import answer_verifier_node
+from app.graph.nodes.finalize_answer_node import finalize_answer_node
 
 
 def build_industrial_rag_graph():
@@ -27,13 +25,14 @@ def build_industrial_rag_graph():
 
     graph.add_node("load_memory", load_memory_node)
     graph.add_node("intent_router", intent_router_node)
-    graph.add_node("rule_tool", rule_tool_node)
     graph.add_node("sql_tool", sql_tool_node)
-    graph.add_node("case_retriever", case_retriever_node)
     graph.add_node("query_rewriter", query_rewriter_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("evidence_judge", evidence_judge_node)
+    graph.add_node("context_builder", context_builder_node)
     graph.add_node("generate", generate_node)
+    graph.add_node("answer_verifier", answer_verifier_node)
+    graph.add_node("finalize_answer", finalize_answer_node)
     graph.add_node("save_memory", save_memory_node)
 
     graph.add_edge(START, "load_memory")
@@ -43,26 +42,13 @@ def build_industrial_rag_graph():
         "intent_router",
         route_after_intent,
         {
-            "rule": "rule_tool",
             "sql": "sql_tool",
-            "case": "case_retriever",
             "rag": "query_rewriter",
-            "generate": "generate",
+            "generate": "context_builder",
         }
     )
 
-    graph.add_conditional_edges(
-        "rule_tool",
-        route_after_rule_tool,
-        {
-            "generate": "generate",
-            "rag": "query_rewriter",
-        }
-    )
-
-    graph.add_edge("sql_tool", "generate")
-    graph.add_edge("case_retriever", "generate")
-
+    graph.add_edge("sql_tool", "context_builder")
     graph.add_edge("query_rewriter", "retrieve")
     graph.add_edge("retrieve", "evidence_judge")
 
@@ -71,11 +57,14 @@ def build_industrial_rag_graph():
         route_after_evidence_judge,
         {
             "rewrite": "query_rewriter",
-            "generate": "generate",
+            "generate": "context_builder",
         }
     )
 
-    graph.add_edge("generate", "save_memory")
+    graph.add_edge("context_builder", "generate")
+    graph.add_edge("generate", "answer_verifier")
+    graph.add_edge("answer_verifier", "finalize_answer")
+    graph.add_edge("finalize_answer", "save_memory")
     graph.add_edge("save_memory", END)
 
     return graph.compile()

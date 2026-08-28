@@ -86,6 +86,7 @@ class RequestUsageContext:
     completed_at: datetime | None = None
     ai_events: list[AIUsageEvent] = field(default_factory=list)
     retrieval_events: list[RetrievalUsageEvent] = field(default_factory=list)
+    workflow_events: list[dict[str, Any]] = field(default_factory=list)
     attributes: dict[str, Any] = field(default_factory=dict)
 
     @property

@@ -63,6 +63,7 @@ def graph_chat(
                 if request.multimodal_query
                 else None
             ),
+            retrieval_mode=request.retrieval_mode,
         )
         audit_service.log_action(
             request_id=request_id,
@@ -73,7 +74,10 @@ def graph_chat(
             resource_type="conversation",
             resource_id=request.session_id,
             status="success",
-            detail=f"intent={result.get('intent')}",
+            detail=(
+                f"intent={result.get('intent')}; "
+                f"retrieval_mode={request.retrieval_mode}"
+            ),
         )
         return result
 
@@ -161,6 +165,7 @@ async def graph_chat_stream(
                         if request.multimodal_query
                         else None
                     ),
+                    retrieval_mode=request.retrieval_mode,
                 )
 
         async def execute_graph() -> None:
@@ -177,7 +182,10 @@ async def graph_chat_stream(
                     resource_type="conversation",
                     resource_id=session_id,
                     status="success",
-                    detail=f"intent={result.get('intent')}; streaming=true",
+                    detail=(
+                        f"intent={result.get('intent')}; streaming=true; "
+                        f"retrieval_mode={request.retrieval_mode}"
+                    ),
                 )
                 await queue.put(
                     {
