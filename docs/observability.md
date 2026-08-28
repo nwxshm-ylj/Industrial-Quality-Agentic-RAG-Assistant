@@ -34,7 +34,6 @@ request_id、session_id、username 属于高基数字段，不应作为 Promethe
 - evidence_judge；
 - rule_tool；
 - sql_tool；
-- case_retriever；
 - generate；
 - save_memory；
 - graph_chat。
@@ -83,6 +82,27 @@ admin/engineer 可访问：
 - `GET /api/v1/observability/analytics/intents`；
 - `GET /api/v1/observability/analytics/retrieval`。
 
+### 回答诊断快照
+
+admin/engineer 还可访问：
+
+- `GET /api/v1/diagnostics/requests/{request_id}`。
+
+新产生的 graph-chat 请求会把版本化诊断快照写入
+`rag_request_runs.metadata.diagnostic_snapshot`，不新增数据库表。快照包含：
+
+- LangGraph 节点执行状态与耗时；
+- vector、keyword、fused、selected、final 候选的标识、排名和分数；
+- 最终检索上下文、生成上下文、引用与证据包关系；
+- 路由、降级、上下文预算、回答校验和组件版本；
+- 不依赖 LLM 的确定性诊断检查。
+
+`TELEMETRY_CAPTURE_CONTENT=false` 时，历史快照不保存问题、回答和上下文正文，
+仅保存结构化标识与分数。聊天页面仍可对当前响应进行本地正文对比；如需长期保留
+正文片段，必须经过数据安全评审后显式开启该开关，并遵循现有 Usage 保留周期。
+旧请求没有诊断快照时，接口仍返回既有 Request、AI Event 和 Retrieval Event，
+同时明确标记快照不可用。
+
 ## 7. 部署
 
 ```powershell
@@ -99,6 +119,7 @@ docker compose exec api python -m scripts.test_observability
 python -m scripts.test_observability_stack
 python -m scripts.test_metrics
 python -m scripts.test_usage_analytics
+python -m scripts.test_request_diagnostics
 ```
 
 ## 8. 告警建议

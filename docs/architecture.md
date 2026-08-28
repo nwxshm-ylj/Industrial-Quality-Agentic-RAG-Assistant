@@ -20,7 +20,7 @@
 因此系统采用以下原则：
 
 1. 用显式状态图组织分支、回退和有限重试，不把所有问题塞进一条固定 RAG 链。
-2. 确定性数据优先使用 Rule、SQL、Case Tool，文档型问题才进入 Hybrid RAG。
+2. 一级路由仅区分 RAG、SQL 和普通对话；标准规则、故障诊断和案例追溯统一进入 Hybrid RAG，并由 query_features 控制检索增强。
 3. 离线索引与在线查询分离，运行时不依赖 `chunks.json`。
 4. 文档向量、查询向量分别调用同一个进程级本地 Embedding Provider。
 5. Qdrant 与 OpenSearch 使用统一 `doc_id/chunk_id`，并通过 staging、promotion 和补偿清理维护一致性。
@@ -35,9 +35,9 @@ flowchart TB
     API --> AUTH["JWT / RBAC / request_id 中间件"]
     AUTH --> GRAPH["LangGraph Agentic 工作流"]
 
-    GRAPH --> RULE["Rule Tool"]
+    GRAPH --> FEATURES["Query Features"]
     GRAPH --> SQL["SQL Tool"]
-    GRAPH --> CASE["Case Retriever"]
+    GRAPH --> RETRIEVE["Unified Hybrid Retriever"]
     GRAPH --> RAG["Online Hybrid Retriever"]
     GRAPH --> GEN["Answer Generator"]
 
@@ -47,10 +47,8 @@ flowchart TB
     RAG --> FUSION["RRF / Weighted Fusion"]
     FUSION --> RERANK["可选 BGE Reranker"]
 
-    CASE --> PG[(PostgreSQL)]
-    CASE --> NEO[(Neo4j)]
+    RETRIEVE --> NEO[(Neo4j)]
     SQL --> PG
-    RULE --> YAML["YAML 规则库"]
 
     GRAPH --> MEM["分层会话记忆"]
     MEM --> PG
@@ -82,7 +80,7 @@ flowchart TB
 
 - 请求：`question`、`request_id`、`session_id`、`user`、`top_k`；
 - 上下文：`memory_messages`、`memory_metadata`、`retrieval_filters`、`multimodal_query`；
-- 路由：`intent`、`rewritten_query`、`retry_count`；
+- 路由：`intent`、`query_features`、`rewritten_query`、`retry_count`；
 - 证据：`contexts`、`citations`、`evidence_score`、`evidence_enough`；
 - 工具：`rule_result`、`sql_result`、`case_result`；
 - 输出：`answer`、`retrieval_metadata`、`knowledge_graph_metadata`。
@@ -95,39 +93,39 @@ flowchart TB
 flowchart LR
     S([START]) --> LM[load_memory]
     LM --> IR[intent_router]
-    IR -->|rule_query| RT[rule_tool]
-    IR -->|sql_analysis| ST[sql_tool]
-    IR -->|case_search| CR[case_retriever]
-    IR -->|doc_qa / fault_diagnosis| QR[query_rewriter]
-    IR -->|general| G[generate]
-    RT -->|命中| G
-    RT -->|未命中| QR
-    ST --> G
-    CR --> G
+    IR -->|sql| ST[sql_tool]
+    IR -->|rag| QR[query_rewriter]
+    IR -->|general| CB[context_builder]
+    ST --> CB
     QR --> R[retrieve]
     R --> EJ[evidence_judge]
-    EJ -->|证据充分| G
+    EJ -->|证据充分| CB
     EJ -->|首次不足| QR
-    EJ -->|重试后仍不足| G
-    G --> SM[save_memory]
+    EJ -->|重试后仍不足| CB
+    CB --> G[generate draft]
+    G --> AV[answer_verifier]
+    AV -->|通过或逐行裁剪| F[finalize_answer]
+    F --> SM[save_memory]
     SM --> E([END])
 ```
 
-工作流定义位于 `app/graph/workflow.py`。所有业务分支最终都经过 `generate -> save_memory -> END`，保证响应结构和记忆写入逻辑一致。
+工作流定义位于 `app/graph/workflow.py`。所有业务分支最终都经过“单次草稿生成—逐行引用编号校验—确定性裁剪或拒答—保存记忆”，保证会话中只持久化最终回答。
 
 ### 4.3 节点功能说明
 
 | 节点 | 主要逻辑 | 输入/输出 | 设计考虑 | 代码路径 |
 |---|---|---|---|---|
 | `load_memory` | 按 session_id 加载最近对话；启用分层记忆时同时召回 Redis 摘要和长期情景 | 输入 question/session/user；输出 memory_messages、memory_metadata | 记忆在路由和改写前加载，使“那优先查哪个”可补全指代；Redis/长期索引异常可降级 | `app/graph/nodes/load_memory_node.py` |
-| `intent_router` | Prompt 分类为六类意图；LLM 失败时使用关键词规则兜底 | 输出 intent | LLM 提供表达泛化，规则保证外部模型异常时仍可路由；case 判断优先于 fault，避免“历史异常案例”误分类 | `app/graph/nodes/intent_router_node.py` |
-| `rule_tool` | 在 YAML 中匹配 PR 规则或故障关键词 | 输出 rule_result、contexts、citations | 规则命中直接生成，未命中回退 RAG；确定性规则不交给模型猜测 | `app/graph/nodes/rule_tool_node.py`、`app/tools/rule_tool.py` |
+| `intent_router` | 使用确定性规则分类为 rag/sql/general，不调用 LLM；同步提取 query_features | 输出 intent、query_features | SQL 必须同时匹配结构化数据实体与查询操作；不确定问题默认进入 RAG | `app/graph/nodes/intent_router_node.py`、`app/graph/query_features.py` |
 | `sql_tool` | 高频问题先走 SQL 模板，否则由 LLM 生成；执行前做安全校验 | 输出 sql_result、contexts、citations | 仅 admin/engineer；只允许 SELECT、白名单表、LIMIT 最大 100，并记录审计 | `app/graph/nodes/sql_tool_node.py`、`app/tools/sql_tool.py` |
-| `case_retriever` | 按缺陷类型/工位查询 PostgreSQL quality_cases，可叠加 Neo4j 路径 | 输出 case_result、contexts、citations | 结构化案例为主，图谱作为补充证据；图谱异常不阻断案例查询 | `app/graph/nodes/case_retriever_node.py`、`app/tools/case_tool.py` |
-| `query_rewriter` | 结合历史对话、当前意图重写独立检索问题；重试时改变 Prompt | 输出 rewritten_query | 解决省略、指代和用户词汇与文档术语不一致；LLM 异常回退原问题 | `app/graph/nodes/query_rewriter_node.py` |
+| `retrieve` | 所有知识问题统一执行 Qdrant + OpenSearch 混合检索；query_features.traceability_required 在同一批候选上增加文档类型整理和 Neo4j 关系证据 | 输出 contexts、citations、retrieval_metadata；兼容输出 case_result | 不再存在独立 Case 或 Rule 路由；所有知识检索统一进入 Evidence Judge 和有限重试 | `app/graph/nodes/retrieve_node.py`、`app/traceability/service.py` |
+| `query_rewriter` | 结合历史对话和 query_features 重写独立检索问题；重试时针对缺失证据维度扩展 | 输出 rewritten_query | 文档类型只作为召回偏好，不作为硬过滤；LLM 异常回退原问题 | `app/graph/nodes/query_rewriter_node.py` |
 | `retrieve` | 调用在线文本 Hybrid Retriever；可选叠加多模态召回 | 输出 contexts、citations、retrieval_metadata | 引用字段完整保留 doc_id、chunk_id、页码、模态和各阶段分数 | `app/graph/nodes/retrieve_node.py`、`app/rag/retriever.py` |
-| `evidence_judge` | 从 evidence_signal_score/score 取最高值，与 0.55 阈值比较 | 输出 evidence_score、evidence_enough、retry_count | 证据不足最多重写一次，避免无限 Agent 循环；第二次仍不足也进入生成，由 Prompt 约束拒答 | `app/graph/nodes/evidence_judge_node.py` |
-| `generate` | general 返回固定说明；其他意图把历史、问题和证据交给 AnswerGenerator | 输出 answer | 工具结果与文档结果统一转为 contexts，复用同一个生成器；支持 token 流式事件 | `app/graph/nodes/generate_node.py`、`app/rag/generator.py` |
+| `evidence_judge` | 归一化异构检索分数，结合词面覆盖、独立证据数、缺失维度和降级状态计算可信度 | 输出 evidence_score、evidence_confidence、evidence_reasons、missing_aspects、evidence_enough | 证据不足最多重写一次；第二次仍不足由生成门禁直接拒答，不调用 LLM 补造 | `app/graph/nodes/evidence_judge_node.py` |
+| `context_builder` | 对生成证据去重、分配稳定引用编号并执行条数和字符预算 | 输出 generation_contexts、generation_context_metadata | 不修改原始 contexts/citations，保证 API 和评测兼容 | `app/graph/nodes/context_builder_node.py` |
+| `generate` | general 返回固定说明；RAG 证据通过门禁后调用 AnswerGenerator；证据不足或 SQL 失败时确定性拒答 | 输出 answer、answer_abstained | 事实性要点要求逐项引用；支持 token 流式事件 | `app/graph/nodes/generate_node.py`、`app/rag/generator.py` |
+| `answer_verifier` | 按物理内容行校验当前资料编号，不拆分 Claim、不调用语义模型 | 输出 answer_validation、answer_structure、generation_quality_passed | 标题可无引用；其他非空行必须带有效【资料N】且不能含非法编号 | `app/graph/nodes/answer_verifier_node.py`、`app/generation/citation_validator.py` |
+| `finalize_answer` | 发布通过校验的草稿，或删除无效行；全部删除时拒答 | 输出最终 answer、answer_abstained | 流式接口发送 answer_replace，避免前端停留在未校验草稿 | `app/graph/nodes/finalize_answer_node.py`、`app/streaming/events.py` |
 | `save_memory` | 保存 user/assistant 消息；分层模式异步写长期情景记忆 | 返回空增量 | 空答案不写 assistant；长期索引使用有界后台线程池，不阻塞主响应 | `app/graph/nodes/save_memory_node.py` |
 
 说明：`evidence_judge` 的 0.55 是当前工程阈值，Embedding 已切换为 BGE-M3 后应持续通过评估集校准，不能把该阈值理解为通用行业标准。
@@ -281,7 +279,9 @@ flowchart LR
 
 `app/rag/generator.py` 把输入分为三段：历史对话、当前问题、参考资料。历史用于消解指代，参考资料仍是事实依据。每条 context 都带 source、doc_type、chunk_id，回答结果同时返回 citations。
 
-Prompt 由 `app/prompting/registry.py` 从版本化 Release 加载，当前组件包括 intent router、两种 query rewriter、answer generator 和 SQL generator。响应 metadata 可暴露 prompt release 和版本，便于回归与审计。
+生成后的 Markdown 草稿由 `app/generation/citation_validator.py` 按物理行处理。Markdown 标题可无引用；其他非空内容行必须带当前 `generation_contexts` 中存在的【资料N】，且不能同时包含非法编号。校验器从这些内容行派生 claim，并附加 `claim_category`、`citation_required`、`evidence_policy`。数值、阈值、因果、安全和强制要求等 strict claim 必须完成语义验证；验证关闭或异常时使用 `strict_semantic_validation_unavailable` 阻断发布，不受全局 fail-open 配置影响。普通 claim 的验证异常仍可按配置降级。Finalize 只会裁剪可确定删除的无效行或语义不支持 claim，不会绕过 strict 验证不可用错误。
+
+Prompt 由 `app/prompting/registry.py` 从版本化 Release 加载，当前稳定 Release 包含两种 query rewriter、answer generator、semantic citation verifier 和 SQL generator。Intent Router 与 answer repair 的历史 Prompt 文件作为回滚资产保留，当前稳定清单不加载回答修复 Prompt。响应 metadata 可暴露实际执行的 prompt release 和版本，便于回归与审计。
 
 ## 7. 记忆系统
 
@@ -291,7 +291,7 @@ Prompt 由 `app/prompting/registry.py` 从版本化 Release 加载，当前组�
 
 - `save_memory` 把 user 和非空 assistant 消息写入 PostgreSQL `conversation_messages`；
 - `load_memory` 按 session_id、created_at DESC 取最近 6 条，再反转为正常时间顺序；
-- 历史同时进入 Intent Router、Query Rewriter 和 Answer Generator。
+- 历史进入 Query Rewriter 和 Answer Generator；Intent Router 只根据当前问题执行确定性路由。
 
 实现：`app/memory/conversation_memory.py`。
 
@@ -338,10 +338,10 @@ flowchart TB
 
 ## 8. 工具与知识图谱
 
-- Rule Tool：读取 `data/rules/industrial_rules.yaml`，适合 PR 编码和明确故障规则。
+- Legacy Rule Tool 文件保留用于历史兼容和独立单元测试，但不再注册到 LangGraph 主路由；标准和规则问题统一通过知识库 RAG 检索。
 - SQL Tool：查询 `inspection_record`、`equipment_alarm`、`quality_cases`，具备模板优先、白名单和 LIMIT 保护。
-- Case Tool：按缺陷类型和工位过滤 PostgreSQL 历史案例。
-- Neo4j：把案例、现象、根因、措施等实体关系组织为路径证据；它是案例检索增强，不替代文档 Hybrid Search。
+- Case Traceability：从统一知识库召回 LessonLearn、标准作业文档、PFMEA 和售后文档，不再查询旧 `quality_cases` 案例工具。
+- Neo4j：保存 `Document -[:HAS_CHUNK]-> DocumentChunk -[:MENTIONS]-> QualityEntity` 追溯关系；它补充关系证据，不替代 Qdrant/OpenSearch Hybrid Search。
 
 知识图谱实现位于 `app/knowledge_graph/service.py` 和 `app/knowledge_graph/neo4j_backend.py`。
 

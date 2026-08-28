@@ -15,7 +15,7 @@ $env:API_BASE = "http://localhost:18000"
 ```powershell
 curl.exe -X POST "$env:API_BASE/api/v1/auth/login" `
   -H "Content-Type: application/json" `
-  -d '{"username":"admin","password":"admin123"}'
+  -d '{"username":"admin","password":"<your-admin-password>"}'
 ```
 
 典型响应：

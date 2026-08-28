@@ -5,7 +5,7 @@ services:
     container_name: industrial-rag-redis
     command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-16379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -39,8 +39,8 @@ services:
     image: qdrant/qdrant:latest
     container_name: industrial-rag-qdrant
     ports:
-      - "6333:6333"
-      - "6334:6334"
+      - "${QDRANT_HTTP_PORT:-16333}:6333"
+      - "${QDRANT_GRPC_PORT:-16334}:6334"
     volumes:
       - qdrant_data:/qdrant/storage
 
@@ -184,6 +184,20 @@ services:
       RETRIEVAL_RRF_K: ${RETRIEVAL_RRF_K:-60}
       RETRIEVAL_VECTOR_WEIGHT: ${RETRIEVAL_VECTOR_WEIGHT:-0.65}
       RETRIEVAL_KEYWORD_WEIGHT: ${RETRIEVAL_KEYWORD_WEIGHT:-0.35}
+      RETRIEVAL_RERANK_CANDIDATE_K: ${RETRIEVAL_RERANK_CANDIDATE_K:-12}
+      RETRIEVAL_NEIGHBOR_EXPANSION_ENABLED: ${RETRIEVAL_NEIGHBOR_EXPANSION_ENABLED:-true}
+      RETRIEVAL_NEIGHBOR_SEED_K: ${RETRIEVAL_NEIGHBOR_SEED_K:-5}
+      RETRIEVAL_NEIGHBOR_WINDOW: ${RETRIEVAL_NEIGHBOR_WINDOW:-1}
+      RETRIEVAL_NEIGHBOR_MAX_PER_SEED: ${RETRIEVAL_NEIGHBOR_MAX_PER_SEED:-1}
+      EVIDENCE_CONFIDENCE_THRESHOLD: ${EVIDENCE_CONFIDENCE_THRESHOLD:-0.55}
+      GENERATION_CONTEXT_MAX_ITEMS: ${GENERATION_CONTEXT_MAX_ITEMS:-5}
+      GENERATION_CONTEXT_MAX_CHARS: ${GENERATION_CONTEXT_MAX_CHARS:-30000}
+      GENERATION_REFUSAL_ENABLED: ${GENERATION_REFUSAL_ENABLED:-true}
+      GENERATION_CITATION_COVERAGE_THRESHOLD: ${GENERATION_CITATION_COVERAGE_THRESHOLD:-0.8}
+      GENERATION_REPAIR_ENABLED: ${GENERATION_REPAIR_ENABLED:-false}
+      GENERATION_SEMANTIC_VALIDATION_ENABLED: ${GENERATION_SEMANTIC_VALIDATION_ENABLED:-false}
+      GENERATION_SEMANTIC_SUPPORT_THRESHOLD: ${GENERATION_SEMANTIC_SUPPORT_THRESHOLD:-1.0}
+      GENERATION_SEMANTIC_VALIDATION_FAIL_OPEN: ${GENERATION_SEMANTIC_VALIDATION_FAIL_OPEN:-true}
 
       LLM_MODEL: ${LLM_MODEL}
       LLM_API_KEY: ${LLM_API_KEY}
@@ -236,7 +250,12 @@ services:
       USE_RERANKER: "${USE_RERANKER:-false}"
       RERANKER_FAIL_OPEN: ${RERANKER_FAIL_OPEN:-true}
     volumes:
-      - ./data:/app/data
+      # Override DATA_HOST_PATH when Compose runs from a Git worktree while
+      # pinned local models and authoritative data live in the main checkout.
+      - ${DATA_HOST_PATH:-./data}:/app/data
+      # Evaluation fixtures are versioned with the active code branch.  Keep
+      # them isolated from a shared authoritative document/model directory.
+      - ./data/eval:/app/data/eval
       - hf_cache:/root/.cache/huggingface
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     healthcheck:
@@ -257,7 +276,8 @@ services:
     environment:
       RAG_API_URL: http://api:8000/api/v1/graph-chat
     volumes:
-      - ./data:/app/data
+      - ${DATA_HOST_PATH:-./data}:/app/data
+      - ./data/eval:/app/data/eval
     command: streamlit run ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
 
   react-web:
@@ -296,7 +316,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL}
       USE_RERANKER: "false"
     volumes:
-      - ./data:/app/data
+      - ${DATA_HOST_PATH:-./data}:/app/data
     command: python -m scripts.init_sql_data
     profiles:
       - tools
@@ -318,7 +338,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL}
       USE_RERANKER: "false"
     volumes:
-      - ./data:/app/data
+      - ${DATA_HOST_PATH:-./data}:/app/data
       - hf_cache:/root/.cache/huggingface
     command: python -m scripts.ingest_docs
     profiles:
