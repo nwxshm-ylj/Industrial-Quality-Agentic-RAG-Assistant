@@ -1,0 +1,32 @@
+export const designTokens = {
+  color: {
+    primary: "#0f766e",
+    primaryHover: "#0d8a80",
+    primaryActive: "#0b5f59",
+    info: "#356b8c",
+    success: "#198754",
+    warning: "#a86416",
+    danger: "#b64040",
+    canvas: "#f3f6f8",
+    surface: "#ffffff",
+    surfaceSubtle: "#f7f9fa",
+    surfaceMuted: "#edf2f4",
+    surfaceStrong: "#102a35",
+    text: "#172b3a",
+    textSecondary: "#526674",
+    textMuted: "#6f818d",
+    textOnStrong: "#f4f8f9",
+    border: "#d7e0e5",
+    borderSubtle: "#e7ecef",
+  },
+  radius: {
+    control: 4,
+    panel: 6,
+    workspace: 8,
+  },
+  font: {
+    sans: "Inter, 'Noto Sans SC', 'Microsoft YaHei', system-ui, sans-serif",
+    mono: "'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace",
+  },
+} as const;
+

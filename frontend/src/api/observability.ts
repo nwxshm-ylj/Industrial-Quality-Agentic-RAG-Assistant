@@ -3,6 +3,7 @@ import type {
   IntentUsageResponse,
   ModelUsageResponse,
   RequestUsageDetailsResponse,
+  RequestDiagnosticsResponse,
   RetrievalUsageResponse,
   UsageOverviewResponse,
   UsageTimeseriesResponse,
@@ -61,6 +62,13 @@ export const observabilityApi = {
   async requestDetails(requestId: string): Promise<RequestUsageDetailsResponse> {
     const response = await apiClient.get<RequestUsageDetailsResponse>(
       `/observability/requests/${encodeURIComponent(requestId)}`,
+    );
+    return response.data;
+  },
+
+  async requestDiagnostics(requestId: string): Promise<RequestDiagnosticsResponse> {
+    const response = await apiClient.get<RequestDiagnosticsResponse>(
+      `/diagnostics/requests/${encodeURIComponent(requestId)}`,
     );
     return response.data;
   },

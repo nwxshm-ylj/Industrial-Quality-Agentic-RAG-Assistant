@@ -1,0 +1,651 @@
+/*
+ * Project-specific enterprise console layer.
+ *
+ * The legacy stylesheet still owns page-specific layout. This final layer
+ * normalizes visual tokens and interaction contrast without changing business
+ * structure, RBAC visibility, or responsive behavior.
+ */
+
+:root {
+  --ink: #172b3a;
+  --muted: #526674;
+  --teal: #0f766e;
+  --teal-bright: #45c7ba;
+  --navy: #102a35;
+  --line: #d7e0e5;
+  --brand-primary: #0f766e;
+  --brand-primary-hover: #0d8a80;
+  --brand-primary-active: #0b5f59;
+  --accent-steel: #456b80;
+  --accent-steel-soft: #eaf0f4;
+  --surface-canvas: #f3f6f8;
+  --surface-base: #fff;
+  --surface-subtle: #f7f9fa;
+  --surface-muted: #edf2f4;
+  --surface-contrast: #102a35;
+  --surface-contrast-raised: #173b49;
+  --border-default: #d7e0e5;
+  --border-subtle: #e7ecef;
+  --text-primary: #172b3a;
+  --text-secondary: #526674;
+  --text-tertiary: #6f818d;
+  --text-on-dark: #f4f8f9;
+  --text-on-dark-muted: #c2d0d6;
+  --status-success: #198754;
+  --status-warning: #a86416;
+  --status-danger: #b64040;
+  --status-info: #356b8c;
+  --radius-control: 4px;
+  --radius-panel: 6px;
+  --radius-workspace: 8px;
+  --shadow-card: none;
+  --shadow-float: 0 16px 40px rgb(20 42 56 / 12%);
+}
+
+body {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+button,
+a,
+input,
+textarea,
+[role="button"] {
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--brand-primary);
+}
+
+.page-eyebrow,
+.panel-kicker {
+  color: var(--text-secondary) !important;
+  font-size: 11px !important;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+/* Application shell */
+
+.app-sider {
+  background: var(--surface-contrast) !important;
+  box-shadow: none;
+}
+
+.app-sider__brand {
+  height: 76px;
+  padding: 20px;
+  border-bottom-color: rgb(215 224 229 / 12%);
+}
+
+.app-sider__section-label {
+  height: 44px;
+  padding: 20px 20px 8px;
+  color: #8fa4ae;
+  font-size: 10px;
+}
+
+.app-menu {
+  padding: 8px;
+}
+
+.app-menu .ant-menu-item {
+  margin-block: 2px;
+  color: #bdcbd1;
+  border-radius: var(--radius-control);
+  font-size: 13px;
+}
+
+.app-menu .ant-menu-item:hover {
+  color: #fff !important;
+  background: rgb(255 255 255 / 7%) !important;
+}
+
+.app-menu .ant-menu-item-selected {
+  color: #fff !important;
+  background: #17464b !important;
+  box-shadow: inset 3px 0 var(--teal-bright);
+}
+
+.nav-glyph {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 2px;
+  color: inherit;
+  background: rgb(255 255 255 / 8%);
+  font-size: 11px;
+  opacity: 1;
+}
+
+.app-sider__footer {
+  right: 12px;
+  bottom: 16px;
+  left: 12px;
+  border-color: rgb(215 224 229 / 14%);
+  border-radius: var(--radius-panel);
+  background: rgb(255 255 255 / 4%);
+}
+
+.app-sider__footer strong {
+  color: #d7e2e6;
+  font-size: 11px;
+}
+
+.app-sider__footer small {
+  color: #9cb0b9;
+  font-size: 10px;
+}
+
+.app-header {
+  height: 76px;
+  padding: 0 28px;
+  border-bottom-color: var(--border-default);
+  background: rgb(255 255 255 / 96%);
+  backdrop-filter: blur(10px);
+}
+
+.app-header__title h3.ant-typography {
+  margin-top: 2px;
+  color: var(--text-primary);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.account-trigger {
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+}
+
+.account-trigger:hover {
+  border-color: var(--border-default);
+  background: var(--surface-subtle);
+}
+
+.account-trigger__copy strong {
+  font-size: 13px;
+}
+
+.account-trigger__copy small,
+.account-menu__identity span {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.role-tag {
+  padding: 4px 9px;
+  font-size: 10px;
+}
+
+.app-content {
+  min-height: calc(100vh - 76px);
+  padding: 24px 28px 40px;
+  background: var(--surface-canvas);
+}
+
+.page-stack {
+  width: min(100%, 1680px);
+  margin-inline: auto;
+  gap: 16px;
+}
+
+/* Shared enterprise surfaces */
+
+.app-content .ant-card,
+.placeholder-card,
+.kb-upload-panel,
+.document-library,
+.chat-page {
+  border: 1px solid var(--border-default) !important;
+  border-radius: var(--radius-panel) !important;
+  background: var(--surface-base);
+  box-shadow: none !important;
+}
+
+.app-content .ant-card:hover {
+  border-color: #bccbd2 !important;
+  box-shadow: none !important;
+}
+
+.app-content .ant-card-head {
+  min-height: 50px;
+  border-bottom-color: var(--border-subtle);
+}
+
+.app-content .ant-card-body {
+  color: var(--text-primary);
+}
+
+.app-content .ant-table {
+  color: var(--text-primary);
+  font-size: 13px !important;
+}
+
+.app-content .ant-table-wrapper .ant-table-thead > tr > th {
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  border-bottom-color: var(--border-default);
+  background: #f3f6f7;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.app-content .ant-table-wrapper .ant-table-tbody > tr > td {
+  padding: 13px 14px;
+  border-bottom-color: var(--border-subtle);
+  font-size: 13px;
+}
+
+.app-content .ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: #f2f8f7 !important;
+}
+
+.app-content .ant-btn,
+.app-content .ant-input,
+.app-content .ant-input-affix-wrapper,
+.app-content .ant-select-selector,
+.app-content .ant-segmented,
+.app-content .ant-upload-drag {
+  border-radius: var(--radius-control) !important;
+}
+
+.app-content .ant-btn-default:not(.ant-btn-dangerous) {
+  color: #2c4654;
+  border-color: #c7d3d9;
+  background: var(--surface-base);
+}
+
+.app-content .ant-btn-default:not(.ant-btn-dangerous):hover {
+  color: var(--brand-primary);
+  border-color: #70a49f;
+  background: #f6fbfa;
+}
+
+.app-content .ant-input,
+.app-content .ant-input-affix-wrapper,
+.app-content .ant-select-selector {
+  color: var(--text-primary);
+  border-color: #c7d3d9;
+  background: var(--surface-base);
+}
+
+.app-content .ant-input::placeholder,
+.app-content .ant-input-affix-wrapper input::placeholder {
+  color: #778995;
+}
+
+.section-heading,
+.eval-card-heading,
+.obs-card-heading,
+.document-library__heading {
+  margin-bottom: 20px;
+}
+
+.section-heading h4.ant-typography,
+.eval-card-heading h4.ant-typography,
+.obs-card-heading h4.ant-typography,
+.document-library__heading h3.ant-typography {
+  color: var(--text-primary);
+}
+
+/* Light operational page headers replace decorative dark marketing heroes. */
+
+.welcome-panel,
+.kb-hero,
+.evaluation-hero,
+.observability-hero,
+.admin-hero,
+.health-hero {
+  position: relative;
+  min-height: auto;
+  overflow: hidden;
+  padding: 28px 30px;
+  border: 1px solid var(--border-default);
+  border-left: 4px solid var(--brand-primary);
+  border-radius: var(--radius-panel);
+  color: var(--text-primary);
+  background: var(--surface-base);
+  box-shadow: none;
+}
+
+.welcome-panel::after,
+.kb-hero::after,
+.evaluation-hero::after,
+.observability-hero::after,
+.admin-hero::after,
+.health-hero::after {
+  display: none;
+}
+
+.welcome-panel .page-eyebrow,
+.kb-hero .page-eyebrow,
+.evaluation-hero .page-eyebrow,
+.observability-hero .page-eyebrow,
+.admin-hero .page-eyebrow,
+.health-hero .page-eyebrow {
+  color: var(--brand-primary) !important;
+}
+
+.welcome-panel h1.ant-typography,
+.kb-hero h2.ant-typography,
+.evaluation-hero h2.ant-typography,
+.observability-hero h2.ant-typography,
+.admin-hero h2.ant-typography,
+.health-hero h2.ant-typography {
+  margin: 8px 0;
+  color: var(--text-primary);
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.welcome-panel div.ant-typography,
+.kb-hero div.ant-typography,
+.evaluation-hero div.ant-typography,
+.observability-hero div.ant-typography,
+.admin-hero div.ant-typography,
+.health-hero div.ant-typography {
+  max-width: 780px;
+  margin-bottom: 20px;
+  color: var(--text-secondary) !important;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.welcome-panel {
+  min-height: 220px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+}
+
+.welcome-panel .ant-btn-default {
+  color: #2c4654;
+  border-color: #c7d3d9;
+  background: var(--surface-base);
+}
+
+.welcome-panel__telemetry {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.telemetry-ring {
+  width: 116px;
+  height: 116px;
+  border: 6px solid #d8ebe8;
+  background: #f4faf9;
+  box-shadow: none;
+}
+
+.telemetry-ring strong {
+  color: var(--brand-primary);
+  font-size: 20px;
+}
+
+.telemetry-ring span,
+.telemetry-meta {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.kb-hero__contract,
+.quality-loop,
+.health-overall {
+  border-color: var(--border-default);
+  background: var(--surface-subtle);
+  box-shadow: none;
+}
+
+.kb-hero__contract span,
+.quality-loop span,
+.health-overall strong,
+.health-overall small {
+  color: var(--text-primary);
+}
+
+.kb-hero__contract b,
+.quality-loop b {
+  color: var(--text-tertiary);
+}
+
+.observability-hero .ant-segmented {
+  border-color: var(--border-default);
+  background: var(--surface-muted);
+}
+
+.observability-hero .ant-segmented-item {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.observability-hero .ant-segmented-item-selected {
+  color: var(--brand-primary);
+  background: var(--surface-base);
+}
+
+.observability-hero .ant-btn {
+  color: #2c4654;
+  border-color: #c7d3d9;
+  background: var(--surface-base);
+}
+
+/* Dashboard */
+
+.capability-card,
+.foundation-card,
+.identity-card,
+.quality-metric,
+.obs-metric,
+.kb-metric-card,
+.admin-metric {
+  border-color: var(--border-default) !important;
+  box-shadow: none !important;
+}
+
+.capability-card .ant-card-body {
+  min-height: 160px;
+  padding: 22px 24px;
+}
+
+.capability-card__index,
+.phase-item > span {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.capability-card h4.ant-typography {
+  margin: 16px 0 8px;
+}
+
+.capability-card div.ant-typography {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.capability-card__line {
+  height: 2px;
+}
+
+.phase-item {
+  padding: 14px 0;
+}
+
+.phase-item strong {
+  font-size: 13px;
+}
+
+.phase-item small,
+.phase-item b,
+.identity-card__progress strong,
+.identity-card__progress small {
+  font-size: 11px;
+}
+
+/* Chat workspace */
+
+.chat-page {
+  overflow: hidden;
+  border-radius: var(--radius-workspace) !important;
+}
+
+.chat-sidebar,
+.evidence-panel {
+  background: #f7f9fa;
+}
+
+.conversation-header {
+  min-height: 68px;
+  border-bottom-color: var(--border-default);
+  background: var(--surface-base);
+}
+
+.conversation-scroll {
+  background: var(--surface-base);
+}
+
+.session-card,
+.message-bubble--assistant,
+.citation-card,
+.chat-composer {
+  border-color: var(--border-default);
+  border-radius: var(--radius-panel);
+  background: var(--surface-base);
+  box-shadow: none;
+}
+
+.message-bubble--user {
+  color: #fff;
+  background: var(--brand-primary);
+  box-shadow: none;
+}
+
+.message-bubble,
+.answer-content,
+.citation-card {
+  font-size: 14px;
+}
+
+.chat-composer {
+  border-top-color: var(--border-default);
+}
+
+.chat-composer__footer > span,
+.chat-composer > p,
+.answer-meta,
+.evidence-panel small {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+/* Knowledge, evaluation, observability, and administration */
+
+.kb-upload-panel,
+.document-library {
+  border-radius: var(--radius-panel);
+}
+
+.document-toolbar,
+.audit-filter-card,
+.evaluation-tabs > .ant-tabs-nav {
+  border-color: var(--border-default);
+  background: var(--surface-base);
+}
+
+.document-name-cell,
+.document-date,
+.chunk-count,
+.evaluation-table-card .ant-table,
+.observability-table-card .ant-table {
+  font-size: 13px;
+}
+
+.evaluation-table-card .ant-btn-link,
+.observability-table-card .ant-btn-link {
+  font-size: 12px;
+}
+
+.latest-evaluation__metrics span,
+.retrieval-metric-grid span,
+.health-check-card,
+.admin-table-card {
+  border-color: var(--border-default);
+  border-radius: var(--radius-panel);
+  background: var(--surface-base);
+}
+
+.intent-usage-bars > div,
+.feedback-bars > div {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.login-story {
+  background: var(--surface-contrast);
+}
+
+.login-story__grid {
+  opacity: 0.1;
+}
+
+.login-story::after {
+  display: none;
+}
+
+.login-story__hero div.ant-typography,
+.login-story__capabilities span,
+.login-story__footer {
+  color: var(--text-on-dark-muted) !important;
+}
+
+.login-panel {
+  background: var(--surface-subtle);
+}
+
+.login-card,
+.login-panel__inner .ant-card {
+  border-radius: var(--radius-panel) !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 1050px) {
+  .welcome-panel {
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-header {
+    height: 68px;
+    padding: 0 16px;
+  }
+
+  .app-content {
+    min-height: calc(100vh - 68px);
+    padding: 16px;
+  }
+
+  .welcome-panel,
+  .kb-hero,
+  .evaluation-hero,
+  .observability-hero,
+  .admin-hero,
+  .health-hero {
+    padding: 22px 20px;
+  }
+
+  .welcome-panel h1.ant-typography,
+  .kb-hero h2.ant-typography,
+  .evaluation-hero h2.ant-typography,
+  .observability-hero h2.ant-typography,
+  .admin-hero h2.ant-typography,
+  .health-hero h2.ant-typography {
+    font-size: 24px;
+  }
+}

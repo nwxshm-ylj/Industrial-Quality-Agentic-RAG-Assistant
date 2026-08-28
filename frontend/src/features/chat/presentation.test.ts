@@ -3,6 +3,7 @@ import {
   formatScore,
   getCitationScore,
   getIntent,
+  intentLabels,
   shortenId,
 } from "./presentation";
 
@@ -26,6 +27,12 @@ describe("chat presentation helpers", () => {
       intent: "rule_query",
       metadata: { intent: "doc_qa" },
     })).toBe("rule_query");
+  });
+
+  it("renders the stable three-route intent labels", () => {
+    expect(intentLabels.rag).toBe("知识检索");
+    expect(intentLabels.sql).toBe("数据分析");
+    expect(intentLabels.general).toBe("普通对话");
   });
 
   it("shortens long request identifiers without losing both ends", () => {

@@ -2,6 +2,29 @@ import type { DocumentInfo } from "../../api/types";
 
 export type DocumentStatus = "uploaded" | "indexed" | "deleted" | "failed" | string;
 
+const documentTypeLabels: Record<string, string> = {
+  LESSON_LEARNED: "LessonLearn",
+  STANDARD_WORK_DOCUMENT: "标准作业文档",
+  PFMEA: "PFMEA",
+  AFTERSALES_DOCUMENT: "售后文档",
+  // 历史数据展示兼容。
+  STANDARD: "标准作业文档",
+  WORK_INSTRUCTION: "标准作业文档",
+  SOP: "标准作业文档",
+  AFTERSALES_CASE: "售后文档",
+  EIGHT_D_REPORT: "售后文档",
+  CASE: "售后文档",
+};
+
+export function getDocumentTypeLabel(
+  docType: string | null | undefined,
+): string {
+  if (!docType) {
+    return "未分类";
+  }
+  return documentTypeLabels[docType] || docType;
+}
+
 interface StatusPresentation {
   label: string;
   color: string;

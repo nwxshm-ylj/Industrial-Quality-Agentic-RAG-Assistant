@@ -17,8 +17,17 @@ describe("chatStore", () => {
   });
 
   it("tracks a pending turn and completes it with the backend session", () => {
-    const turnId = useChatStore.getState().addPendingTurn("第一问");
+    useChatStore.getState().setRetrievalMode("case_trace");
+    const turnId = useChatStore.getState().addPendingTurn("第一问", [
+      {
+        id: "image-1",
+        name: "defect.png",
+        dataUrl: "data:image/png;base64,AAAA",
+      },
+    ]);
     expect(useChatStore.getState().turns[0].status).toBe("pending");
+    expect(useChatStore.getState().turns[0].images?.[0].name).toBe("defect.png");
+    expect(useChatStore.getState().turns[0].retrievalMode).toBe("case_trace");
 
     useChatStore.getState().completeTurn(turnId, response);
 
@@ -44,15 +53,38 @@ describe("chatStore", () => {
       status: "running",
       progress: 38,
     });
+    useChatStore.getState().updateTurnProgress(turnId, {
+      sequence: 2,
+      request_id: "request-stream",
+      session_id: "session-stream",
+      node_name: "retrieve",
+      label: "执行混合检索",
+      status: "completed",
+      progress: 55,
+      latency_ms: 42,
+    });
     useChatStore.getState().appendTurnToken(turnId, "优先");
     useChatStore.getState().appendTurnToken(turnId, "检查相机");
+    useChatStore.getState().replaceTurnAnswer(turnId, "优先检查相机【资料1】。");
 
     expect(useChatStore.getState().turns[0]).toMatchObject({
       status: "streaming",
       requestId: "request-stream",
-      progress: 38,
-      streamedAnswer: "优先检查相机",
+      progress: 55,
+      streamedAnswer: "优先检查相机【资料1】。",
       currentStage: { node_name: "retrieve" },
+    });
+
+    useChatStore.getState().completeTurn(turnId, {
+      ...response,
+      question: "流式问题",
+      answer: "优先检查相机【资料1】。",
+    });
+    expect(useChatStore.getState().turns[0].progressEvents).toHaveLength(2);
+    expect(useChatStore.getState().turns[0].progressEvents?.[1]).toMatchObject({
+      node_name: "retrieve",
+      status: "completed",
+      latency_ms: 42,
     });
   });
 
@@ -83,6 +115,17 @@ describe("chatStore", () => {
     expect(useChatStore.getState().topK).toBe(10);
     useChatStore.getState().setTopK(0);
     expect(useChatStore.getState().topK).toBe(1);
+  });
+
+  it("keeps the selected mode in the current conversation and resets a new one", () => {
+    useChatStore.getState().setRetrievalMode("case_trace");
+    useChatStore.getState().addPendingTurn("追溯问题");
+
+    expect(useChatStore.getState().retrievalMode).toBe("case_trace");
+    expect(useChatStore.getState().turns[0].retrievalMode).toBe("case_trace");
+
+    useChatStore.getState().startNewConversation();
+    expect(useChatStore.getState().retrievalMode).toBe("knowledge");
   });
 
   it("remembers submitted feedback per request", () => {

@@ -1,11 +1,12 @@
-import { Descriptions, Drawer, Empty, Tabs, Tag, Typography } from "antd";
+import { Alert, Descriptions, Drawer, Empty, Tabs, Tag, Typography } from "antd";
 
-import type { RequestUsageDetailsResponse } from "../../api/types";
+import type { RequestDiagnosticsResponse } from "../../api/types";
+import { DiagnosticSnapshotView } from "../diagnostics/DiagnosticSnapshotView";
 
 interface RequestDetailsDrawerProps {
   open: boolean;
   loading: boolean;
-  details?: RequestUsageDetailsResponse;
+  details?: RequestDiagnosticsResponse;
   onClose: () => void;
 }
 
@@ -37,11 +38,25 @@ export function RequestDetailsDrawer({ open, loading, details, onClose }: Reques
             <Descriptions.Item label="检索模式">{String(request.retrieval_mode || "--")}</Descriptions.Item>
             <Descriptions.Item label="是否降级">{request.degraded ? "YES" : "NO"}</Descriptions.Item>
           </Descriptions>
-          <Tabs items={[
-            { key: "request", label: "请求", children: json(request) },
-            { key: "ai", label: `AI Events ${details.ai_events?.length || 0}`, children: json(details.ai_events || []) },
-            { key: "retrieval", label: `Retrieval Events ${details.retrieval_events?.length || 0}`, children: json(details.retrieval_events || []) },
-          ]} />
+          {details.snapshot ? (
+            <DiagnosticSnapshotView
+              snapshot={details.snapshot}
+              aiEvents={details.ai_events}
+              retrievalEvents={details.retrieval_events}
+              limitations={details.limitations}
+            />
+          ) : (
+            <>
+              {details.limitations.map((item) => (
+                <Alert key={item} type="info" showIcon message={item} />
+              ))}
+              <Tabs items={[
+                { key: "request", label: "请求", children: json(request) },
+                { key: "ai", label: `AI Events ${details.ai_events?.length || 0}`, children: json(details.ai_events || []) },
+                { key: "retrieval", label: `Retrieval Events ${details.retrieval_events?.length || 0}`, children: json(details.retrieval_events || []) },
+              ]} />
+            </>
+          )}
         </div>
       ) : <Empty description="输入 request_id 查看详情" />}
     </Drawer>

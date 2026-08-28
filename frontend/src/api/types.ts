@@ -6,7 +6,11 @@ export type LoginRequest = components["schemas"]["LoginRequest"];
 export type LoginResponse = components["schemas"]["LoginResponse"];
 export type CreateUserRequest = components["schemas"]["CreateUserRequest"];
 export type CreateUserResponse = components["schemas"]["CreateUserResponse"];
-export type ChatRequest = components["schemas"]["ChatRequest"];
+type GeneratedChatRequest = components["schemas"]["ChatRequest"];
+export type RetrievalMode = "knowledge" | "case_trace";
+export type ChatRequest = GeneratedChatRequest & {
+  retrieval_mode?: RetrievalMode;
+};
 export type Citation = components["schemas"]["Citation"];
 export type DocumentInfo = components["schemas"]["DocumentInfo"];
 export type DocumentListResponse = components["schemas"]["DocumentListResponse"];
@@ -18,10 +22,94 @@ export type FeedbackResponse = components["schemas"]["FeedbackResponse"];
 export type FeedbackItem = components["schemas"]["FeedbackItem"];
 export type FeedbackStatsResponse = components["schemas"]["FeedbackStatsResponse"];
 export type FeedbackRating = FeedbackCreateRequest["rating"];
-export type EvalRunInfo = components["schemas"]["EvalRunInfo"];
-export type EvalRunResponse = components["schemas"]["EvalRunResponse"];
-export type EvalRunListResponse = components["schemas"]["EvalRunListResponse"];
-export type EvalItemInfo = components["schemas"]["EvalItemInfo"];
+type GeneratedEvalRunInfo = components["schemas"]["EvalRunInfo"];
+type GeneratedEvalItemInfo = components["schemas"]["EvalItemInfo"];
+
+export interface GenerationEvalMetrics extends Record<string, number> {
+  overall_pass_rate: number;
+  citation_validation_pass_rate: number;
+  avg_citation_coverage: number;
+  semantic_validation_coverage_rate: number;
+  semantic_support_pass_rate: number;
+  avg_semantic_support_rate: number;
+  repair_trigger_rate: number;
+  repair_success_rate: number;
+  llm_repair_selection_rate: number;
+  deterministic_prune_selection_rate: number;
+  direct_finalize_selection_rate: number;
+  repair_avoidance_rate: number;
+  avg_latency_llm_repair_ms: number;
+  avg_latency_without_llm_repair_ms: number;
+  deterministic_citation_pruning_rate: number;
+  final_refusal_rate: number;
+  abstention_accuracy: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+}
+
+export type EvalItemInfo = GeneratedEvalItemInfo & {
+  category?: string | null;
+  answerable?: boolean | null;
+  must_cite?: boolean | null;
+  should_abstain?: boolean | null;
+  answer_abstained?: boolean | null;
+  abstention_ok?: boolean | null;
+  citation_contract_ok?: boolean | null;
+  citation_coverage?: number | null;
+  semantic_support_checked?: boolean;
+  semantic_support_rate?: number | null;
+  semantic_support_ok?: boolean | null;
+  semantic_validation_degraded?: boolean;
+  validation_action?: string | null;
+  generation_retry_count?: number;
+  repair_triggered?: boolean;
+  repair_avoided?: boolean;
+  repair_success?: boolean;
+  citation_pruned?: boolean;
+    failure_category?: string | null;
+    failure_tags?: string[];
+    evidence_enough?: boolean | null;
+    evidence_confidence?: number | null;
+    evidence_threshold?: number | null;
+    evidence_reasons?: string[];
+    missing_aspects?: string[];
+    abstain_reason?: string | null;
+    answer_validation_history?: Array<Record<string, unknown>>;
+  quality_checks?: Record<string, boolean>;
+};
+
+  export type EvalRunInfo = GeneratedEvalRunInfo & {
+    generation_metrics?: Partial<GenerationEvalMetrics>;
+    failure_analysis?: {
+      failed_count?: number;
+      passed_count?: number;
+      false_refusal_count?: number;
+      false_refusal_rate?: number;
+      knowledge_gap_refusal_accuracy?: number;
+      failure_categories?: Record<string, number>;
+      failure_tags?: Record<string, number>;
+      evidence_threshold_sweep?: Array<{
+        threshold: number;
+        sample_count: number;
+        decision_accuracy: number;
+        false_refusal_rate: number;
+        unsafe_answer_rate: number;
+      }>;
+    };
+  prompt_release?: Record<string, unknown> | null;
+  evaluation_fingerprint?: Record<string, unknown> | null;
+};
+
+export type EvalRunResponse = EvalRunInfo & { items: EvalItemInfo[] };
+export interface EvalRunListResponse {
+  runs: EvalRunInfo[];
+  total: number;
+}
+
+export interface GenerationEvalRunRequest {
+  max_questions?: number | null;
+  question_ids?: string[] | null;
+}
 export type UsageOverviewResponse = components["schemas"]["UsageOverviewResponse"];
 export type UsageTimeseriesItem = components["schemas"]["UsageTimeseriesItem"];
 export type UsageTimeseriesResponse = components["schemas"]["UsageTimeseriesResponse"];
@@ -32,6 +120,72 @@ export type IntentUsageResponse = components["schemas"]["IntentUsageResponse"];
 export type RetrievalUsageItem = components["schemas"]["RetrievalUsageItem"];
 export type RetrievalUsageResponse = components["schemas"]["RetrievalUsageResponse"];
 export type RequestUsageDetailsResponse = components["schemas"]["RequestUsageDetailsResponse"];
+
+export type DiagnosticCheckStatus = "pass" | "warning" | "fail" | "info";
+
+export interface DiagnosticCheck {
+  code: string;
+  status: DiagnosticCheckStatus;
+  title: string;
+  detail: string;
+  stage: string;
+}
+
+export interface DiagnosticContext extends Record<string, unknown> {
+  rank?: number;
+  doc_id?: string | null;
+  source?: string | null;
+  doc_type?: string | null;
+  chunk_id?: string | null;
+  chunk_index?: number | null;
+  page_number?: number | null;
+  retrieval_source?: string | null;
+  score?: number | null;
+  final_score_type?: string | null;
+  evidence_bundle_id?: string | null;
+  evidence_chunk_ids?: string[] | null;
+  evidence_chunk_count?: number | null;
+  text_excerpt?: string | null;
+}
+
+export interface RequestDiagnosticSnapshot {
+  schema_version: string;
+  captured_at: string;
+  status: string;
+  error_type?: string | null;
+  content_capture_enabled: boolean;
+  routing: Record<string, unknown>;
+  retrieval: {
+    metadata: Record<string, unknown>;
+    candidates: Record<string, DiagnosticContext[]>;
+    final_contexts: DiagnosticContext[];
+  };
+  generation: {
+    context_metadata: Record<string, unknown>;
+    contexts: DiagnosticContext[];
+    citations: DiagnosticContext[];
+    answer_excerpt?: string | null;
+    evidence_enough?: boolean | null;
+    evidence_confidence?: number | null;
+    generation_quality_passed?: boolean | null;
+    answer_abstained?: boolean | null;
+    validation: Record<string, unknown>;
+  };
+  versions: Record<string, unknown>;
+  workflow_events?: ChatProgressEvent[];
+  checks: DiagnosticCheck[];
+}
+
+export interface RequestDiagnosticsResponse {
+  request_id?: string | null;
+  snapshot_available: boolean;
+  snapshot?: RequestDiagnosticSnapshot | null;
+  checks: DiagnosticCheck[];
+  request: Record<string, unknown>;
+  ai_events: Array<Record<string, unknown>>;
+  retrieval_events: Array<Record<string, unknown>>;
+  limitations: string[];
+}
 
 export type ChatProgressStatus = "running" | "completed" | "error";
 
@@ -61,6 +215,13 @@ export interface ChatTokenEvent {
   request_id: string;
   session_id: string;
   delta: string;
+}
+
+export interface ChatAnswerReplaceEvent {
+  sequence: number;
+  request_id: string;
+  session_id: string;
+  answer: string;
 }
 
 export interface ChatStreamErrorEvent {
@@ -131,14 +292,25 @@ export interface ChatMetadata extends Record<string, unknown> {
   intent?: string | null;
   evidence_score?: number | null;
   evidence_enough?: boolean | null;
+  generation_retry_count?: number | null;
+  generation_repair_error?: string | null;
+  generation_quality_passed?: boolean | null;
+  answer_validation?: Record<string, unknown> | null;
+  answer_structure?: Record<string, unknown> | null;
   retry_count?: number | null;
   total_latency_ms?: number | null;
   retrieval_mode?: string | null;
+  requested_retrieval_mode?: RetrievalMode | null;
+  traceability_graph_requested?: boolean | null;
+  traceability_graph_used?: boolean | null;
+  traceability_graph_path_count?: number | null;
+  traceability_graph_fallback_reason?: string | null;
   degraded?: boolean | null;
   degraded_reason?: string | null;
   trace_id?: string | null;
   prompt_release?: string | null;
   prompt_versions?: Record<string, string> | null;
+  query_features?: Record<string, unknown> | null;
   usage?: ChatUsage | null;
 }
 
@@ -150,6 +322,9 @@ export type ChatResponse = Omit<
 > & {
   metadata?: ChatMetadata | null;
   memory_messages?: MemoryMessage[] | null;
+  retrieval_mode?: RetrievalMode | null;
+  task_mode?: string | null;
+  query_plan?: Record<string, unknown> | null;
 };
 
 export interface HealthResponse {

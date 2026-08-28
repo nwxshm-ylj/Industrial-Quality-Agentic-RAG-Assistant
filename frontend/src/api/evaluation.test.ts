@@ -16,6 +16,16 @@ describe("evaluationApi", () => {
     );
   });
 
+  it("sends the selected generation acceptance sample size", async () => {
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({ data: {} });
+    await evaluationApi.run({ max_questions: 10 });
+    expect(post).toHaveBeenCalledWith(
+      "/evaluation/run",
+      { max_questions: 10 },
+      { timeout: 900_000 },
+    );
+  });
+
   it("sends retrieval-only evaluation configuration", async () => {
     const post = vi.spyOn(apiClient, "post").mockResolvedValue({ data: {} });
     const payload = { top_k: 10, k_values: [1, 3, 5, 10], max_questions: 20 };

@@ -1,4 +1,4 @@
-import type { RetrievalEvalRunInfo } from "../../api/types";
+import type { EvalRunInfo, RetrievalEvalRunInfo } from "../../api/types";
 
 export function formatRate(value: number | null | undefined): string {
   return `${((value || 0) * 100).toFixed(1)}%`;
@@ -6,6 +6,10 @@ export function formatRate(value: number | null | undefined): string {
 
 export function formatMetric(value: number | null | undefined, digits = 3): string {
   return Number(value || 0).toFixed(digits);
+}
+
+export function getGenerationMetric(run: EvalRunInfo, name: string): number {
+  return Number(run.generation_metrics?.[name] || 0);
 }
 
 export function getRetrievalK(run: RetrievalEvalRunInfo): number {

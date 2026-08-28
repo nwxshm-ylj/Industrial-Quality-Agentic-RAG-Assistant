@@ -12,9 +12,11 @@ import { chatApi } from "../api/chat";
 import { getApiErrorMessage } from "../api/client";
 import type { ChatRequest } from "../api/types";
 import { ChatComposer } from "../features/chat/ChatComposer";
+import type { ChatImageAttachment } from "../features/chat/imageAttachments";
 import { ConversationTurn } from "../features/chat/ConversationTurn";
 import { EvidencePanel } from "../features/chat/EvidencePanel";
 import { shortenId } from "../features/chat/presentation";
+import { AnswerDiagnosisDrawer } from "../features/diagnostics/AnswerDiagnosisDrawer";
 import { useAuthStore } from "../stores/authStore";
 import {
   getLatestCompletedResponse,
@@ -47,21 +49,27 @@ const exampleQuestions = [
 export function ChatPage() {
   const { message, modal } = AntdApp.useApp();
   const [draft, setDraft] = useState("");
+  const [images, setImages] = useState<ChatImageAttachment[]>([]);
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
+  const [diagnosisTurnId, setDiagnosisTurnId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const username = useAuthStore((state) => state.user?.username);
+  const role = useAuthStore((state) => state.user?.role);
   const {
     sessionId,
     topK,
+    retrievalMode,
     turns,
     ensureOwner,
     setTopK,
+    setRetrievalMode,
     addPendingTurn,
     acceptStreamingTurn,
     updateTurnProgress,
     appendTurnToken,
+    replaceTurnAnswer,
     completeTurn,
     failTurn,
     startNewConversation,
@@ -83,6 +91,10 @@ export function ChatPage() {
     const selectedTurn = turns.find((turn) => turn.id === selectedTurnId);
     return selectedTurn?.response || getLatestCompletedResponse(turns);
   }, [selectedTurnId, turns]);
+  const diagnosisTurn = useMemo(
+    () => turns.find((turn) => turn.id === diagnosisTurnId),
+    [diagnosisTurnId, turns],
+  );
 
   const handleSubmit = async () => {
     const question = draft.trim();
@@ -90,9 +102,15 @@ export function ChatPage() {
       return;
     }
 
-    const turnId = addPendingTurn(question);
+    const submittedImages = images.map((image) => image.dataUrl);
+    const turnId = addPendingTurn(
+      question,
+      images.map(({ id, name, dataUrl }) => ({ id, name, dataUrl })),
+      retrievalMode,
+    );
     setSelectedTurnId(turnId);
     setDraft("");
+    setImages([]);
     setIsStreaming(true);
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -114,6 +132,10 @@ export function ChatPage() {
         question,
         top_k: topK,
         session_id: sessionId,
+        retrieval_mode: retrievalMode,
+        ...(submittedImages.length > 0
+          ? { multimodal_query: { images: submittedImages } }
+          : {}),
       };
       const response = await chatApi.askStream(
         request,
@@ -125,6 +147,10 @@ export function ChatPage() {
             if (!tokenFlushTimer) {
               tokenFlushTimer = setTimeout(flushTokenBuffer, 40);
             }
+          },
+          onAnswerReplace: (event) => {
+            flushTokenBuffer();
+            replaceTurnAnswer(turnId, event.answer);
           },
         },
         controller.signal,
@@ -156,6 +182,7 @@ export function ChatPage() {
       startNewConversation();
       setSelectedTurnId(null);
       setDraft("");
+      setImages([]);
       return;
     }
 
@@ -168,6 +195,7 @@ export function ChatPage() {
         startNewConversation();
         setSelectedTurnId(null);
         setDraft("");
+        setImages([]);
       },
     });
   };
@@ -274,6 +302,7 @@ export function ChatPage() {
                 turn={turn}
                 selected={selectedTurnId === turn.id}
                 onInspect={() => setSelectedTurnId(turn.id)}
+                onDiagnose={() => setDiagnosisTurnId(turn.id)}
               />
             ))
           )}
@@ -283,12 +312,25 @@ export function ChatPage() {
         <ChatComposer
           value={draft}
           loading={isStreaming}
+          images={images}
+          retrievalMode={retrievalMode}
           onChange={setDraft}
+          onImagesChange={setImages}
+          onRetrievalModeChange={setRetrievalMode}
+          onImageError={(errorMessage) => message.error(errorMessage)}
           onSubmit={handleSubmit}
         />
       </main>
 
       <EvidencePanel response={selectedResponse} />
+      <AnswerDiagnosisDrawer
+        open={Boolean(diagnosisTurnId)}
+        question={diagnosisTurn?.question}
+        response={diagnosisTurn?.response}
+        progressEvents={diagnosisTurn?.progressEvents}
+        canLoadHistorical={role === "admin" || role === "engineer"}
+        onClose={() => setDiagnosisTurnId(null)}
+      />
     </div>
   );
 }

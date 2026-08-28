@@ -29,14 +29,14 @@ describe("documentsApi", () => {
 
     await expect(documentsApi.upload({
       file,
-      docType: "SOP",
+      docType: "STANDARD_WORK_DOCUMENT",
       version: "v2",
     })).resolves.toEqual(payload);
 
     const [path, formData, config] = post.mock.calls[0];
     expect(path).toBe("/documents/upload");
     expect(formData).toBeInstanceOf(FormData);
-    expect((formData as FormData).get("doc_type")).toBe("SOP");
+    expect((formData as FormData).get("doc_type")).toBe("STANDARD_WORK_DOCUMENT");
     expect((formData as FormData).get("version")).toBe("v2");
     expect(config).toMatchObject({ timeout: 300_000 });
   });

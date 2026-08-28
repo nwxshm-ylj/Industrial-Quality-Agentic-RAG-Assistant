@@ -2,6 +2,7 @@ import { apiClient } from "./client";
 import type {
   EvalRunListResponse,
   EvalRunResponse,
+  GenerationEvalRunRequest,
   RetrievalEvalRunListResponse,
   RetrievalEvalRunRequest,
   RetrievalEvalRunResponse,
@@ -24,10 +25,10 @@ export const evaluationApi = {
     return response.data;
   },
 
-  async run(): Promise<EvalRunResponse> {
+  async run(payload?: GenerationEvalRunRequest): Promise<EvalRunResponse> {
     const response = await apiClient.post<EvalRunResponse>(
       "/evaluation/run",
-      undefined,
+      payload,
       { timeout: EVALUATION_TIMEOUT_MS },
     );
     return response.data;

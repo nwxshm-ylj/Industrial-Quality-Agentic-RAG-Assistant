@@ -9,20 +9,20 @@ import { useAuthStore } from "../stores/authStore";
 const capabilityCards = [
   {
     index: "01",
-    title: "Agentic RAG",
-    description: "多意图路由、对话记忆、规则、SQL 与历史案例统一编排。",
+    title: "智能问答与诊断",
+    description: "通过意图路由统一编排知识问答、质量规则、SQL 分析和历史案例检索。",
     accent: "cyan",
   },
   {
     index: "02",
-    title: "Online Hybrid Search",
-    description: "Qdrant 向量召回与 OpenSearch 关键词召回经 RRF 融合。",
+    title: "在线混合检索",
+    description: "融合 Qdrant 语义召回与 OpenSearch 关键词召回，并保留可追溯引用证据。",
     accent: "violet",
   },
   {
     index: "03",
-    title: "Quality Feedback Loop",
-    description: "反馈、检索指标、Prompt 版本与运行用量形成质量闭环。",
+    title: "质量运营闭环",
+    description: "连接用户反馈、检索评估、Prompt 版本、节点耗时和模型用量。",
     accent: "amber",
   },
 ];
@@ -41,19 +41,19 @@ export function DashboardPage() {
     <div className="dashboard-page page-stack">
       <section className="welcome-panel">
         <div className="welcome-panel__copy">
-            <Typography.Text className="page-eyebrow">PHASE 6 RELEASE CONFIDENCE</Typography.Text>
+          <Typography.Text className="page-eyebrow">工业质量智能控制台</Typography.Text>
           <Typography.Title level={1}>
             欢迎回来，{user?.username}
           </Typography.Title>
           <Typography.Paragraph>
-            React 企业工作台已形成问答、知识入库、质量评估、安全管理与自动化发布门禁的完整控制面。
+            在一个工作台中完成工业知识问答、设备异常排查、知识库维护、质量评估与运行监控。
           </Typography.Paragraph>
           <Space wrap>
             <Button type="primary" size="large" onClick={() => navigate("/chat")}>
-              查看 RAG 工作区
+              开始智能问答
             </Button>
             <Button size="large" onClick={() => navigate("/knowledge-base")}>
-              查看知识库入口
+              管理知识库
             </Button>
           </Space>
         </div>
@@ -90,29 +90,29 @@ export function DashboardPage() {
           <Card className="foundation-card" bordered={false}>
             <div className="section-heading">
               <div>
-                <Typography.Text className="page-eyebrow">DELIVERY STATUS</Typography.Text>
-                <Typography.Title level={4}>React 前端迁移路径</Typography.Title>
+                <Typography.Text className="page-eyebrow">核心能力链路</Typography.Text>
+                <Typography.Title level={4}>企业 RAG 运行控制面</Typography.Title>
               </div>
-              <Tag color="processing" bordered={false}>PHASE 6</Tag>
+              <Tag color="success" bordered={false}>已接入</Tag>
             </div>
             <div className="phase-list">
               <div className="phase-item phase-item--done">
-                <span>01</span><div><strong>基础工程</strong><small>认证、API Client、Layout、RBAC、Docker</small></div><b>已完成</b>
+                <span>01</span><div><strong>身份与访问控制</strong><small>JWT 登录、角色权限和操作审计</small></div><b>已接入</b>
               </div>
               <div className="phase-item phase-item--done">
-                <span>02</span><div><strong>RAG 对话工作台</strong><small>多轮会话、引用、执行详情与响应兼容</small></div><b>已完成</b>
+                <span>02</span><div><strong>Agentic RAG 工作流</strong><small>意图路由、查询改写、工具调用和证据判断</small></div><b>已接入</b>
               </div>
               <div className="phase-item phase-item--done">
                 <span>03</span><div><strong>知识库管理</strong><small>上传、列表、索引状态与生命周期</small></div><b>已完成</b>
               </div>
               <div className="phase-item phase-item--done">
-                <span>04</span><div><strong>评估与可观测性</strong><small>反馈、Recall/MRR、Token、成本与请求追踪</small></div><b>已实现</b>
+                <span>04</span><div><strong>评估与反馈闭环</strong><small>反馈、Recall、MRR、生成质量与回归对比</small></div><b>已接入</b>
               </div>
               <div className="phase-item phase-item--done">
-                <span>05</span><div><strong>企业管理控制台</strong><small>用户、审计、健康检查与发布验收</small></div><b>已实现</b>
+                <span>05</span><div><strong>运行可观测性</strong><small>请求追踪、节点延迟、Token、成本和健康检查</small></div><b>已接入</b>
               </div>
               <div className="phase-item phase-item--active">
-                <span>06</span><div><strong>发布质量门禁</strong><small>Playwright、CI、容器健康与回滚基线</small></div><b>已实现</b>
+                <span>06</span><div><strong>安全发布基线</strong><small>自动化测试、容器健康和发布环境校验</small></div><b>已接入</b>
               </div>
             </div>
           </Card>

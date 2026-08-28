@@ -1,4 +1,9 @@
-import { formatDocumentDate, getDocumentStatus, matchesDocument } from "./presentation";
+import {
+  formatDocumentDate,
+  getDocumentStatus,
+  getDocumentTypeLabel,
+  matchesDocument,
+} from "./presentation";
 
 const document = {
   doc_id: "doc-quality-01",
@@ -28,5 +33,12 @@ describe("knowledge-base presentation", () => {
   it("keeps invalid dates readable", () => {
     expect(formatDocumentDate("not-a-date")).toBe("not-a-date");
     expect(formatDocumentDate(null)).toBe("--");
+  });
+
+  it("shows managed document labels in Chinese", () => {
+    expect(getDocumentTypeLabel("LESSON_LEARNED")).toBe("LessonLearn");
+    expect(getDocumentTypeLabel("STANDARD_WORK_DOCUMENT")).toBe("标准作业文档");
+    expect(getDocumentTypeLabel("AFTERSALES_DOCUMENT")).toBe("售后文档");
+    expect(getDocumentTypeLabel("SOP")).toBe("标准作业文档");
   });
 });

@@ -6,11 +6,18 @@ import type {
   ChatProgressEvent,
   ChatResponse,
   FeedbackRating,
+  RetrievalMode,
 } from "../api/types";
 
 const MAX_PERSISTED_TURNS = 30;
 
 export type ChatTurnStatus = "pending" | "streaming" | "completed" | "error";
+
+export interface ChatTurnImage {
+  id: string;
+  name: string;
+  dataUrl: string;
+}
 
 export interface ChatTurn {
   id: string;
@@ -24,20 +31,29 @@ export interface ChatTurn {
   progressEvents?: ChatProgressEvent[];
   response?: ChatResponse;
   errorMessage?: string;
+  images?: ChatTurnImage[];
+  retrievalMode?: RetrievalMode;
 }
 
 interface ChatState {
   ownerUsername: string | null;
   sessionId: string;
   topK: number;
+  retrievalMode: RetrievalMode;
   turns: ChatTurn[];
   feedbackRatings: Record<string, FeedbackRating>;
   ensureOwner: (username: string) => void;
   setTopK: (topK: number) => void;
-  addPendingTurn: (question: string) => string;
+  setRetrievalMode: (retrievalMode: RetrievalMode) => void;
+  addPendingTurn: (
+    question: string,
+    images?: ChatTurnImage[],
+    retrievalMode?: RetrievalMode,
+  ) => string;
   acceptStreamingTurn: (turnId: string, event: ChatAcceptedEvent) => void;
   updateTurnProgress: (turnId: string, event: ChatProgressEvent) => void;
   appendTurnToken: (turnId: string, delta: string) => void;
+  replaceTurnAnswer: (turnId: string, answer: string) => void;
   completeTurn: (turnId: string, response: ChatResponse) => void;
   failTurn: (turnId: string, errorMessage: string) => void;
   markFeedback: (requestKey: string, rating: FeedbackRating) => void;
@@ -56,10 +72,11 @@ function createSessionId(): string {
 
 export const useChatStore = create<ChatState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ownerUsername: null,
       sessionId: createSessionId(),
       topK: 5,
+      retrievalMode: "knowledge",
       turns: [],
       feedbackRatings: {},
       ensureOwner: (username) => {
@@ -70,13 +87,15 @@ export const useChatStore = create<ChatState>()(
           return {
             ownerUsername: username,
             sessionId: createSessionId(),
+            retrievalMode: "knowledge",
             turns: [],
             feedbackRatings: {},
           };
         });
       },
       setTopK: (topK) => set({ topK: Math.min(10, Math.max(1, topK)) }),
-      addPendingTurn: (question) => {
+      setRetrievalMode: (retrievalMode) => set({ retrievalMode }),
+      addPendingTurn: (question, images = [], retrievalMode = get().retrievalMode) => {
         const turnId = createId("turn");
         const turn: ChatTurn = {
           id: turnId,
@@ -86,6 +105,8 @@ export const useChatStore = create<ChatState>()(
           streamedAnswer: "",
           progress: 0,
           progressEvents: [],
+          images,
+          retrievalMode,
         };
         set((state) => ({
           turns: [...state.turns, turn].slice(-MAX_PERSISTED_TURNS),
@@ -139,6 +160,15 @@ export const useChatStore = create<ChatState>()(
           )),
         }));
       },
+      replaceTurnAnswer: (turnId, answer) => {
+        set((state) => ({
+          turns: state.turns.map((turn) => (
+            turn.id === turnId
+              ? { ...turn, status: "streaming", streamedAnswer: answer }
+              : turn
+          )),
+        }));
+      },
       completeTurn: (turnId, response) => {
         set((state) => ({
           sessionId: response.session_id || state.sessionId,
@@ -173,6 +203,7 @@ export const useChatStore = create<ChatState>()(
       },
       startNewConversation: () => set({
         sessionId: createSessionId(),
+        retrievalMode: "knowledge",
         turns: [],
         feedbackRatings: {},
       }),
@@ -180,6 +211,7 @@ export const useChatStore = create<ChatState>()(
         ownerUsername: null,
         sessionId: createSessionId(),
         topK: 5,
+        retrievalMode: "knowledge",
         turns: [],
         feedbackRatings: {},
       }),
@@ -187,11 +219,21 @@ export const useChatStore = create<ChatState>()(
     {
       name: "industrial-rag-chat-v1",
       storage: createJSONStorage(() => sessionStorage),
-      partialize: ({ ownerUsername, sessionId, topK, turns, feedbackRatings }) => ({
+      partialize: ({
         ownerUsername,
         sessionId,
         topK,
+        retrievalMode,
         turns,
+        feedbackRatings,
+      }) => ({
+        ownerUsername,
+        sessionId,
+        topK,
+        retrievalMode,
+        // Data-URI previews are intentionally session-memory only. Persisting
+        // them can exceed browser storage quotas after several image queries.
+        turns: turns.map(({ images: _images, ...turn }) => turn),
         feedbackRatings,
       }),
     },

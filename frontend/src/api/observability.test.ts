@@ -23,4 +23,10 @@ describe("observabilityApi", () => {
     await observabilityApi.requestDetails("request / 1");
     expect(get).toHaveBeenCalledWith("/observability/requests/request%20%2F%201");
   });
+
+  it("uses the protected diagnostics endpoint", async () => {
+    const get = vi.spyOn(apiClient, "get").mockResolvedValue({ data: {} });
+    await observabilityApi.requestDiagnostics("request / 2");
+    expect(get).toHaveBeenCalledWith("/diagnostics/requests/request%20%2F%202");
+  });
 });

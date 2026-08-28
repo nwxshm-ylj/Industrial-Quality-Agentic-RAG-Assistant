@@ -68,9 +68,9 @@ export function ObservabilityPage() {
     queryFn: () => observabilityApi.retrieval(range),
     ...queryOptions,
   });
-  const requestDetails = useQuery({
-    queryKey: ["observability", "request", lookupRequestId],
-    queryFn: () => observabilityApi.requestDetails(lookupRequestId as string),
+  const requestDiagnostics = useQuery({
+    queryKey: ["diagnostics", "request", lookupRequestId],
+    queryFn: () => observabilityApi.requestDiagnostics(lookupRequestId as string),
     enabled: Boolean(lookupRequestId),
     retry: false,
   });
@@ -170,11 +170,11 @@ export function ObservabilityPage() {
             value={requestInput}
             placeholder="request_id"
             enterButton="查询"
-            loading={requestDetails.isFetching}
+            loading={requestDiagnostics.isFetching}
             onChange={(event) => setRequestInput(event.target.value)}
             onSearch={lookup}
           />
-          {requestDetails.isError && <Alert type="error" showIcon message={getApiErrorMessage(requestDetails.error)} />}
+          {requestDiagnostics.isError && <Alert type="error" showIcon message={getApiErrorMessage(requestDiagnostics.error)} />}
           <div className="request-lookup-meta"><span>当前窗口 <b>{days === 1 ? "24H" : `${days}D`}</b></span><span>权限 <b>ADMIN / ENGINEER</b></span></div>
         </Card>
       </div>
@@ -190,9 +190,9 @@ export function ObservabilityPage() {
       </Card>
 
       <RequestDetailsDrawer
-        open={Boolean(lookupRequestId) && (requestDetails.isSuccess || requestDetails.isLoading)}
-        loading={requestDetails.isLoading}
-        details={requestDetails.data}
+        open={Boolean(lookupRequestId) && (requestDiagnostics.isSuccess || requestDiagnostics.isLoading)}
+        loading={requestDiagnostics.isLoading}
+        details={requestDiagnostics.data}
         onClose={() => setLookupRequestId(null)}
       />
     </div>

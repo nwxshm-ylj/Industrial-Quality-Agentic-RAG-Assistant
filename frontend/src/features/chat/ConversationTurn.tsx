@@ -4,15 +4,17 @@ import remarkGfm from "remark-gfm";
 
 import type { ChatTurn } from "../../stores/chatStore";
 import { FeedbackControl } from "./FeedbackControl";
+import { normalizeAnswerMarkdown } from "./markdown";
 import { formatLatency, getIntent, intentLabels, shortenId } from "./presentation";
 
 interface ConversationTurnProps {
   turn: ChatTurn;
   selected: boolean;
   onInspect: () => void;
+  onDiagnose: () => void;
 }
 
-export function ConversationTurn({ turn, selected, onInspect }: ConversationTurnProps) {
+export function ConversationTurn({ turn, selected, onInspect, onDiagnose }: ConversationTurnProps) {
   const response = turn.response;
   const intent = response ? getIntent(response) : "unknown";
   const latency = response?.metadata?.total_latency_ms;
@@ -21,6 +23,12 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
   const visibleEvents = (turn.progressEvents || [])
     .filter((event) => event.status !== "running" || event === currentStage)
     .slice(-8);
+  const completedEvents = (turn.progressEvents || [])
+    .filter((event) => event.status === "completed")
+    .slice(-12);
+  const taskMode = response?.task_mode
+    || (response?.metadata?.query_features as Record<string, unknown> | undefined)?.task_mode;
+  const retrievalMode = response?.retrieval_mode || turn.retrievalMode || "knowledge";
 
   return (
     <article className={`conversation-turn${selected ? " conversation-turn--selected" : ""}`}>
@@ -28,6 +36,13 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
         <div className="message-avatar">你</div>
         <div className="message-bubble message-bubble--user">
           <Typography.Paragraph>{turn.question}</Typography.Paragraph>
+          {turn.images && turn.images.length > 0 && (
+            <div className="message-bubble__images" aria-label="本轮查询图片">
+              {turn.images.map((image) => (
+                <img key={image.id} src={image.dataUrl} alt={image.name} title={image.name} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -71,7 +86,9 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
               )}
               {turn.streamedAnswer ? (
                 <div className="answer-markdown answer-markdown--streaming">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{turn.streamedAnswer}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {normalizeAnswerMarkdown(turn.streamedAnswer)}
+                  </ReactMarkdown>
                   <span className="streaming-cursor" aria-hidden="true" />
                 </div>
               ) : (
@@ -92,17 +109,47 @@ export function ConversationTurn({ turn, selected, onInspect }: ConversationTurn
           {turn.status === "completed" && response && (
             <>
               <div className="answer-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{response.answer || "暂无回答"}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {normalizeAnswerMarkdown(response.answer || "暂无回答")}
+                </ReactMarkdown>
               </div>
               <div className="answer-meta">
                 <Tag bordered={false}>{intentLabels[intent] || intent}</Tag>
+                <Tag bordered={false}>
+                  {retrievalMode === "case_trace" ? "案例追溯" : "知识问答"}
+                </Tag>
                 <span>{formatLatency(latency)}</span>
                 <span>{response.citations.length} 条引用</span>
                 <span>RID {shortenId(response.request_id, 5)}</span>
                 <Button type="link" size="small" onClick={onInspect}>
                   {selected ? "正在查看证据" : "查看证据与执行详情"}
                 </Button>
+                <Button type="link" size="small" onClick={onDiagnose}>
+                  排查此回答
+                </Button>
               </div>
+              {completedEvents.length > 0 && (
+                <details className="execution-timeline">
+                  <summary>
+                    执行过程
+                    {typeof taskMode === "string" ? ` · ${taskMode}` : ""}
+                  </summary>
+                  <div className="execution-timeline__events">
+                    {completedEvents.map((event) => (
+                      <span key={`${event.sequence}-${event.node_name}`}>
+                        <i />
+                        <b>{event.label}</b>
+                        <small>
+                          {event.latency_ms != null
+                            ? `${event.latency_ms.toFixed(0)} ms`
+                            : "已完成"}
+                        </small>
+                      </span>
+                    ))}
+                  </div>
+                  <p>这里展示可审计的工作流节点与耗时，不展示模型内部思维链。</p>
+                </details>
+              )}
               <FeedbackControl
                 turnId={turn.id}
                 question={turn.question}

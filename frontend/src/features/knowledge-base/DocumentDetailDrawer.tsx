@@ -11,7 +11,11 @@ import {
 
 import type { DocumentInfo } from "../../api/types";
 import { DocumentStatusTag } from "./DocumentStatusTag";
-import { formatDocumentDate, getDocumentStatus } from "./presentation";
+import {
+  formatDocumentDate,
+  getDocumentStatus,
+  getDocumentTypeLabel,
+} from "./presentation";
 
 interface DocumentDetailDrawerProps {
   open: boolean;
@@ -95,7 +99,9 @@ export function DocumentDetailDrawer({
 
           <Descriptions column={1} colon={false} className="document-descriptions">
             <Descriptions.Item label="安全文件名">{document.filename}</Descriptions.Item>
-            <Descriptions.Item label="文档类型"><Tag bordered={false}>{document.doc_type || "未分类"}</Tag></Descriptions.Item>
+            <Descriptions.Item label="文档类型">
+              <Tag bordered={false}>{getDocumentTypeLabel(document.doc_type)}</Tag>
+            </Descriptions.Item>
             <Descriptions.Item label="扩展名">{document.file_ext || "--"}</Descriptions.Item>
             <Descriptions.Item label="版本">{document.version}</Descriptions.Item>
             <Descriptions.Item label="Chunk 数量">{document.chunk_count}</Descriptions.Item>

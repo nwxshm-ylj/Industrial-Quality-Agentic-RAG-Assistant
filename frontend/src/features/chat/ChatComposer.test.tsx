@@ -10,7 +10,12 @@ describe("ChatComposer", () => {
       <ChatComposer
         value="优先排查哪个？"
         loading={false}
+        images={[]}
+        retrievalMode="knowledge"
         onChange={vi.fn()}
+        onImagesChange={vi.fn()}
+        onImageError={vi.fn()}
+        onRetrievalModeChange={vi.fn()}
         onSubmit={onSubmit}
       />,
     );
@@ -29,12 +34,37 @@ describe("ChatComposer", () => {
       <ChatComposer
         value="问题"
         loading
+        images={[]}
+        retrievalMode="knowledge"
         onChange={vi.fn()}
+        onImagesChange={vi.fn()}
+        onImageError={vi.fn()}
+        onRetrievalModeChange={vi.fn()}
         onSubmit={onSubmit}
       />,
     );
 
     fireEvent.keyDown(screen.getByLabelText("输入工业质量问题"), { key: "Enter" });
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("lets the user explicitly select case trace mode", () => {
+    const onRetrievalModeChange = vi.fn();
+    render(
+      <ChatComposer
+        value="查找相似问题"
+        loading={false}
+        images={[]}
+        retrievalMode="knowledge"
+        onChange={vi.fn()}
+        onImagesChange={vi.fn()}
+        onImageError={vi.fn()}
+        onRetrievalModeChange={onRetrievalModeChange}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("案例追溯"));
+    expect(onRetrievalModeChange).toHaveBeenCalledWith("case_trace");
   });
 });
