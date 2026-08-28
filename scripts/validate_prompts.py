@@ -11,6 +11,25 @@ RELEASE_PATHS = (
     Path("prompts/releases/stable.yaml"),
     Path("prompts/releases/candidate.yaml"),
 )
+EXPECTED_COMPONENTS = {
+    "stable.yaml": {
+        "intent_router",
+        "query_rewriter_initial",
+        "query_rewriter_retry",
+        "answer_generator",
+        "semantic_citation_verifier",
+        "sql_generator",
+    },
+    "candidate.yaml": {
+        "intent_router",
+        "query_rewriter_initial",
+        "query_rewriter_retry",
+        "answer_generator",
+        "answer_repair",
+        "semantic_citation_verifier",
+        "sql_generator",
+    },
+}
 
 
 def main() -> None:
@@ -21,7 +40,7 @@ def main() -> None:
             release_path=release_path,
         )
         metadata = registry.release_metadata()
-        assert len(metadata["versions"]) == 5
+        assert set(metadata["versions"]) == EXPECTED_COMPONENTS[release_path.name]
         validated.append(metadata)
 
     print("Prompt Release 校验通过：")

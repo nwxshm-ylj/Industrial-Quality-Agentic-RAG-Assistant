@@ -18,22 +18,97 @@ def main() -> None:
 
     stable_metadata = stable.release_metadata()
     candidate_metadata = candidate.release_metadata()
-    expected_components = {
+    stable_components = {
         "intent_router",
         "query_rewriter_initial",
         "query_rewriter_retry",
         "answer_generator",
+        "semantic_citation_verifier",
         "sql_generator",
     }
-    assert set(stable_metadata["versions"]) == expected_components
+    candidate_components = stable_components | {
+        "answer_repair",
+    }
+    assert set(stable_metadata["versions"]) == stable_components
+    assert set(candidate_metadata["versions"]) == candidate_components
     assert stable_metadata["channel"] == "stable"
     assert candidate_metadata["channel"] == "candidate"
-    assert stable_metadata["versions"] == candidate_metadata["versions"]
+    assert stable_metadata["versions"]["answer_generator"] == "1.7.0"
+    assert candidate_metadata["versions"]["answer_generator"] == "1.2.0"
+    assert stable_metadata["versions"]["intent_router"] == "1.1.0"
+    assert stable_metadata["versions"]["query_rewriter_initial"] == "1.1.0"
+    assert stable_metadata["versions"]["query_rewriter_retry"] == "1.1.0"
+    for component in stable_components - {"answer_generator"}:
+        assert (
+            stable_metadata["versions"][component]
+            == candidate_metadata["versions"][component]
+        )
 
     for reference in stable.references().values():
-        assert reference.version == "1.0.0"
         assert len(reference.content_hash) == 64
         assert reference.release_id == stable_metadata["release_id"]
+
+    candidate_answer = candidate.references()["answer_generator"]
+    assert candidate_answer.version == "1.2.0"
+    assert candidate_answer.release_id == candidate_metadata["release_id"]
+    rendered_candidate = candidate.render(
+        "answer_generator",
+        {
+            "memory_text": "无历史对话。",
+            "question": "案例的原因和措施是什么？",
+            "context_text": "资料1给出了直接原因和整改措施。",
+            "intent": "rag",
+            "evidence_text": "证据是否通过门禁：是",
+        },
+    )
+    assert "不得用常识补齐" in rendered_candidate.messages[0].content
+    assert "不超过800个中文字符" in rendered_candidate.messages[0].content
+    rendered_repair = candidate.render(
+        "answer_repair",
+        {
+            "question": "优先排查什么？",
+            "draft_answer": "优先检查相机。",
+            "validation_text": '{"passed": false}',
+            "missing_aspects": "无",
+            "context_text": "【资料1】应优先检查相机曝光参数。",
+        },
+    )
+    assert "只修复引用契约" in rendered_repair.messages[0].content
+    rendered_semantic = candidate.render(
+        "semantic_citation_verifier",
+        {
+            "question": "SOC目标是多少？",
+            "claim_evidence_json": (
+                '[{"claim_index":0,"claim":"SOC目标为72%",'
+                '"evidence":[{"citation_id":"资料1","text":"SOC目标72%"}]}]'
+            ),
+        },
+    )
+    assert "supported" in rendered_semantic.messages[0].content
+
+    rendered_stable_answer = stable.render(
+        "answer_generator",
+        {
+            "memory_text": "无历史对话。",
+            "question": "有没有上海同舟供应商的案例？",
+            "context_text": "【资料1】某案例供应商为上海同舟。",
+            "intent": "rag",
+            "evidence_text": "证据是否通过门禁：是",
+            "answer_mode_text": "任务模式：case_search",
+        },
+    )
+    stable_system_prompt = rendered_stable_answer.messages[0].content
+    assert "先直接回答用户本轮问题" in stable_system_prompt
+    assert "不是固定字段清单" in stable_system_prompt
+    assert "每一个非空内容行" in stable_system_prompt
+    assert "仅看到字段名、列名、表头或不完整表格片段" in stable_system_prompt
+    assert "只生成一次回答" in rendered_stable_answer.messages[1].content
+
+    archived = PromptRegistry(
+        catalog_path=catalog,
+        release_path="prompts/releases/industrial-prompts-2026-07-14.1.yaml",
+    )
+    assert archived.release_metadata()["versions"]["answer_generator"] == "1.0.0"
 
     print("Prompt Registry test passed")
 

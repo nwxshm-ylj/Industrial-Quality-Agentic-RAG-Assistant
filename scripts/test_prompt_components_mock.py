@@ -42,7 +42,6 @@ def main() -> None:
     rewriter_module = importlib.import_module(
         "app.graph.nodes.query_rewriter_node"
     )
-    intent_module.llm = FakeChatModel("fault_diagnosis")
     rewriter_module.llm = FakeChatModel("轮毂 视觉识别 异常 摄像头 OCR 排查")
 
     token = start_request_context("prompt-components-mock")
@@ -53,11 +52,12 @@ def main() -> None:
                 "request_id": "prompt-components-mock",
                 "session_id": "prompt-components-session",
                 "memory_messages": [],
-                "intent": "doc_qa",
+                "intent": "rag",
                 "retry_count": 0,
             }
         )
-        assert intent_result["intent"] == "fault_diagnosis"
+        assert intent_result["intent"] == "rag"
+        assert intent_result["query_features"]["diagnosis_required"] is True
 
         rewrite_result = rewriter_module.query_rewriter_node(
             {
@@ -70,7 +70,8 @@ def main() -> None:
                         "content": "轮毂识别异常可能是什么原因？",
                     }
                 ],
-                "intent": "fault_diagnosis",
+                "intent": "rag",
+                "query_features": intent_result["query_features"],
                 "retry_count": 0,
             }
         )
@@ -91,7 +92,6 @@ def main() -> None:
             memory_messages=[],
         )
         assert "摄像头" in answer
-
         sql_tool = IndustrialSQLTool()
         sql_tool.llm = FakeChatModel(
             "SELECT station, COUNT(*) AS alarm_count "
@@ -103,19 +103,25 @@ def main() -> None:
 
         context = get_request_context()
         assert context is not None
-        assert len(context.ai_events) == 4
+        assert len(context.ai_events) == 3
         prompt_ids = {
             event.metadata.get("prompt_id")
             for event in context.ai_events
         }
         assert prompt_ids == {
-            "industrial.intent_router",
             "industrial.query_rewriter.initial",
             "industrial.answer_generator",
             "industrial.sql_generator",
         }
+        expected_versions = {
+            "industrial.query_rewriter.initial": "1.1.0",
+            "industrial.answer_generator": "1.6.0",
+            "industrial.sql_generator": "1.0.0",
+        }
         for event in context.ai_events:
-            assert event.metadata.get("prompt_version") == "1.0.0"
+            assert event.metadata.get("prompt_version") == expected_versions[
+                event.metadata.get("prompt_id")
+            ]
             assert event.metadata.get("prompt_release")
 
         print("Prompt component mock test passed")

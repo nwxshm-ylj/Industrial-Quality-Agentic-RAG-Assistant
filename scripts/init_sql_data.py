@@ -89,8 +89,12 @@ def create_tables():
         doc_type VARCHAR(50),
         source VARCHAR(255),
         version VARCHAR(50),
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at TIMESTAMP DEFAULT NOW()
     );
+
+    ALTER TABLE document_chunks
+        ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
 
     CREATE TABLE IF NOT EXISTS document_assets (
         id SERIAL PRIMARY KEY,

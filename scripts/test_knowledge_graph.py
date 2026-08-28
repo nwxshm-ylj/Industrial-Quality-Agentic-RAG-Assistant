@@ -4,25 +4,27 @@ from app.knowledge_graph.service import KnowledgeGraphService
 class _FakeGraphBackend:
     def __init__(self) -> None:
         self.schema_ready = False
-        self.cases = []
-        self.tokens = []
 
     def ensure_schema(self):
         self.schema_ready = True
 
-    def upsert_quality_case(self, case):
-        self.cases.append(case)
+    def upsert_document_chunks(self, document, chunks):
+        self.document = document
+        self.chunks = chunks
 
-    def search_paths(self, tokens, limit):
-        self.tokens = tokens
+    def delete_document(self, doc_id):
+        self.deleted_doc_id = doc_id
+
+    def search_traceability(self, entity_keys, limit):
+        self.entity_keys = entity_keys
         return [
             {
                 "nodes": [
-                    {"labels": ["Station"], "name": "ZP8"},
-                    {"labels": ["QualityCase"], "name": "Case 1: camera"},
-                    {"labels": ["RootCause"], "name": "camera exposure"},
+                    {"labels": ["QualityEntity"], "name": "torque"},
+                    {"labels": ["DocumentChunk"], "name": "doc-1-c1"},
+                    {"labels": ["Document"], "name": "lesson.pptx"},
                 ],
-                "relationships": ["HAS_CASE", "CAUSED_BY"],
+                "relationships": ["MENTIONS", "HAS_CHUNK"],
             }
         ][:limit]
 
@@ -33,26 +35,40 @@ class _FakeGraphBackend:
 def main() -> None:
     backend = _FakeGraphBackend()
     service = KnowledgeGraphService(backend)
-    count = service.sync_quality_cases(
-        [
-            {
-                "id": 1,
-                "station": "ZP8",
-                "defect_type": "wheel_misrecognition",
-                "phenomenon": "wheel type mismatch",
-                "root_cause": "camera exposure",
-                "action": "recalibrate camera",
-                "model_type": "MEB",
-                "part_code": "WHEEL",
-            }
-        ]
+    chunk = {
+        "text": "FDS torque evidence",
+        "metadata": {
+            "chunk_id": "doc-1-c1",
+            "quality_entities": {
+                "process_parameters": [
+                    {"canonical_key": "torque", "name": "torque"}
+                ]
+            },
+        },
+    }
+    assert service.sync_document(
+        {
+            "doc_id": "doc-1",
+            "filename": "lesson.pptx",
+            "doc_type": "LESSON_LEARNED",
+            "version": "v1",
+        },
+        [chunk],
+    ) == 1
+    assert backend.schema_ready
+    trace_result = service.search_traceability(
+        "FDS torque issue",
+        entities={
+            "process_parameters": [
+                {"canonical_key": "torque", "name": "torque"}
+            ]
+        },
+        limit=5,
     )
-    assert count == 1 and backend.schema_ready
-    result = service.search_cases("ZP8 wheel camera historical cases", limit=5)
-    assert result["path_count"] == 1
-    assert "ZP8" in result["context"]
-    assert "HAS_CASE" in result["context"]
-    assert "zp8" in backend.tokens
+    assert trace_result["path_count"] == 1
+    assert backend.entity_keys == ["torque"]
+    service.delete_document("doc-1")
+    assert backend.deleted_doc_id == "doc-1"
     print("Knowledge graph service tests passed with a fake backend")
 
 

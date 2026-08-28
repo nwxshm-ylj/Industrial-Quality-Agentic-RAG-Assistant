@@ -35,10 +35,15 @@ def main() -> None:
             "memory_text": "无历史对话。",
             "question": "轮毂识别异常可能是什么原因？",
             "context_text": "摄像头污染可能导致识别置信度下降。",
+            "intent": "rag",
+            "evidence_text": "证据是否通过门禁：是",
+            "answer_mode_text": "任务模式：knowledge_lookup",
         },
     )
     assert "摄像头污染" in answer_prompt.messages[1].content
     assert "不可信数据" in answer_prompt.messages[0].content
+    assert "每一个非空内容行" in answer_prompt.messages[0].content
+    assert "不执行语义蕴含验证" not in answer_prompt.messages[0].content
 
     _expect_render_error(
         lambda: registry.render(

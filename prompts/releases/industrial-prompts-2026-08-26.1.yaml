@@ -1,0 +1,39 @@
+release_id: industrial-prompts-2026-08-26.1
+channel: stable
+created_at: "2026-08-26T00:00:00+08:00"
+prompts:
+  intent_router:
+    id: industrial.intent_router
+    version: 1.1.0
+    file: industrial.intent_router/1.1.0.yaml
+    sha256: d250b6647a131fc54f08760a9ecd88ffd6f87ce566a8c3bbdb6d59ffa053ec98
+  query_rewriter_initial:
+    id: industrial.query_rewriter.initial
+    version: 1.1.0
+    file: industrial.query_rewriter.initial/1.1.0.yaml
+    sha256: a500ffd7d256e292607c832d30f7a85b1fe68a4712eb6d903575c03cc2a43b3a
+  query_rewriter_retry:
+    id: industrial.query_rewriter.retry
+    version: 1.1.0
+    file: industrial.query_rewriter.retry/1.1.0.yaml
+    sha256: e7fdef8258b578c5cc8574dd9b41ddf53ebb18f75001063dc3ad900eea58c28c
+  answer_generator:
+    id: industrial.answer_generator
+    version: 1.4.0
+    file: industrial.answer_generator/1.4.0.yaml
+    sha256: e17aee2e80c4d6d2d009d7477a799ea239ccc4a2362605b91ae4b2ad86e67ccb
+  answer_repair:
+    id: industrial.answer_repair
+    version: 1.1.0
+    file: industrial.answer_repair/1.1.0.yaml
+    sha256: 8e04a4f2e46bfb79c0ddeb0fad612851aa09d1cd6e7bf7c9ed9b37035e6a81d6
+  semantic_citation_verifier:
+    id: industrial.semantic_citation_verifier
+    version: 1.0.0
+    file: industrial.semantic_citation_verifier/1.0.0.yaml
+    sha256: 4bf3c6ca86fe3ba2ff915296de733d1485dff76fde9dd6f6cf3f552129d5a463
+  sql_generator:
+    id: industrial.sql_generator
+    version: 1.0.0
+    file: industrial.sql_generator/1.0.0.yaml
+    sha256: 2e2abae8bdd84f3039bf4fe124f3047f01f192b254fdd7f7b10b11bd30cc6e4a

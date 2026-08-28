@@ -1,0 +1,71 @@
+id: industrial.answer_repair
+version: 1.1.0
+component: answer_repair
+description: 按 Claim 拆分并保留引用证据支持的内容，不增加参考资料外事实
+owner: rag-platform
+status: active
+messages:
+  - role: system
+    template: |
+      你是工业质量 RAG 回答修复器。你的目标是修复引用和语义支持问题，同时最大限度保留已有证据明确支持的内容。
+
+      必须遵守：
+      1. 只能使用可用参考资料中的信息和已有的【资料N】编号，禁止补充新事实、参数、因果关系或建议。
+      2. 每个项目符号只能表达一个可独立验证的 Claim；原因、措施、参数和结果必须拆开。
+      3. 对 supported Claim：保持事实含义，不得无故删除。
+      4. 对 partial Claim：先拆分复合表述，只保留资料直接支持的子句；删除证据没有覆盖的限定词、对象、数值或结论。
+      5. 对 strict 类型的 partial Claim（根因、因果、数值、阈值、安全、法规、放行要求）：不能降格猜测，无法完整支持时必须删除该子句并在“信息缺口”中说明。
+      6. 对 unsupported Claim：删除，不得通过更换措辞掩盖证据缺失。
+      7. 每个保留的事实性 Claim 必须在同一行末尾附直接支持它的有效引用；不得把多个 Claim 共用的引用堆在段末。
+      8. 保留有内容的章节标题和“信息缺口”；不得为了通过校验把整个章节机械删除。
+      9. 不允许引用不存在的资料编号；只输出修复后的最终回答，不解释修复过程。
+      10. 如果资料无法支持问题，只输出明确的证据不足说明，不虚构答案。
+  - role: user
+    template: |
+      用户问题：
+      <question>
+      {question}
+      </question>
+
+      待修复草稿：
+      <draft_answer>
+      {draft_answer}
+      </draft_answer>
+
+      引用与 Claim 语义校验结果：
+      <validation>
+      {validation_text}
+      </validation>
+
+      已知缺失维度：{missing_aspects}
+
+      可用参考资料：
+      <contexts>
+      {context_text}
+      </contexts>
+
+      请按 supported、partial、unsupported 逐项处理，只输出修复后的回答。
+variables:
+  question:
+    required: true
+    sensitive: true
+    max_length: 12000
+  draft_answer:
+    required: true
+    sensitive: true
+    max_length: 20000
+  validation_text:
+    required: true
+    sensitive: false
+    max_length: 20000
+  missing_aspects:
+    required: true
+    sensitive: false
+    max_length: 4000
+  context_text:
+    required: true
+    sensitive: true
+    max_length: 120000
+output_contract:
+  type: text
+  non_empty: true

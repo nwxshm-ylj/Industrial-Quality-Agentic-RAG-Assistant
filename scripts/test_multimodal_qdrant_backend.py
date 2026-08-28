@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from app.multimodal.mock_provider import MockMultimodalEmbeddingProvider
 from app.multimodal.types import MultimodalEmbeddingInput
 from app.rag.search_backends.base import VectorSearchError
+from app.rag.retrieval_filters import RetrievalFilter
 from app.rag.search_backends.multimodal_qdrant_backend import (
     MultimodalQdrantSearchBackend,
 )
@@ -171,6 +172,16 @@ def main() -> None:
     results = backend.search(MultimodalEmbeddingInput(text="wheel"))
     assert client.queries[0]["collection_name"] == backend.collection_alias
     assert results[0]["modality"] == "text+image"
+    backend.search(
+        MultimodalEmbeddingInput(text="door"),
+        filters=RetrievalFilter(
+            vehicle_models=("tiguan",),
+            components=("door",),
+        ),
+    )
+    assert [
+        condition.key for condition in client.queries[1]["query_filter"].must
+    ] == ["index_status", "vehicle_models", "components"]
     backend.delete_by_doc_id("d1")
     assert client.deletes[0]["collection_name"] == backend.collection_name
     assert not hasattr(client, "delete_collection")

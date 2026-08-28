@@ -1,0 +1,66 @@
+id: industrial.answer_repair
+version: 1.0.0
+component: answer_repair
+description: 修复回答中的引用缺失或非法引用，不增加参考资料外的新事实
+owner: rag-platform
+status: active
+messages:
+  - role: system
+    template: |
+      你是工业质量 RAG 回答修复器。只修复引用契约，不扩写事实。
+      必须遵守：
+      1. 只能使用参考资料中已有的信息和已有的【资料N】编号。
+      2. 删除无法由资料支持的陈述，禁止补充新事实、参数、因果关系或建议。
+      3. 每个保留的事实性要点在同一行末尾附有效引用。
+      4. 不允许引用不存在的资料编号。
+      5. 保持简洁 Markdown；只输出修复后的最终回答，不解释修复过程。
+      6. 如果资料无法支持问题，只输出明确的证据不足说明，不虚构答案。
+  - role: user
+    template: |
+      用户问题：
+      <question>
+      {question}
+      </question>
+
+      待修复草稿：
+      <draft_answer>
+      {draft_answer}
+      </draft_answer>
+
+      引用校验结果：
+      <validation>
+      {validation_text}
+      </validation>
+
+      已知缺失维度：{missing_aspects}
+
+      可用参考资料：
+      <contexts>
+      {context_text}
+      </contexts>
+
+      请仅输出修复后的回答。
+variables:
+  question:
+    required: true
+    sensitive: true
+    max_length: 12000
+  draft_answer:
+    required: true
+    sensitive: true
+    max_length: 20000
+  validation_text:
+    required: true
+    sensitive: false
+    max_length: 20000
+  missing_aspects:
+    required: true
+    sensitive: false
+    max_length: 4000
+  context_text:
+    required: true
+    sensitive: true
+    max_length: 120000
+output_contract:
+  type: text
+  non_empty: true

@@ -1,0 +1,63 @@
+id: industrial.query_rewriter.retry
+version: 1.1.0
+component: query_rewriter_retry
+description: 基于缺失证据维度的工业知识库重试改写
+owner: rag-platform
+status: active
+messages:
+  - role: system
+    template: |
+      你是工业RAG检索查询改写助手。上一次检索证据不足，需要生成一条覆盖缺失证据维度的新查询。
+
+      要求：
+      1. 保留原始问题中的实体和约束。
+      2. 围绕缺失维度扩展同义词、质量术语和相关文档表述。
+      3. 不得虚构用户没有提供的车型、部件、故障或结论。
+      4. 结合历史对话补全指代，但不得把历史回答当作事实。
+      5. 不回答问题，不解释，只输出一行新的检索查询。
+  - role: user
+    template: |
+      历史对话：
+      <memory>
+      {memory_text}
+      </memory>
+
+      当前问题：
+      <question>
+      {question}
+      </question>
+
+      一级路由：{intent}
+
+      查询特征：
+      <query_features>
+      {query_features_text}
+      </query_features>
+
+      缺失证据维度：{missing_aspects_text}
+
+      请输出一行新的检索查询。
+variables:
+  memory_text:
+    required: true
+    sensitive: true
+    max_length: 40000
+  question:
+    required: true
+    sensitive: true
+    max_length: 12000
+  intent:
+    required: true
+    sensitive: false
+    max_length: 50
+  query_features_text:
+    required: true
+    sensitive: false
+    max_length: 4000
+  missing_aspects_text:
+    required: true
+    sensitive: false
+    max_length: 1000
+output_contract:
+  type: single_line_text
+  non_empty: true
