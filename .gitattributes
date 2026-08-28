@@ -1,0 +1,45 @@
+* text=auto
+
+# Keep repository text deterministic across Windows and Linux containers.
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.sql text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=lf
+*.csv text eol=lf
+*.tsv text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+.gitignore text eol=lf
+.env*.example text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.docx binary
+*.pptx binary
+*.onnx binary
+*.bin binary
+*.safetensors binary
+*.npy binary
+*.npz binary
+*.pt binary
+*.pth binary
+*.ckpt binary
+*.parquet binary
+*.xlsx binary
+*.zip binary
+*.webp binary

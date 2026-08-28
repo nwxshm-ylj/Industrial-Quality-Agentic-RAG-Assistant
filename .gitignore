@@ -16,6 +16,9 @@ aivenv/
 .env.local
 .env.dev
 .env.production
+.env.*
+!.env.example
+!.env.*.example
 
 # IDE
 .vscode/
@@ -28,7 +31,15 @@ aivenv/
 .cache/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
 .ipynb_checkpoints/
+
+# Test and coverage output
+.coverage
+.coverage.*
+htmlcov/
 
 # OS
 .DS_Store
@@ -48,14 +59,55 @@ frontend/test-results/
 # Docker temp
 *.pid
 
+# Local temporary and synchronization backups
+/.tmp/
+/tmp/
+
+# Generated presentation and handoff artifacts
+/deliverables/
+/docs/codex_handoff.md
+
+# Private interview preparation (not part of the public project docs)
+/docs/interview/
+/docs/interview_notes.md
+/docs/project-technical-interview-guide.md
+
 # HuggingFace / model cache
-huggingface/
-hf_cache/
-models/
-.model_cache/
+/huggingface/
+/hf_cache/
+/models/
+/.model_cache/
+/data/models/
+/data/model_cache/
 
 # Large local data cache
 data/processed/*.tmp
 data/eval/retrieval_eval_report*.json
 data/deepdoc_runtime/
-.agents/
+
+# Runtime document uploads and derived parsing assets
+data/uploads/
+
+# Generated evaluation run reports (keep datasets and named baselines)
+data/eval/eval_report_????????-????-????-????-????????????.json
+data/eval/eval_report.json
+data/eval/ragas_eval_report_ragas_*.json
+data/eval/ragas_grounding_*_report_retrieval_*.json
+data/eval/ragas_eval_report.json
+data/eval/ragas_grounding_retrieval_report.json
+data/eval/ragas_grounding_chunk_retrieval_report.json
+data/eval/diagnostic_*.json
+
+# Other generated reports
+/reports/
+/*_REPORT.md
+/*_AUDIT.md
+/PROJECT_ANALYSIS_AND_ROADMAP.md
+
+# Local exports that may contain personal information
+/resume_page-*.png
+
+# Repository-local agent state (keep reusable repository skills)
+.agents/*
+!.agents/skills/
+!.agents/skills/**
